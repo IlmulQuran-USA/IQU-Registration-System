@@ -1,0 +1,1044 @@
+/* ═════════════════════════════════════════════════════════════
+ * IQU Admin — Modern Dashboard, Lists, Detail View
+ * ═════════════════════════════════════════════════════════════ */
+
+:root {
+  --iqu-navy: #1a3a5c;
+  --iqu-blue: #1e5fa0;
+  --iqu-gold: #c98a00;
+  --iqu-green: #1a8a45;
+  --iqu-orange: #d05a10;
+  --iqu-purple: #5a3ab5;
+  --iqu-red: #b03030;
+  --iqu-text1: #1a1a2e;
+  --iqu-text2: #6b7280;
+  --iqu-bg1: #ffffff;
+  --iqu-bg2: #f4f7fb;
+  --iqu-bdr: #e3ebf2;
+  --iqu-radius-sm: 6px;
+  --iqu-radius-md: 8px;
+  --iqu-radius-lg: 12px;
+  --iqu-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --iqu-shadow-md: 0 2px 8px rgba(26, 82, 118, 0.06);
+  --iqu-font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    sans-serif;
+  --iqu-font-mono: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+.iqu-admin-wrap {
+  max-width: 100%;
+  padding: 16px 20px;
+  color: var(--iqu-text1);
+  font-family: var(--iqu-font-sans);
+}
+.iqu-admin-wrap h1,
+.iqu-admin-wrap h2 {
+  display: none; /* Hide default WP page titles */
+}
+
+/* ── Top Bar ────────────────────────────────────────────────── */
+.iqu-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.iqu-top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.iqu-logo-mark {
+  width: 44px;
+  height: 44px;
+  background: var(--iqu-navy);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.iqu-logo-mark img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+.iqu-page-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+  line-height: 1.2;
+  margin: 0;
+  padding: 0;
+}
+.iqu-page-sub {
+  font-size: 12px;
+  color: var(--iqu-text2);
+  margin: 2px 0 0;
+}
+.iqu-top-bar-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.iqu-badge-live {
+  background: #e6f5ec;
+  color: var(--iqu-green);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #b0dfc0;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+/* ── Tabs ───────────────────────────────────────────────────── */
+.iqu-tabs {
+  display: flex;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  overflow: hidden;
+  background: var(--iqu-bg1);
+}
+.iqu-tab {
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--iqu-text2);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s;
+  white-space: nowrap;
+  display: inline-block;
+}
+.iqu-tab:hover:not(.iqu-tab-active) {
+  background: var(--iqu-bg2);
+  color: var(--iqu-text1);
+}
+.iqu-tab-active,
+.iqu-tab-active:hover,
+.iqu-tab-active:focus {
+  background: var(--iqu-navy) !important;
+  color: #fff !important;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* ── Metric Cards ───────────────────────────────────────────── */
+.iqu-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.iqu-metric {
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-lg);
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--iqu-shadow-sm);
+  transition:
+    box-shadow 0.2s,
+    transform 0.15s;
+}
+.iqu-metric:hover {
+  box-shadow: var(--iqu-shadow-md);
+  transform: translateY(-1px);
+}
+.iqu-metric-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+.iqu-metric-accent--total {
+  background: linear-gradient(90deg, var(--iqu-navy), var(--iqu-gold));
+}
+.iqu-metric-accent--free {
+  background: var(--iqu-blue);
+}
+.iqu-metric-accent--l1 {
+  background: var(--iqu-green);
+}
+.iqu-metric-accent--l2 {
+  background: var(--iqu-gold);
+}
+.iqu-metric-accent--revenue {
+  background: var(--iqu-purple);
+}
+
+.iqu-metric-num {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+  line-height: 1.1;
+  margin-top: 4px;
+}
+.iqu-metric-lbl {
+  font-size: 11px;
+  color: var(--iqu-text2);
+  margin-top: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.iqu-metric-sub {
+  font-size: 10px;
+  color: var(--iqu-text2);
+  margin-top: 2px;
+  font-style: italic;
+}
+.iqu-metric-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--iqu-blue);
+  text-decoration: none;
+  font-weight: 600;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+.iqu-metric-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ── Section Row (bars + status pills) ──────────────────────── */
+.iqu-section-row {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+@media (max-width: 780px) {
+  .iqu-section-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Chart Row ──────────────────────────────────────────────── */
+.iqu-chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+@media (max-width: 720px) {
+  .iqu-chart-row {
+    grid-template-columns: 1fr;
+  }
+}
+.iqu-chart-body {
+  padding: 16px;
+  position: relative;
+  height: 200px;
+}
+.iqu-chart-body canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+/* Donut center overlay */
+.iqu-chart-body--donut {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.iqu-donut-center {
+  position: absolute;
+  text-align: center;
+  pointer-events: none;
+}
+.iqu-donut-amt {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--iqu-text1);
+  font-family: var(--iqu-font-mono);
+}
+.iqu-donut-lbl {
+  display: block;
+  font-size: 10px;
+  color: var(--iqu-text2);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 2px;
+}
+
+/* ── Card ───────────────────────────────────────────────────── */
+.iqu-card {
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--iqu-shadow-sm);
+}
+.iqu-card-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--iqu-bdr);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.iqu-card-head-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+}
+.iqu-card-head-badge {
+  font-size: 11px;
+  color: var(--iqu-text2);
+  background: var(--iqu-bg2);
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--iqu-bdr);
+  font-weight: 500;
+}
+
+/* ── Breakdown Bars ─────────────────────────────────────────── */
+.iqu-bar-row {
+  padding: 10px 16px;
+  display: grid;
+  grid-template-columns: 140px 1fr 42px;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--iqu-bdr);
+}
+.iqu-bar-row:last-child {
+  border-bottom: none;
+}
+.iqu-bar-lbl {
+  font-size: 12px;
+  color: var(--iqu-text1);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.iqu-bar-lbl small {
+  display: block;
+  font-size: 10px;
+  color: var(--iqu-text2);
+  font-weight: 400;
+}
+.iqu-bar-track {
+  background: var(--iqu-bg2);
+  height: 6px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.iqu-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 4px;
+}
+.iqu-bar-pct {
+  font-size: 12px;
+  color: var(--iqu-text2);
+  text-align: right;
+  font-weight: 600;
+}
+
+/* ── Status Pills ───────────────────────────────────────────── */
+.iqu-status-pills {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.iqu-spill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--iqu-radius-md);
+  border: 1px solid var(--iqu-bdr);
+  transition: background 0.15s;
+  text-decoration: none;
+  color: inherit;
+  cursor: default;
+}
+.iqu-spill:hover {
+  background: var(--iqu-bg2);
+}
+.iqu-spill-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.iqu-spill-dot--pending {
+  background: #c05a00;
+}
+.iqu-spill-dot--confirmed {
+  background: var(--iqu-green);
+}
+.iqu-spill-dot--enrolled {
+  background: var(--iqu-blue);
+}
+.iqu-spill-dot--contacted {
+  background: var(--iqu-purple);
+}
+.iqu-spill-dot--cancelled {
+  background: var(--iqu-red);
+}
+.iqu-spill-name {
+  font-size: 13px;
+  color: var(--iqu-text1);
+  flex: 1;
+  font-weight: 500;
+}
+.iqu-spill-count {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+}
+.iqu-spill-pct {
+  font-size: 11px;
+  color: var(--iqu-text2);
+  margin-left: 4px;
+}
+
+/* ── Filter Bar ─────────────────────────────────────────────── */
+.iqu-filter-bar {
+  padding: 10px 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.iqu-filter-bar input[type="search"],
+.iqu-filter-bar select {
+  height: 34px;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  padding: 0 10px;
+  font-size: 12px;
+  background: var(--iqu-bg1);
+  color: var(--iqu-text1);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.iqu-filter-bar input[type="search"]:focus,
+.iqu-filter-bar select:focus {
+  border-color: var(--iqu-blue);
+  box-shadow: 0 0 0 2px rgba(30, 95, 160, 0.12);
+  outline: none;
+}
+.iqu-filter-bar input[type="search"] {
+  flex: 1;
+  min-width: 200px;
+}
+.iqu-filter-bar .button {
+  height: 34px;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--iqu-radius-md);
+}
+
+.iqu-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iqu-blue);
+  background: #e3effa;
+  border: 1px solid #b0cff0;
+  border-radius: var(--iqu-radius-md);
+  text-decoration: none;
+  transition: background 0.15s;
+  cursor: pointer;
+  height: 34px;
+}
+.iqu-export-btn:hover {
+  background: #d0e4f8;
+  color: var(--iqu-blue);
+}
+
+/* ── Table — FULL WIDTH ─────────────────────────────────────── */
+.iqu-table-wrap {
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-lg);
+  overflow-x: auto; /* horizontal scroll on small screens */
+  box-shadow: var(--iqu-shadow-sm);
+  width: 100%;
+}
+.iqu-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 12px;
+  min-width: 700px; /* prevent over-squishing */
+}
+.iqu-tbl th {
+  background: var(--iqu-bg2);
+  padding: 10px 12px;
+  color: var(--iqu-text2);
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 1px solid var(--iqu-bdr);
+  white-space: nowrap;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.iqu-tbl td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--iqu-bdr);
+  color: var(--iqu-text1);
+  vertical-align: middle;
+  font-size: 12.5px;
+}
+.iqu-tbl tbody tr:last-child td {
+  border-bottom: none;
+}
+.iqu-tbl tbody tr:hover td {
+  background: var(--iqu-bg2);
+}
+
+.iqu-tbl .iqu-td-id {
+  color: var(--iqu-text2);
+  font-family: var(--iqu-font-mono);
+  font-size: 11px;
+  width: 50px;
+}
+.iqu-tbl .iqu-td-name {
+  min-width: 130px;
+}
+.iqu-tbl .iqu-td-name strong a {
+  color: var(--iqu-text1);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 12.5px;
+}
+.iqu-tbl .iqu-td-name strong a:hover {
+  color: var(--iqu-blue);
+  text-decoration: underline;
+}
+.iqu-tbl .iqu-td-email {
+  font-size: 11px;
+  color: var(--iqu-text2);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.iqu-tbl .iqu-td-date {
+  font-size: 11px;
+  color: var(--iqu-text2);
+  white-space: nowrap;
+}
+.iqu-tbl .iqu-td-actions {
+  white-space: nowrap;
+  width: 120px;
+}
+
+/* ── Chips ──────────────────────────────────────────────────── */
+.iqu-chip {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+.iqu-chip-free {
+  background: #e3effa;
+  color: #1255a0;
+}
+.iqu-chip-summer_level1 {
+  background: #d0ffe2;
+  color: #1a8a45;
+}
+.iqu-chip-summer_level2 {
+  background: #fef3e0;
+  color: #8a5200;
+}
+
+/* ── Status badges ──────────────────────────────────────────── */
+.iqu-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.iqu-status-badge::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
+}
+.iqu-sb-pending {
+  background: #fff3e0;
+  color: #c05a00;
+}
+.iqu-sb-confirmed {
+  background: #e6f5ec;
+  color: var(--iqu-green);
+}
+.iqu-sb-enrolled {
+  background: #e8f0fe;
+  color: #1a4fa0;
+}
+.iqu-sb-cancelled {
+  background: #fce8e8;
+  color: var(--iqu-red);
+}
+.iqu-sb-contacted {
+  background: #f3e8fd;
+  color: #6a2fa0;
+}
+
+/* ── Status select inline ───────────────────────────────────── */
+.iqu-status-select {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: var(--iqu-radius-sm);
+  border: 1px solid var(--iqu-bdr);
+  background: var(--iqu-bg1);
+  color: var(--iqu-text1);
+  cursor: pointer;
+}
+.iqu-status-select:focus {
+  border-color: var(--iqu-blue);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(30, 95, 160, 0.12);
+}
+
+/* ── Action Buttons ─────────────────────────────────────────── */
+.iqu-action-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  background: var(--iqu-bg1);
+  color: var(--iqu-text1);
+  cursor: pointer;
+  transition: background 0.15s;
+  text-decoration: none;
+  display: inline-block;
+  font-weight: 500;
+  margin-right: 4px;
+}
+.iqu-action-btn:hover {
+  background: var(--iqu-bg2);
+}
+.iqu-action-btn--view {
+  color: var(--iqu-blue);
+  border-color: #b0cff0;
+}
+.iqu-action-btn--view:hover {
+  background: #e3effa;
+  color: var(--iqu-blue);
+}
+.iqu-action-btn--delete {
+  color: var(--iqu-red);
+  border-color: #f0b0b0;
+}
+.iqu-action-btn--delete:hover {
+  background: #fce8e8;
+  color: var(--iqu-red);
+}
+
+/* ── Pagination ─────────────────────────────────────────────── */
+.iqu-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--iqu-text2);
+  border-top: 1px solid var(--iqu-bdr);
+}
+.iqu-pagination .page-numbers {
+  padding: 3px 10px;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  background: var(--iqu-bg1);
+  font-size: 12px;
+  color: var(--iqu-text1);
+  text-decoration: none;
+  margin: 0 2px;
+}
+.iqu-pagination .page-numbers.current {
+  background: var(--iqu-navy);
+  color: #fff;
+  border-color: var(--iqu-navy);
+}
+.iqu-pagination .page-numbers:hover:not(.current) {
+  background: var(--iqu-bg2);
+}
+
+/* ── Detail View ────────────────────────────────────────────── */
+.iqu-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  margin-top: 18px;
+}
+@media (max-width: 980px) {
+  .iqu-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.iqu-profile-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--iqu-bdr);
+}
+.iqu-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #dce8f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--iqu-blue);
+  flex-shrink: 0;
+}
+.iqu-profile-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+}
+.iqu-profile-meta {
+  font-size: 12px;
+  color: var(--iqu-text2);
+  margin-top: 3px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.iqu-detail-data {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  overflow: hidden;
+  background: var(--iqu-bg1);
+  margin-bottom: 2px;
+}
+.iqu-detail-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--iqu-bdr);
+  border-right: 1px solid var(--iqu-bdr);
+}
+.iqu-detail-item:nth-child(even) {
+  border-right: none;
+}
+.iqu-detail-item:nth-last-child(-n + 2) {
+  border-bottom: none;
+}
+.iqu-detail-item.iqu-detail-full {
+  grid-column: 1/-1;
+  border-right: none;
+}
+.iqu-detail-lbl {
+  font-size: 10px;
+  color: var(--iqu-text2);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.iqu-detail-val {
+  font-size: 12.5px;
+  color: var(--iqu-text1);
+  font-weight: 500;
+  word-break: break-word;
+}
+@media (max-width: 600px) {
+  .iqu-detail-data {
+    grid-template-columns: 1fr;
+  }
+  .iqu-detail-item {
+    border-right: none !important;
+  }
+}
+
+.iqu-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--iqu-text2);
+  margin: 16px 0 8px;
+}
+
+/* ── Status Panel (sidebar) ─────────────────────────────────── */
+.iqu-status-panel {
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-lg);
+  padding: 20px;
+  height: fit-content;
+  position: sticky;
+  top: 32px;
+  box-shadow: var(--iqu-shadow-md);
+}
+.iqu-status-panel h3 {
+  font-size: 11px;
+  color: var(--iqu-text2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.iqu-status-panel select,
+.iqu-status-panel textarea {
+  width: 100%;
+  margin-top: 4px;
+  color: var(--iqu-text1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-sm);
+  font-size: 13px;
+  padding: 8px 10px;
+  background: var(--iqu-bg2);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+  font-family: var(--iqu-font-sans);
+}
+.iqu-status-panel select:focus,
+.iqu-status-panel textarea:focus {
+  border-color: var(--iqu-blue);
+  box-shadow: 0 0 0 2px rgba(30, 95, 160, 0.12);
+  outline: none;
+  background: var(--iqu-bg1);
+}
+.iqu-status-panel textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+.iqu-status-panel .button-primary {
+  margin-top: 10px;
+  width: 100%;
+  height: 36px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--iqu-radius-sm);
+}
+
+/* ── Back Button ────────────────────────────────────────────── */
+.iqu-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iqu-text2);
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  text-decoration: none;
+  transition: background 0.15s;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+.iqu-back-btn:hover {
+  background: var(--iqu-bg2);
+  color: var(--iqu-text1);
+}
+
+/* ── Misc ───────────────────────────────────────────────────── */
+.iqu-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--iqu-text2);
+  font-size: 13px;
+}
+.iqu-dash-recent-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+}
+.iqu-wa-link {
+  color: var(--iqu-green);
+  font-family: var(--iqu-font-mono);
+  font-size: 11px;
+  text-decoration: none;
+}
+.iqu-wa-link:hover {
+  text-decoration: underline;
+}
+.iqu-amt {
+  font-family: var(--iqu-font-mono);
+  font-size: 11px;
+  color: var(--iqu-text1);
+  font-weight: 600;
+}
+.iqu-amt-free {
+  color: var(--iqu-text2);
+  font-style: italic;
+  font-size: 11px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .iqu-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .iqu-admin-wrap {
+    padding: 10px 12px;
+  }
+  .iqu-top-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .iqu-bar-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .iqu-bar-pct {
+    text-align: left;
+  }
+}
+
+@media (max-width: 425px) {
+  .iqu-recent-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center !important;
+    margin: 12px 0;
+    gap: 8px;
+    flex-wrap: nowrap;  
+  }
+
+  .iqu-dash-recent-title {
+    font-size: 13px;  
+    white-space: nowrap;  
+    flex-shrink: 0;
+  }
+
+  .iqu-perpage-btn {
+    min-width: 30px;  
+    padding: 5px 5px !important;
+    font-size: 12px;
+  }
+}
+
+/* ── Recent Submissions Bar ─────────────────────── */
+.iqu-recent-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin: 20px 0 20px 0;
+  gap: 20px;
+}
+
+/* ── Per-page Button Group ──────────────────────── */
+.iqu-perpage-btns {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.iqu-perpage-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 5px 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.iqu-perpage-btn:hover {
+  border-color: #1e5fa0;
+  color: #1e5fa0;
+  background: #f0f6ff;
+  text-decoration: none;
+}
+
+.iqu-perpage-btn--active {
+  background: #1e5fa0;
+  border-color: #1e5fa0;
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(30, 95, 160, 0.25);
+}
+
+.iqu-perpage-btn--active:hover {
+  background: #1a4f8a;
+  border-color: #1a4f8a;
+  color: #fff;
+}
+
+
+
+/* Chart row — 3 columns */
+.iqu-chart-row {
+    grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 1100px) {
+    .iqu-chart-row { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 720px) {
+    .iqu-chart-row { grid-template-columns: 1fr; }
+}
+
+/* Referral chart */
+.iqu-chart-body--referral {
+    padding: 12px 16px 16px;
+    position: relative;
+    height: 200px;
+}
+.iqu-chart-body--referral canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Referral chips */
+.iqu-ref-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
