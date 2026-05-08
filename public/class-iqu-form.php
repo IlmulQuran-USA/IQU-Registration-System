@@ -599,8 +599,7 @@ class IQU_Form
                     Select your flag from the dropdown, then enter your number.<br>
                     Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
                 </p>
-                <input type="tel" id="whatsapp" name="whatsapp" placeholder="(555) 123-4567" maxlength="25"
-                    autocomplete="tel" required>
+                <input type="tel" id="whatsapp" name="whatsapp" maxlength="25" autocomplete="tel" required>
                 <span class="iqu-error" data-field="whatsapp"></span>
             </div>
             <!-- ── Memorized Qur'an ─────────────────────── -->

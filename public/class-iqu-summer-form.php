@@ -375,8 +375,7 @@ class IQU_Summer_Form
                     Select your flag from the dropdown, then enter your number.<br>
                     Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
                 </p>
-                <input type="tel" id="guardian_contact" name="guardian_contact" placeholder="(555) 123-4567"
-                    maxlength="25" required>
+                <input type="tel" id="guardian_contact" name="guardian_contact" maxlength="25" required>
                 <span class="iqu-error" data-field="guardian_contact"></span>
             </div>
 
@@ -388,8 +387,7 @@ class IQU_Summer_Form
                     Select your flag from the dropdown, then enter your number.<br>
                     Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
                 </p>
-                <input type="tel" id="guardian_whatsapp" name="guardian_whatsapp" placeholder="(555) 123-4567"
-                    maxlength="25" required>
+                <input type="tel" id="guardian_whatsapp" name="guardian_whatsapp" maxlength="25" required>
                 <span class="iqu-error" data-field="guardian_whatsapp"></span>
             </div>
         </div>

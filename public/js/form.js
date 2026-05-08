@@ -67,17 +67,17 @@
           return;
         }
 
-        const basePlaceholder =
-          input.getAttribute("placeholder") || "Enter the phone number";
-        // AFTER:
-        const iti = window.intlTelInput(input, { 
+        const basePlaceholder = input.getAttribute("placeholder");
+
+        const iti = window.intlTelInput(input, {
+          utilsScript:
+            "https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/js/utils.js",
           autoPlaceholder: "aggressive",
           countrySearch: true,
           customPlaceholder: function (exampleNumber) {
-            return exampleNumber
-              ? basePlaceholder + " e.g. " + exampleNumber
-              : basePlaceholder;
+            return exampleNumber ? exampleNumber : basePlaceholder;
           },
+
           formatAsYouType: true,
           initialCountry: IQU_AJAX.geoip_country || "us",
           geoIpLookup: function (success) {
@@ -807,7 +807,15 @@
             (payment.method && payment.method.toLowerCase() === "zelle") ||
             !!$form.data("iqu-payment-zelle");
 
-          const zelleHTML = isZelle
+          // Complimentary সিলেক্ট করা হয়েছে কিনা তা চেক করা
+          const isComplimentary =
+            $form.find('[name="admission_fee"]:checked').val() ===
+            "complimentary";
+
+          // Zelle অথবা Complimentary যেকোনো একটি হলেই হোমপেজে যাবে
+          const shouldRedirectHome = isZelle || isComplimentary;
+
+          const zelleHTML = shouldRedirectHome
             ? `<div class="iqu-sp-redirect">
               <svg class="iqu-sp-redirect-spinner" width="28" height="28" viewBox="0 0 44 44">
                 <circle cx="22" cy="22" r="18" fill="none" stroke="#d0e4f5" stroke-width="4"/>
@@ -872,7 +880,7 @@
             }, 5000);
           }
 
-          if (isZelle) {
+          if (shouldRedirectHome) {
             setTimeout(function () {
               window.location.href = "/";
             }, 5000);
@@ -1095,8 +1103,13 @@
         typeof iti.getSelectedCountryData === "function"
           ? iti.getSelectedCountryData()
           : null;
+
       if (selectedCountry && selectedCountry.dialCode) {
-        return "+" + selectedCountry.dialCode + digits;
+        // লিডিং 0 থাকলে তা রিমুভ করে কান্ট্রি কোড যোগ করুন
+        const cleanDigits = digits.startsWith("0")
+          ? digits.substring(1)
+          : digits;
+        return "+" + selectedCountry.dialCode + cleanDigits;
       }
 
       return rawValue;
