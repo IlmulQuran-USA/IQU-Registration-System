@@ -765,7 +765,7 @@
   color: #fff;
   border: none;
   padding: 14px 42px;
-  border-radius: 50px;
+  border-radius: 15px !important;
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
@@ -792,7 +792,7 @@
   color: #000;
   border: 1px solid #cfd9e3;
   padding: 11px 22px;
-  border-radius: 8px;
+  border-radius: 15px !important;
   font-size: 14.5px;
   font-weight: 600;
   cursor: pointer;
@@ -1112,6 +1112,10 @@
   }
   .iqu-modal-dialog {
     max-width: 100%;
+  }
+  .iqu-btn-submit,
+  .iqu-btn-secondary {
+    border-radius: 10px !important;
   }
 }
 
@@ -2497,20 +2501,3 @@
     overflow-y: auto !important;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

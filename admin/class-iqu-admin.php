@@ -513,10 +513,8 @@ class IQU_Admin
                       } elseif ($admission_fee === 'flexible') {
 
                         if ($flexible_note === '' || strtolower($flexible_note) === 'requesting free enrollment') {
-                          // Totally free request
                           echo '<span class="iqu-amt-free">Totally Free</span>';
                         } else {
-                          // Custom amount / message written by user
                           $display_note = preg_match('/^\$?\d+(\.\d{1,2})?$/', $flexible_note)
                             ? '$' . ltrim($flexible_note, '$')
                             : $flexible_note;
@@ -798,15 +796,20 @@ class IQU_Admin
                     <div class="iqu-detail-val" style="font-size:11px"><?php echo esc_html($row['email']); ?></div>
                 </div>
                 <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">WhatsApp</div>
+                    <div class="iqu-detail-lbl"><?php echo $is_summer ? 'Contact Number' : 'WhatsApp'; ?></div>
                     <div class="iqu-detail-val">
-                        <?php $wa = $row['whatsapp'] ?: ($row['guardian_whatsapp'] ?? '');
-                if ($wa) {
-                  $wc = preg_replace('/\D/', '', $wa);
-                  echo '<a class="iqu-wa-link" href="https://wa.me/' . esc_attr($wc) . '" target="_blank">' . esc_html($wa) . '</a>';
-                } else {
-                  echo '—';
-                } ?>
+                        <?php if ($is_summer):
+                  $contact = $row['guardian_contact'] ?? '';
+                  echo $contact ? esc_html($contact) : '—';
+                else:
+                  $wa = $row['whatsapp'] ?: ($row['guardian_whatsapp'] ?? '');
+                  if ($wa) {
+                    $wc = preg_replace('/\D/', '', $wa);
+                    echo '<a class="iqu-wa-link" href="https://wa.me/' . esc_attr($wc) . '" target="_blank">' . esc_html($wa) . '</a>';
+                  } else {
+                    echo '—';
+                  }
+                endif; ?>
                     </div>
                 </div>
                 <div class="iqu-detail-item">
@@ -827,19 +830,13 @@ class IQU_Admin
                     <div class="iqu-detail-val"><?php echo esc_html($row['guardian_name'] ?: '—'); ?></div>
                 </div>
                 <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Contact Number</div>
-                    <div class="iqu-detail-val" style="font-family:var(--iqu-font-mono)">
-                        <?php echo esc_html($row['guardian_contact'] ?: '—'); ?></div>
-                </div>
-                <div class="iqu-detail-item iqu-detail-full">
                     <div class="iqu-detail-lbl">Guardian WhatsApp</div>
                     <div class="iqu-detail-val">
                         <?php if ($row['guardian_whatsapp']): ?>
                         <a class="iqu-wa-link"
                             href="https://wa.me/<?php echo esc_attr(preg_replace('/\D/', '', $row['guardian_whatsapp'])); ?>"
                             target="_blank"><?php echo esc_html($row['guardian_whatsapp']); ?></a>
-                        <?php else:
-                    echo '—';
+                        <?php else: echo '—';
                   endif; ?>
                     </div>
                 </div>
@@ -946,6 +943,30 @@ class IQU_Admin
                   ?>
                     </div>
                 </div>
+                <!-- Admission Fee item-এর পরে এটা যোগ করুন -->
+                <?php if ($row['admission_fee'] === 'flexible'): ?>
+                <div class="iqu-detail-item">
+                    <div class="iqu-detail-lbl">
+                        <?php
+                    $flexible_note = trim($row['flexible_fee_note'] ?? '');
+                    $is_dollar = (bool) preg_match('/^\$?\d+(\.\d{1,2})?$/', $flexible_note);
+                    echo $is_dollar ? 'Flexible Amount' : 'Free Request Reason';
+                    ?>
+                    </div>
+                    <div class="iqu-detail-val">
+                        <?php if ($flexible_note !== ''): ?>
+                        <?php if ($is_dollar): ?>
+                        <span
+                            style="color:#1a8a45;font-weight:600">$<?php echo esc_html(ltrim($flexible_note, '$')); ?></span>
+                        <?php else: ?>
+                        <?php echo esc_html($flexible_note); ?>
+                        <?php endif; ?>
+                        <?php else: ?>
+                        —
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
                 <div class="iqu-detail-item">
                     <div class="iqu-detail-lbl">Amount Paid</div>
                     <div class="iqu-detail-val"
@@ -962,7 +983,7 @@ class IQU_Admin
                     <div class="iqu-detail-val">
                         <?php echo self::status_badge_html($row['payment_status'] ?: 'pending'); ?></div>
                 </div>
-                <div class="iqu-detail-item iqu-detail-full">
+                <div class="iqu-detail-item">
                     <div class="iqu-detail-lbl">Transaction ID</div>
                     <div class="iqu-detail-val" style="font-family:var(--iqu-font-mono)">
                         <?php echo esc_html($row['transaction_id'] ?: '—'); ?></div>
