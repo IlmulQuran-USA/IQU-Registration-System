@@ -4,6 +4,13 @@
  * Handles both the Free Enrollment form and the Summer Program form,
  * including Google reCAPTCHA v3, intl-tel-input phone fields, the
  * Zelle in-page modal, and the Zeffy redirect with prefilled amount.
+ *
+ * FIXES applied:
+ *  1. Phone number Advanced Matching — intlTelInput.getNumber() ব্যবহার করে
+ *     international format (+1...) নিশ্চিত করা হয়েছে।
+ *  2. Double window.scrollTo — duplicate call সরানো হয়েছে।
+ *  3. Redirect conflict — if/else if দিয়ে Zeffy ও Home redirect আলাদা করা হয়েছে।
+ *  4. Dead code — getSelectedPaymentMethod() সরানো হয়েছে।
  */
 (function ($) {
   "use strict";
@@ -77,7 +84,6 @@
           customPlaceholder: function (exampleNumber) {
             return exampleNumber ? exampleNumber : basePlaceholder;
           },
-
           formatAsYouType: true,
           initialCountry: IQU_AJAX.geoip_country || "us",
           geoIpLookup: function (success) {
@@ -108,6 +114,17 @@
           $(input).removeClass("iqu-invalid");
         });
       });
+    }
+
+    // ── FIX 1: phone number কে intlTelInput থেকে international format-এ নেওয়া ──
+    function getInternationalPhone(inputId) {
+      const inputEl = document.getElementById(inputId);
+      if (!inputEl) return "";
+      const iti = phoneInstances.get(inputEl);
+      if (iti && typeof iti.getNumber === "function") {
+        return iti.getNumber() || $(inputEl).val() || "";
+      }
+      return $(inputEl).val() || "";
     }
 
     function wireFreeForm($form) {
@@ -183,7 +200,6 @@
     }
 
     function enhanceFreeFormUI($form) {
-      // Time slot — sync Flatpickr + timezone into hidden #time_slot field
       var $timeInput = $form.find("#time_slot");
       if ($timeInput.length) {
         $timeInput
@@ -191,7 +207,6 @@
           .attr("tabindex", "-1")
           .removeAttr("required");
 
-        // Clear time_slot errors when any part changes
         $form.find("#iqu_time_start, #iqu_time_end").on("change", function () {
           showFieldError($form, "time_slot", "");
           $(this).removeClass("iqu-invalid");
@@ -379,6 +394,7 @@
           );
         }
       }
+
       const paymentInputs = summerFormEl.querySelectorAll(
         'input[name="payment_method"]',
       );
@@ -394,12 +410,7 @@
         return selected ? selected.value : "";
       }
 
-      function getSelectedPaymentMethod() {
-        const selected = summerFormEl.querySelector(
-          'input[name="payment_method"]:checked',
-        );
-        return selected ? selected.value : "";
-      }
+      // ── FIX 4: Dead code getSelectedPaymentMethod() সরানো হয়েছে ──
 
       function clearPaymentSelection() {
         paymentInputs.forEach(function (input) {
@@ -442,7 +453,6 @@
           }
         } else if (isComplimentary) {
           restorePaymentWrap();
-          // Complimentary — no payment needed, hide everything
           paymentFieldset.disabled = true;
           paymentWrap.classList.add("is-disabled");
           paymentWrap.hidden = false;
@@ -506,12 +516,10 @@
 
           if (isDollarAmount && !isFreeRequest) {
             movePaymentWrapBelowFlexible();
-            // Dollar amount entered → show payment options
             paymentFieldset.disabled = false;
             paymentWrap.classList.remove("is-disabled");
             paymentWrap.hidden = false;
           } else {
-            // Free request or empty → hide payment options
             paymentFieldset.disabled = true;
             paymentWrap.classList.add("is-disabled");
             paymentWrap.hidden = true;
@@ -543,7 +551,6 @@
             : null;
         const effectiveFee = flexAmount || fee;
 
-        // ✅ payment_amount hidden field এ সেট করো
         const numericFee = parseFloat(String(effectiveFee).replace("$", ""));
         $form
           .find("#iqu_payment_amount")
@@ -573,7 +580,6 @@
         $mTx.val("");
         $mError.hide().text("");
 
-        // fee থেকে amount বের করো
         const numericFee = parseFloat(String(fee).replace("$", ""));
         $mAmount.text("$" + (isNaN(numericFee) ? fee : numericFee.toFixed(2)));
 
@@ -649,6 +655,24 @@
         const payment = data.payment || {};
         const details = [];
 
+        // ── FIX 1: intlTelInput থেকে international format-এ phone number নেওয়া ──
+        if (typeof fbq !== "undefined") {
+          fbq("init", "1756660502407987", {
+            em: ($("#summer_email").val() || "").trim().toLowerCase(),
+            ph: getInternationalPhone("guardian_contact"),  // ← FIXED
+            fn: ($("#summer_first_name").val() || "").trim().toLowerCase(),
+            ln: ($("#summer_last_name").val() || "").trim().toLowerCase(),
+          });
+
+          fbq("track", "Lead", {
+            content_name: "Summer Ilm Camp 2026",
+            content_category: "Islamic Education",
+            value: parseFloat(payment.amount) || 0,
+            currency: "USD",
+            enrollment_level: data.level || "",
+          });
+        }
+
         if (payment.method) {
           details.push({
             label: "Payment Method",
@@ -665,13 +689,11 @@
           details.push({ label: "Reference #", value: data.reg_id });
         }
 
-        // ── Surrounding sections hide ──────────────────────
         $form
           .closest(".iqu-form-wrapper")
           .find(".sc-hero, .sc-body, .iqu-required-note")
           .slideUp(300);
 
-        // ── Placeholder: popup-এর সমান height ধরে রাখে পেছনে ──
         const $placeholder = $('<div id="iqu-sp-placeholder"></div>').css({
           minHeight: "600px",
           visibility: "hidden",
@@ -679,7 +701,6 @@
         $form.after($placeholder);
 
         $form.fadeOut(300, function () {
-          // ── Keyframe styles ────────────────────────────────
           if (!document.getElementById("iqu-success-popup-style")) {
             $(`<style id="iqu-success-popup-style">
         @keyframes iqu-fade-in   { from { opacity:0 }               to { opacity:1 } }
@@ -687,7 +708,7 @@
         @keyframes iqu-check-in  { from { opacity:0; transform:scale(.5) } to { opacity:1; transform:scale(1) } }
         @keyframes iqu-spin-ccw  { to   { transform:rotate(360deg) } }
         @keyframes iqu-progress  { from { stroke-dashoffset:251 }   to { stroke-dashoffset:0 } }
- 
+
         .iqu-sp-overlay {
           position: fixed; inset: 0;
           background: rgba(8, 18, 30, 0.72);
@@ -750,10 +771,8 @@
         .iqu-sp-details-row:last-child { border-bottom: none; }
         .iqu-sp-detail-k { color: #6b8299; font-weight: 500; }
         .iqu-sp-detail-v { color: #1a3a52; font-weight: 700; }
-
         .iqu-sp-contact a { color: #1a5276; text-decoration: none; font-weight: 600; }
- 
-        /* Zeffy redirect strip */
+
         .iqu-sp-redirect {
           background: #edf4ff;
           border: 1px solid #c5d9f0;
@@ -769,12 +788,9 @@
         .iqu-sp-redirect-text { text-align: left; }
         .iqu-sp-redirect-text strong { display: block; color: #1a5276; font-size: 13px; font-weight: 700; margin-bottom: 2px; }
         .iqu-sp-redirect-text a { color: #1a5276; font-size: 12px; text-decoration: underline; }
- 
- 
       </style>`).appendTo("head");
           }
 
-          // ── Build details rows HTML ────────────────────────
           const detailsHTML = details.length
             ? details
                 .map(
@@ -787,7 +803,6 @@
                 .join("")
             : "";
 
-          // ── Zeffy redirect strip (only when zeffy_url exists) ──
           const zeffyHTML = payment.zeffy_url
             ? `<div class="iqu-sp-redirect">
           <svg class="iqu-sp-redirect-spinner" width="28" height="28" viewBox="0 0 44 44">
@@ -802,17 +817,14 @@
               </div>`
             : "";
 
-          // zeffyHTML
           const isZelle =
             (payment.method && payment.method.toLowerCase() === "zelle") ||
             !!$form.data("iqu-payment-zelle");
 
-          // Complimentary সিলেক্ট করা হয়েছে কিনা তা চেক করা
           const isComplimentary =
             $form.find('[name="admission_fee"]:checked').val() ===
             "complimentary";
 
-          // Zelle অথবা Complimentary যেকোনো একটি হলেই হোমপেজে যাবে
           const shouldRedirectHome = isZelle || isComplimentary;
 
           const zelleHTML = shouldRedirectHome
@@ -829,7 +841,6 @@
               </div>`
             : "";
 
-          // ── Overlay markup ─────────────────────────────────
           const $overlay = $(`
       <div class="iqu-sp-overlay" role="dialog" aria-modal="true" aria-label="Registration Confirmed">
         <div class="iqu-sp-card">
@@ -840,47 +851,40 @@
               stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
- 
+
           <p class="iqu-sp-title">JazakAllahu Khairan!</p>
           <p class="iqu-sp-sub">Your Summer Program enrollment has been received.</p>
           <p class="iqu-sp-msg">${data.message || ""}</p>
- 
-          ${
-            detailsHTML
-              ? `<div class="iqu-sp-details">${detailsHTML}</div>`
-              : ""
-          }
- 
+
+          ${detailsHTML ? `<div class="iqu-sp-details">${detailsHTML}</div>` : ""}
+
           ${zeffyHTML}
           ${zelleHTML}
- 
+
           <div class="iqu-sp-contact">
             <strong>Need help?</strong>
             ${IQU_AJAX.contact_phone}
             · <a href="mailto:${IQU_AJAX.contact_email}">${IQU_AJAX.contact_email}</a>
           </div>
- 
+
         </div>
       </div>
     `);
 
           $overlay.appendTo("body");
-          // placeholder height টা popup card-এর actual height দিয়ে match করো
           const cardHeight =
             $overlay.find(".iqu-sp-card").outerHeight(true) || 600;
           $placeholder.css("minHeight", cardHeight + 80 + "px");
 
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          // ── FIX 2: duplicate scrollTo সরানো হয়েছে ──
           window.scrollTo({ top: 0, behavior: "smooth" });
 
-          // ── Zeffy redirect ─────────────────────────────────
+          // ── FIX 3: if/else if দিয়ে redirect conflict ঠিক করা হয়েছে ──
           if (payment.zeffy_url) {
             setTimeout(function () {
               window.location.href = payment.zeffy_url;
             }, 5000);
-          }
-
-          if (shouldRedirectHome) {
+          } else if (shouldRedirectHome) {
             setTimeout(function () {
               window.location.href = "/";
             }, 5000);
@@ -1039,7 +1043,6 @@
         const iti = phoneInstances.get(input);
         if (!iti) continue;
 
-        // ✅ utils লোড হওয়া পর্যন্ত অপেক্ষা
         try {
           await Promise.resolve(iti.promise);
         } catch (_) {}
@@ -1049,18 +1052,14 @@
         try {
           let isValid = true;
 
-          // ✅ v23-এর সঠিক check — getValidationError() === 0 মানে valid
-          // -99 মানে utils লোড হয়নি, সেক্ষেত্রে validation skip করো
           if (typeof iti.getValidationError === "function") {
             const err = iti.getValidationError();
             if (err === -99) {
-              // utils লোড হয়নি — skip validation, just normalize
               isValid = true;
             } else {
               isValid = err === 0;
             }
           } else if (typeof iti.isValidNumber === "function") {
-            // পুরনো version fallback
             isValid = iti.isValidNumber();
           }
 
@@ -1105,7 +1104,6 @@
           : null;
 
       if (selectedCountry && selectedCountry.dialCode) {
-        // লিডিং 0 থাকলে তা রিমুভ করে কান্ট্রি কোড যোগ করুন
         const cleanDigits = digits.startsWith("0")
           ? digits.substring(1)
           : digits;
@@ -1210,7 +1208,6 @@
         }
       }
 
-      // পুরনো block সরিয়ে এটা দাও
       const $timeInput = $form.find("#time_slot");
       const $startInput = $form.find("#iqu_time_start");
       const $endInput = $form.find("#iqu_time_end");
@@ -1286,7 +1283,6 @@
         .find('input[name="admission_fee"]:checked')
         .val();
 
-      // admission_fee radio — required if the radio group exists
       if (
         $form.find('input[name="admission_fee"]').length &&
         !selectedAdmissionFee
@@ -1299,7 +1295,6 @@
         valid = false;
       }
 
-      // Complimentary needs no payment method
       if (
         (selectedAdmissionFee === "50" || selectedAdmissionFee === "30") &&
         !$form.find('input[name="payment_method"]:checked').length
@@ -1524,17 +1519,6 @@
           $row.appendTo($details);
         });
       }
-
-      // if (opts.zeffyUrl) {
-      //   const $redirect = $('<div class="iqu-success-redirect"></div>').text(
-      //     "Redirecting you to Zeffy to complete payment...",
-      //   );
-      //   const $link = $('<a class="iqu-success-link"></a>')
-      //     .attr("href", opts.zeffyUrl)
-      //     .text("If you are not redirected automatically, click here.");
-      //   $redirect.append("<br>").append($link);
-      //   $el.append($redirect);
-      // }
 
       return $el;
     }

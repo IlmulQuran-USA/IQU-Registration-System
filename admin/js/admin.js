@@ -75,7 +75,7 @@
             datasets: [
               {
                 data: cd.revenue.data,
-                backgroundColor: ["#dce8f6", "#1a8a45", "#c98a00"],
+                backgroundColor: ["#aed4ff", "#a9ffd2", "#ffeeb0"],
                 borderWidth: 3,
                 borderColor: "#ffffff",
                 hoverBorderColor: "#ffffff",
@@ -102,7 +102,18 @@
                 callbacks: {
                   label: function (ctx) {
                     var val = ctx.parsed;
-                    return " " + ctx.label + ": $" + val.toFixed(0);
+                    var total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                    var pct =
+                      total > 0 ? ((val / total) * 100).toFixed(1) : "0.0";
+                    return (
+                      " " +
+                      ctx.label +
+                      ": $" +
+                      val.toFixed(0) +
+                      " (" +
+                      pct +
+                      "%)"
+                    );
                   },
                 },
               },

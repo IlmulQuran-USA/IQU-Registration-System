@@ -140,13 +140,16 @@ class IQU_Admin
     }
 
     // ── Revenue by form type (summer forms only) ─────────
-    $revenue_free = 0; // Free enrollment has no payment
+    $revenue_free = (float) $wpdb->get_var($wpdb->prepare(
+    "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE form_type = %s AND payment_amount > 0",
+    IQU_Database::FORM_FREE
+));
     $revenue_l1 = (float) $wpdb->get_var($wpdb->prepare(
-      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE form_type = %s AND payment_status = 'confirmed'",
+      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE form_type = %s AND payment_amount > 0",
       IQU_Database::FORM_SUMMER_LEVEL1
     ));
     $revenue_l2 = (float) $wpdb->get_var($wpdb->prepare(
-      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE form_type = %s AND payment_status = 'confirmed'",
+      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE form_type = %s AND payment_amount > 0",
       IQU_Database::FORM_SUMMER_LEVEL2
     ));
 
@@ -294,7 +297,7 @@ class IQU_Admin
     global $wpdb;
     $table = $wpdb->prefix . IQU_TABLE_NAME;
     $total_revenue = (float) $wpdb->get_var(
-      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE payment_status = 'confirmed'"
+      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE payment_amount > 0"
     );
   ?>
 <div class="wrap iqu-admin-wrap">
@@ -333,7 +336,7 @@ class IQU_Admin
             <div class="iqu-metric-accent iqu-metric-accent--revenue"></div>
             <div class="iqu-metric-num">$<?php echo number_format($total_revenue, 0); ?></div>
             <div class="iqu-metric-lbl">💰 Payment Collected</div>
-            <div class="iqu-metric-sub">Confirmed payments only</div>
+            <div class="iqu-metric-sub">Student Confirmed Amount</div>
         </div>
     </div>
 

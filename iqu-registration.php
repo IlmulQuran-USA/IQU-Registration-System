@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 // ============================================================
 // 📌 Constants
 // ============================================================
-define('IQU_VERSION', '2.1.1');
+define('IQU_VERSION', '2.1.2');
 define('IQU_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('IQU_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('IQU_TABLE_NAME', 'iqu_registrations');

@@ -796,6 +796,37 @@ class IQU_Form
         //   ]);
         // }
 
+        // ── Free form: fee_pref থেকে payment_amount বের করো ──
+        $fee_amount_map = [
+            'arabic_50'  => 50.00,
+            'hifz_100'   => 100.00,
+            'hifz_90'    => 90.00,
+            'hifz_80'    => 80.00,
+            'hifz_70'    => 70.00,
+            'hifz_60'    => 60.00,
+            'qaidah_80'  => 80.00,
+            'qaidah_70'  => 70.00,
+            'qaidah_60'  => 60.00,
+            'qaidah_50'  => 50.00,
+            'free'       => 0.00,
+        ];
+
+        $fee_pref = $clean['fee_pref'] ?? '';
+
+        if (isset($fee_amount_map[$fee_pref])) {
+            $clean['payment_amount'] = $fee_amount_map[$fee_pref];
+        } elseif ($fee_pref === 'other') {
+            // flexible_fee_note থেকে numeric amount বের করো
+            $note = trim($clean['flexible_fee_note'] ?? '');
+            $note_clean = ltrim($note, '$');
+            $clean['payment_amount'] = is_numeric($note_clean) ? (float) $note_clean : 0.00;
+        } else {
+            $clean['payment_amount'] = 0.00;
+        }
+
+        // Free form-এ payment_status সবসময় pending (cash/zelle পরে confirm হবে)
+        $clean['payment_status'] = $fee_pref === 'free' ? 'pending' : 'pending';
+
         // Insert
         $reg_id = IQU_Database::insert_registration($clean);
         if (!$reg_id) {
