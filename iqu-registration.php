@@ -57,8 +57,14 @@ define('IQU_CONTACT_PHONE', '(214) 529-3544');
 define('IQU_CONTACT_EMAIL', 'info@ilmulquranusa.org');
 
 // Public brand assets for active payment methods.
-define('IQU_ZELLE_LOGO_URL', 'https://enroll.zellepay.com/sites/ecm/files/ZelleLogo_purple_3.svg');
-define('IQU_ZEFFY_LOGO_URL', 'https://cdn.prod.website-files.com/60af7f6d21134db12548f5b9/624c9c5e2bee8a35a28be92a_Zeffy-Logo-Color.svg');
+// ফাইলের নাম অনুযায়ী কোড ঠিক করুন
+define('IQU_ZELLE_LOGO_URL',
+  IQU_PLUGIN_URL . 'assets/images/Zelle-Logo-Color.svg'
+);
+
+define('IQU_ZEFFY_LOGO_URL',
+  IQU_PLUGIN_URL . 'assets/images/Zeffy-Logo-Color.svg'
+);
 
 // Set this to a hosted image URL or a data:image/... string when the logo is ready.
 if (!defined('IQU_EMAIL_LOGO_SRC')) {
