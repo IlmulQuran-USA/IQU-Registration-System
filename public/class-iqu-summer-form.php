@@ -440,7 +440,7 @@ class IQU_Summer_Form
                     <option value="youtube">YouTube</option>
                     <option value="website">Website</option>
                     <option value="friend_family">Friend/Family</option>
-                    <option value="masjid">Masjid</option>
+                    <option value="email">Email</option>
                 </select>
                 <div class="iqu-other-wrap iqu-referral-other-wrap" hidden>
                     <input type="text" id="referral_other" name="referral_other" placeholder="Please specify" />

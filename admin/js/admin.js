@@ -244,7 +244,7 @@ if (refCtx && IQU_Admin.chart_data && IQU_Admin.chart_data.referral) {
     YouTube: { bg: "#fee2e2", border: "#CC0000" },
     Website: { bg: "#ede9fe", border: "#6366f1" },
     "Friend / Family": { bg: "#fef3e0", border: "#92400e" },
-    Masjid: { bg: "#d1fae5", border: "#065f46" },
+    Email: { bg: "#d1fae5", border: "#065f46" },
   };
 
   const bgColors = refData.labels.map(

@@ -30,7 +30,7 @@ class IQU_Admin
       'youtube'       => ['YouTube',         '#CC0000', '#fee2e2', '#fca5a5'],
       'website'       => ['Website',         '#6366f1', '#ede9fe', '#c4b5fd'],
       'friend_family' => ['Friend / Family', '#92400e', '#fef3e0', '#fcd59a'],
-      'masjid'        => ['Masjid',          '#065f46', '#d1fae5', '#6ee7b7'],
+      'email'        => ['Email',          '#065f46', '#d1fae5', '#6ee7b7'],
     ];
 
     if (!isset($config[$referral])) {
@@ -176,7 +176,7 @@ class IQU_Admin
       'youtube'       => 'YouTube',
       'website'       => 'Website',
       'friend_family' => 'Friend / Family',
-      'masjid'        => 'Masjid',
+      'email'        => 'Email',
     ];
     foreach ($referral_rows as $rr) {
       $ref_labels[] = $map[$rr['ref_key']] ?? ucfirst(str_replace('_', ' ', $rr['ref_key']));
@@ -412,7 +412,7 @@ class IQU_Admin
                 <span class="iqu-card-head-title">Payment collected</span>
                 <span class="iqu-card-head-badge">$<?php echo number_format($total_revenue, 0); ?> total</span>
             </div>
-            <div class="iqu-chart-body iqu-chart-body--donut">
+            <div class="iqu-chart-body iqu-chart-body-donut">
                 <canvas id="iqu-revenue-chart" aria-label="Revenue by form type"></canvas>
                 <div class="iqu-donut-center">
                     <span class="iqu-donut-amt">$<?php echo number_format($total_revenue, 0); ?></span>

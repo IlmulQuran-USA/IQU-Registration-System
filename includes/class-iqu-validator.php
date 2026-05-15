@@ -30,7 +30,7 @@ class IQU_Validator
         'youtube',
         'website',
         'friend_family',
-        'masjid',
+        'email',
     ];
     private const ALLOWED_FEES       = [
         'arabic_50',

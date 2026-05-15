@@ -249,16 +249,28 @@
   height: 100% !important;
 }
 /* Donut center overlay */
-.iqu-chart-body--donut {
+.iqu-chart-body-donut {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 .iqu-donut-center {
   position: absolute;
+  top: calc(50% - 15px);
+  left: 50%;
+  transform: translate(-50%, -50%);
   text-align: center;
   pointer-events: none;
+  z-index: 10;
 }
+
+@media (max-width: 425px) {
+  .iqu-donut-center {
+    top: calc(50% - 25px);
+  }
+}
+
 .iqu-donut-amt {
   display: block;
   font-size: 20px;
@@ -935,17 +947,17 @@
     justify-content: center !important;
     margin: 12px 0;
     gap: 8px;
-    flex-wrap: nowrap;  
+    flex-wrap: nowrap;
   }
 
   .iqu-dash-recent-title {
-    font-size: 13px;  
-    white-space: nowrap;  
+    font-size: 13px;
+    white-space: nowrap;
     flex-shrink: 0;
   }
 
   .iqu-perpage-btn {
-    min-width: 30px;  
+    min-width: 30px;
     padding: 5px 5px !important;
     font-size: 12px;
   }
@@ -1005,40 +1017,42 @@
   color: #fff;
 }
 
-
-
 /* Chart row — 3 columns */
 .iqu-chart-row {
-    grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, 1fr);
 }
 @media (max-width: 1100px) {
-    .iqu-chart-row { grid-template-columns: 1fr 1fr; }
+  .iqu-chart-row {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 @media (max-width: 720px) {
-    .iqu-chart-row { grid-template-columns: 1fr; }
+  .iqu-chart-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Referral chart */
 .iqu-chart-body--referral {
-    padding: 12px 16px 16px;
-    position: relative;
-    height: 200px;
+  padding: 12px 16px 16px;
+  position: relative;
+  height: 200px;
 }
 .iqu-chart-body--referral canvas {
-    width: 100% !important;
-    height: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* Referral chips */
 .iqu-ref-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 9px;
-    border-radius: 20px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.2px;
-    white-space: nowrap;
-    border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  border: 1px solid transparent;
 }
