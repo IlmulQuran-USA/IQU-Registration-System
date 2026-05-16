@@ -669,7 +669,7 @@ class IQU_Admin
                                 href="<?php echo esc_url($view); ?>"><?php echo esc_html($row['first_name'] . ' ' . $row['last_name']); ?></a></strong>
                     </td>
                     <td class="iqu-td-email"><?php echo esc_html($row['email']); ?></td>
-                    <?php if ($is_summer): ?>`
+                    <?php if ($is_summer): ?>
                     <td><?php echo esc_html($row['guardian_name']); ?></td>
                     <td><?php echo esc_html(strtoupper($row['enrollment_level'])); ?></td>
                     <td><?php echo self::referral_chip_html($row['referral'] ?? ''); ?></td>
@@ -1007,7 +1007,7 @@ class IQU_Admin
                                                                   $dt = new DateTime($row['created_at'], new DateTimeZone('UTC'));
                                                                   $dt->setTimezone(new DateTimeZone('Asia/Dhaka'));
                                                                   echo esc_html($dt->format('M j, Y g:i A'));
-                                                                  ?>
+                 ?>
                     </div>
                 </div>
                 <?php if (!empty($row['admin_note'])): ?>
