@@ -709,9 +709,22 @@ class IQU_Summer_Form
         if ($payment_method === 'zeffy' && $payment_amount > 0) {
             $response['payment']['zeffy_url'] = add_query_arg('amount', (int) $payment_amount, IQU_ZEFFY_URL);
         }
-        
-        error_log('[IQU Summer] payment_method=' . $payment_method . ' | payment_amount=' . $payment_amount . ' | clean_amount=' . ($clean['payment_amount'] ?? 'NOT_SET'));
-        
+
+        // ── Meta Lead event ──
+        $event_id     = IQU_Pixel::new_event_id();
+        $content_name = ($clean['enrollment_level'] === 'level2')
+            ? 'Summer Program Level 2'
+            : 'Summer Program Level 1';
+
+        IQU_Pixel::send_lead($clean, $event_id, [
+            'content_name' => $content_name,
+            'value'        => $payment_amount,
+        ]);
+
+        $response['event_id']     = $event_id;
+        $response['content_name'] = $content_name;
+        $response['value']        = $payment_amount;
+
         wp_send_json_success($response);
     }
 }

@@ -655,24 +655,6 @@
         const payment = data.payment || {};
         const details = [];
 
-        // ── FIX 1: intlTelInput থেকে international format-এ phone number নেওয়া ──
-        if (typeof fbq !== "undefined") {
-          fbq("init", "1756660502407987", {
-            em: ($("#summer_email").val() || "").trim().toLowerCase(),
-            ph: getInternationalPhone("guardian_contact"),  // ← FIXED
-            fn: ($("#summer_first_name").val() || "").trim().toLowerCase(),
-            ln: ($("#summer_last_name").val() || "").trim().toLowerCase(),
-          });
-
-          fbq("track", "Lead", {
-            content_name: "Summer Ilm Camp 2026",
-            content_category: "Islamic Education",
-            value: parseFloat(payment.amount) || 0,
-            currency: "USD",
-            enrollment_level: data.level || "",
-          });
-        }
-
         if (payment.method) {
           details.push({
             label: "Payment Method",
@@ -978,6 +960,14 @@
       );
     }
 
+    function iquGetFbclid() {
+      try {
+        return new URLSearchParams(window.location.search).get("fbclid") || "";
+      } catch (e) {
+        return "";
+      }
+    }
+
     function submitForm(
       $form,
       action,
@@ -991,12 +981,33 @@
       $.ajax({
         url: IQU_AJAX.ajax_url,
         type: "POST",
-        data: serializedData + "&action=" + action,
+        data:
+          serializedData +
+          "&action=" + action +
+          "&iqu_page_url=" + encodeURIComponent(window.location.href) +
+          "&iqu_fbclid=" + encodeURIComponent(iquGetFbclid()),
         dataType: "json",
         success: function (response) {
           setLoading($btn, $btnTxt, $btnLoad, false);
           if (response.success) {
-            onSuccess(response.data || {});
+            const data = response.data || {};
+
+            // Meta browser-side Lead — server-side event-এর সাথে dedup
+            if (data.event_id && typeof fbq === "function") {
+              fbq(
+                "track",
+                "Lead",
+                {
+                  content_name: data.content_name || "IQU Registration",
+                  content_category: "registration",
+                  currency: "USD",
+                  value: Number(data.value) || 0,
+                },
+                { eventID: data.event_id },
+              );
+            }
+
+            onSuccess(data);
           } else {
             if (response.data && response.data.errors) {
               showFieldErrors($form, response.data.errors);

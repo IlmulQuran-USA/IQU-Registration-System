@@ -761,7 +761,7 @@ class IQU_Form
         // CSRF
         if (!check_ajax_referer('iqu_registration_nonce', '_iqu_nonce', false)) {
             wp_send_json_error(['message' => 'Security check failed. Please refresh the page and try again.', 'code' => 'invalid_nonce']);
-        }
+        } 
 
         // Honeypot
         if (!empty($_POST['iqu_website'])) {
@@ -838,10 +838,23 @@ class IQU_Form
         IQU_Mailer::send_admin_notification($clean, $reg_id);
         IQU_Mailer::send_student_confirmation($clean);
 
+        // ── Meta Lead event (browser + server, event_id দিয়ে dedup) ──
+        $event_id     = IQU_Pixel::new_event_id();
+        $content_name = 'Free Enrollment';
+        $lead_value   = (float) ($clean['payment_amount'] ?? 0);
+
+        IQU_Pixel::send_lead($clean, $event_id, [
+            'content_name' => $content_name,
+            'value'        => $lead_value,
+        ]);
+
         wp_send_json_success([
             'message' => "JazakAllahu Khairan! Your registration has been received. We will contact you via WhatsApp within 24–48 hours, in-sha'-Allah.",
             'reg_id' => $reg_id,
             'form' => 'free',
+            'event_id'     => $event_id,
+            'content_name' => $content_name,
+            'value'        => $lead_value,
         ]);
     }
 }

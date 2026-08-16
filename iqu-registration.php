@@ -4,7 +4,7 @@
  * Plugin Name:       IQU Registration System
  * Plugin URI:        https://ilmulquranus.org
  * Description:       Secure student registration system for Ilm-ul-Quran USA — includes Free Enrollment & Summer Program forms, dashboard, Zelle/Zeffy payments, and Google reCAPTCHA v3.
- * Version:           2.1.1
+ * Version:           2.2.2
  * Author:            Ilm-ul-Quran USA (Muhammad Nurul Ahsan)
  * License:           GPL-2.0+
  * Text Domain:       iqu-registration
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 // ============================================================
 // 📌 Constants
 // ============================================================
-define('IQU_VERSION', '2.1.2');
+define('IQU_VERSION', '2.2.2');
 define('IQU_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('IQU_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('IQU_TABLE_NAME', 'iqu_registrations');
@@ -42,9 +42,7 @@ define(
   'https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/js/utils.js?module=false'
 );
 
-// Google reCAPTCHA v3 keys (user-provided)
-define('IQU_RECAPTCHA_SITE_KEY', '6LffSbcsAAAAAMSpvoWUmRrfCu7v4E0S0Kggz7q8');
-define('IQU_RECAPTCHA_SECRET_KEY', '6LffSbcsAAAAADnwUdUxVzZW1mJm9p5bBsVQesbb');
+// Google reCAPTCHA v3 keys (user-provided) 
 define('IQU_RECAPTCHA_THRESHOLD', 0.5);
 
 // Zeffy fundraising URL
@@ -85,6 +83,7 @@ require_once IQU_PLUGIN_DIR . 'includes/class-iqu-database.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-validator.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-recaptcha.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-mailer.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-pixel.php';
 require_once IQU_PLUGIN_DIR . 'public/class-iqu-form.php';
 require_once IQU_PLUGIN_DIR . 'public/class-iqu-summer-form.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-admin.php';
