@@ -1,0 +1,1136 @@
+/* ══════════════════════════════════════════════════════
+   IQU · Zeffy Payment Collection
+   Standalone admin stylesheet — prefix: .iquz-
+   Loaded only on: IQU Registrations → Zeffy Payments
+   ══════════════════════════════════════════════════════ */
+
+.iquz-wrap {
+  --z-purple: #5b4ce0;
+  --z-purple-dark: #4338ca;
+  --z-purple-soft: #eeecfd;
+  --z-green: #0f9d58;
+  --z-green-soft: #e6f6ec;
+  --z-amber: #c98a00;
+  --z-amber-soft: #fff4e0;
+  --z-red: #d13438;
+  --z-red-soft: #fdecec;
+  --z-ink: #111827;
+  --z-mute: #6b7280;
+  --z-line: #e5e7eb;
+  --z-bg: #f7f7fb;
+
+  margin: 16px 20px 40px 0;
+  color: var(--z-ink);
+  font-size: 13px;
+}
+
+.iquz-wrap * {
+  box-sizing: border-box;
+}
+
+/* ── Header ─────────────────────────────────────────── */
+.iquz-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid var(--z-line);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  margin-bottom: 18px;
+}
+
+.iquz-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.iquz-mark {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--z-purple-soft);
+}
+
+.iquz-mark img {
+  display: block;
+}
+
+.iquz-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  line-height: 1.2;
+}
+
+.iquz-sub {
+  font-size: 12px;
+  color: var(--z-mute);
+  margin-top: 3px;
+}
+
+.iquz-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.iquz-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.iquz-pill--live {
+  background: var(--z-green-soft);
+  color: var(--z-green);
+  border: 1px solid #b7e3c7;
+}
+
+.iquz-pill--idle {
+  background: #f3f4f6;
+  color: var(--z-mute);
+  border: 1px solid var(--z-line);
+}
+
+.iquz-sync-stamp {
+  font-size: 11px;
+  color: var(--z-mute);
+}
+
+/* ── Buttons ────────────────────────────────────────── */
+.iquz-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--z-line);
+  background: #fff;
+  color: var(--z-ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+
+.iquz-btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: var(--z-ink);
+}
+
+.iquz-btn:active {
+  transform: translateY(1px);
+}
+
+.iquz-btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.iquz-btn--primary {
+  background: var(--z-purple);
+  border-color: var(--z-purple);
+  color: #fff;
+}
+
+.iquz-btn--primary:hover {
+  background: var(--z-purple-dark);
+  border-color: var(--z-purple-dark);
+  color: #fff;
+}
+
+.iquz-btn--ghost {
+  background: transparent;
+  color: var(--z-mute);
+}
+
+.iquz-btn--export {
+  background: var(--z-green-soft);
+  border-color: #b7e3c7;
+  color: #0b6b3c;
+}
+
+.iquz-btn--export:hover {
+  background: #d7f0e1;
+  color: #0b6b3c;
+}
+
+/* ── Notices & flash ────────────────────────────────── */
+.iquz-notice {
+  padding: 11px 15px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  margin-bottom: 16px;
+  border: 1px solid;
+}
+
+.iquz-notice--ok {
+  background: var(--z-green-soft);
+  border-color: #b7e3c7;
+  color: #0b6b3c;
+}
+
+.iquz-notice--warn {
+  background: var(--z-amber-soft);
+  border-color: #fcd59a;
+  color: #8a5a00;
+}
+
+.iquz-flash {
+  padding: 11px 15px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  margin-bottom: 16px;
+  border: 1px solid var(--z-line);
+  background: #fff;
+}
+
+.iquz-flash--ok {
+  background: var(--z-green-soft);
+  border-color: #b7e3c7;
+  color: #0b6b3c;
+}
+
+.iquz-flash--bad {
+  background: var(--z-red-soft);
+  border-color: #f5b5b5;
+  color: #9b1c1c;
+}
+
+.iquz-flash--busy {
+  background: var(--z-purple-soft);
+  border-color: #cdc7f7;
+  color: var(--z-purple-dark);
+}
+
+/* ── Metric cards ───────────────────────────────────── */
+.iquz-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.iquz-metric {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--z-line);
+  border-radius: 12px;
+  padding: 16px 16px 14px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.iquz-metric:hover {
+  box-shadow: 0 4px 14px rgba(16, 24, 40, 0.08);
+  transform: translateY(-1px);
+}
+
+.iquz-metric-accent {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+}
+
+.iquz-metric-accent--net {
+  background: var(--z-green);
+}
+
+.iquz-metric-accent--month {
+  background: var(--z-purple);
+}
+
+.iquz-metric-accent--count {
+  background: #1e5fa0;
+}
+
+.iquz-metric-accent--donors {
+  background: #0d9488;
+}
+
+.iquz-metric-accent--recurring {
+  background: var(--z-amber);
+}
+
+.iquz-metric-accent--avg {
+  background: #9333ea;
+}
+
+.iquz-metric-num {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+}
+
+.iquz-metric-lbl {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.iquz-metric-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--z-mute);
+}
+
+/* ── Insights row ───────────────────────────────────── */
+.iquz-insights {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 1100px) {
+  .iquz-insights {
+    grid-template-columns: 1fr;
+  }
+}
+
+.iquz-card {
+  background: #fff;
+  border: 1px solid var(--z-line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.iquz-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f1f2f6;
+}
+
+.iquz-card-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.iquz-card-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--z-mute);
+  background: var(--z-bg);
+  border: 1px solid var(--z-line);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.iquz-chart-body {
+  position: relative;
+  height: 200px;
+}
+
+.iquz-chart-body canvas {
+  max-height: 200px;
+}
+
+/* ── Reconciliation card ────────────────────────────── */
+.iquz-recon-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0;
+  font-size: 12.5px;
+  border-bottom: 1px dashed #eef0f4;
+}
+
+.iquz-recon-row span {
+  color: var(--z-mute);
+}
+
+.iquz-recon-row strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.iquz-recon-row--neg strong {
+  color: var(--z-red);
+}
+
+.iquz-recon-row--total {
+  border-bottom: none;
+  padding-top: 12px;
+}
+
+.iquz-recon-row--total span {
+  font-weight: 700;
+  color: var(--z-ink);
+}
+
+.iquz-recon-row--total strong {
+  font-size: 18px;
+  color: var(--z-green);
+}
+
+.iquz-recon-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--z-bg);
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--z-mute);
+}
+
+/* ── Filters ────────────────────────────────────────── */
+.iquz-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--z-line);
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+
+.iquz-input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #d7dae0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12.5px;
+  color: var(--z-ink);
+  max-width: 220px;
+}
+
+.iquz-input:focus {
+  outline: none;
+  border-color: var(--z-purple);
+  box-shadow: 0 0 0 3px rgba(91, 76, 224, 0.12);
+}
+
+.iquz-input--search {
+  min-width: 260px;
+  flex: 1 1 260px;
+  max-width: none;
+}
+
+/* ── Table ──────────────────────────────────────────── */
+.iquz-table-wrap {
+  background: #fff;
+  border: 1px solid var(--z-line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.iquz-tbl {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.iquz-tbl th {
+  text-align: left;
+  padding: 11px 14px;
+  background: var(--z-bg);
+  border-bottom: 1px solid var(--z-line);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--z-mute);
+  white-space: nowrap;
+}
+
+.iquz-tbl td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f2f6;
+  vertical-align: top;
+  font-size: 12.5px;
+}
+
+.iquz-row:hover td {
+  background: #fbfbfe;
+}
+
+.iquz-tbl small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--z-mute);
+}
+
+.iquz-empty {
+  text-align: center;
+  padding: 44px 20px !important;
+  color: var(--z-mute);
+}
+
+.iquz-td-date {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.iquz-td-donor strong {
+  font-weight: 600;
+}
+
+.iquz-td-amount {
+  white-space: nowrap;
+}
+
+.iquz-amt {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--z-green);
+}
+
+.iquz-refunded {
+  color: var(--z-red) !important;
+}
+
+.iquz-cur {
+  letter-spacing: 0.5px;
+}
+
+.iquz-card-brand {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+}
+
+.iquz-td-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.iquz-link {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--z-purple);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.iquz-link:hover {
+  color: var(--z-purple-dark);
+  text-decoration: underline;
+}
+
+/* ── Tags & badges ──────────────────────────────────── */
+.iquz-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid;
+}
+
+.iquz-tag--recurring {
+  background: var(--z-amber-soft);
+  color: #8a5a00;
+  border-color: #fcd59a;
+}
+
+.iquz-tag--once {
+  background: #f3f4f6;
+  color: var(--z-mute);
+  border-color: var(--z-line);
+}
+
+.iquz-tag--org {
+  background: var(--z-purple-soft);
+  color: var(--z-purple-dark);
+  border-color: #cdc7f7;
+  margin-left: 5px;
+}
+
+.iquz-tribute {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #6d4c8f;
+  font-style: italic;
+}
+
+.iquz-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid;
+}
+
+.iquz-badge--ok {
+  background: var(--z-green-soft);
+  color: #0b6b3c;
+  border-color: #b7e3c7;
+}
+
+.iquz-badge--pending {
+  background: var(--z-amber-soft);
+  color: #8a5a00;
+  border-color: #fcd59a;
+}
+
+.iquz-badge--failed {
+  background: var(--z-red-soft);
+  color: #9b1c1c;
+  border-color: #f5b5b5;
+}
+
+.iquz-badge--refunded {
+  background: #f3f4f6;
+  color: #4b5563;
+  border-color: var(--z-line);
+}
+
+.iquz-badge--partial {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: #fed7aa;
+}
+
+.iquz-badge--dispute {
+  background: var(--z-red-soft);
+  color: #9b1c1c;
+  border-color: #f5b5b5;
+}
+
+/* ── Expanded detail row ────────────────────────────── */
+.iquz-detail-row td {
+  background: #fbfbfe;
+  padding: 0 !important;
+}
+
+.iquz-detail {
+  padding: 16px 18px;
+  border-left: 3px solid var(--z-purple);
+}
+
+.iquz-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.iquz-dl {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--z-mute);
+  margin-bottom: 3px;
+}
+
+.iquz-detail code {
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid var(--z-line);
+  padding: 2px 6px;
+  border-radius: 5px;
+  word-break: break-all;
+}
+
+.iquz-detail-block {
+  margin-top: 16px;
+}
+
+.iquz-items,
+.iquz-qa {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.iquz-items li,
+.iquz-qa li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #eef0f4;
+  font-size: 12px;
+}
+
+.iquz-items li:last-child,
+.iquz-qa li:last-child {
+  border-bottom: none;
+}
+
+.iquz-qa li span {
+  color: var(--z-mute);
+  min-width: 200px;
+}
+
+.iquz-items li em {
+  font-size: 11px;
+  color: var(--z-amber);
+}
+
+/* ── Table footer ───────────────────────────────────── */
+.iquz-tablefoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--z-bg);
+  border-top: 1px solid var(--z-line);
+  font-size: 12px;
+  color: var(--z-mute);
+}
+
+.iquz-pagination .page-numbers {
+  display: inline-block;
+  min-width: 28px;
+  padding: 4px 8px;
+  margin-left: 4px;
+  border: 1px solid var(--z-line);
+  border-radius: 7px;
+  background: #fff;
+  text-align: center;
+  text-decoration: none;
+  color: var(--z-ink);
+  font-size: 12px;
+}
+
+.iquz-pagination .page-numbers.current {
+  background: var(--z-purple);
+  border-color: var(--z-purple);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ── Settings ───────────────────────────────────────── */
+.iquz-settings {
+  margin-top: 20px;
+  background: #fff;
+  border: 1px solid var(--z-line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.iquz-settings summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.iquz-settings summary::-webkit-details-marker {
+  display: none;
+}
+
+.iquz-settings summary small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--z-mute);
+}
+
+.iquz-settings[open] summary {
+  border-bottom: 1px solid var(--z-line);
+}
+
+.iquz-settings-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+  padding: 18px;
+}
+
+.iquz-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.iquz-field input[type="text"],
+.iquz-field input[type="password"],
+.iquz-field input[type="number"] {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #d7dae0;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+.iquz-field input:focus {
+  outline: none;
+  border-color: var(--z-purple);
+  box-shadow: 0 0 0 3px rgba(91, 76, 224, 0.12);
+}
+
+.iquz-field input[disabled] {
+  background: var(--z-bg);
+  color: var(--z-mute);
+}
+
+.iquz-field--narrow input {
+  max-width: 130px;
+}
+
+.iquz-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--z-mute);
+}
+
+.iquz-hint--ok {
+  color: #0b6b3c;
+}
+
+.iquz-hint code {
+  font-size: 10.5px;
+  background: var(--z-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.iquz-copyrow {
+  display: flex;
+  gap: 8px;
+}
+
+.iquz-copyrow input {
+  flex: 1;
+}
+
+.iquz-settings-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid #f1f2f6;
+}
+
+.iquz-lastrun {
+  margin: 0 18px 18px;
+  padding: 11px 14px;
+  background: var(--z-green-soft);
+  border: 1px solid #b7e3c7;
+  border-radius: 9px;
+  font-size: 12px;
+  color: #0b6b3c;
+}
+
+.iquz-lastrun--bad {
+  background: var(--z-red-soft);
+  border-color: #f5b5b5;
+  color: #9b1c1c;
+}
+
+.iquz-lastrun em {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ── Webhook log ────────────────────────────────────── */
+.iquz-log {
+  padding: 0 18px 18px;
+}
+
+.iquz-log ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--z-line);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.iquz-log li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  border-bottom: 1px solid #f1f2f6;
+  background: #fff;
+}
+
+.iquz-log li:last-child {
+  border-bottom: none;
+}
+
+.iquz-log time {
+  color: var(--z-mute);
+  min-width: 110px;
+  font-variant-numeric: tabular-nums;
+}
+
+.iquz-logdot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--z-mute);
+}
+
+.iquz-logdot--inserted {
+  background: var(--z-green);
+}
+
+.iquz-logdot--updated {
+  background: var(--z-purple);
+}
+
+.iquz-logdot--rejected,
+.iquz-logdot--error {
+  background: var(--z-red);
+}
+
+.iquz-logdot--ignored {
+  background: var(--z-amber);
+}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 782px) {
+  .iquz-wrap {
+    margin-right: 10px;
+  }
+
+  .iquz-header {
+    align-items: flex-start;
+  }
+
+  .iquz-input--search {
+    min-width: 100%;
+  }
+
+  .iquz-tbl {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════
+   Analytics rows — v2.6.0
+ 
+   Each row is its own grid container instead of one large
+   grid with column spans. Grid stretches every item in a
+   row to match the tallest, so a per-row container is what
+   guarantees side-by-side cards are always identical in
+   height regardless of caption length.
+   ══════════════════════════════════════════════════════ */
+ 
+.iquz-section-head {
+  margin: 26px 0 14px;
+}
+ 
+.iquz-section-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--z-ink);
+  letter-spacing: -0.2px;
+}
+ 
+.iquz-section-head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--z-mute);
+}
+ 
+/* ── Row containers ─────────────────────────────────── */
+ 
+.iquz-chart-row {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+  align-items: stretch;
+}
+ 
+.iquz-chart-row--1 {
+  grid-template-columns: 1fr;
+}
+ 
+.iquz-chart-row--2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+ 
+.iquz-chart-row--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+ 
+.iquz-chart-row:last-of-type {
+  margin-bottom: 18px;
+}
+ 
+/* ── Cards inside a row ─────────────────────────────────
+   The card is a flex column and the note is pushed to the
+   bottom with margin-top:auto. Without that, a one-line
+   caption would leave its chart floating mid-card while the
+   neighbour's two-line caption sat flush — same box height,
+   mismatched internals. */
+ 
+.iquz-chart-row .iquz-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 14px 16px;
+}
+ 
+.iquz-chart-row .iquz-card-head {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+ 
+.iquz-chart-row .iquz-card-title {
+  font-size: 12.5px;
+}
+ 
+.iquz-chart-row .iquz-card-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+ 
+/* ── Chart heights ──────────────────────────────────────
+   Fixed per row type so every card in a row reserves the
+   same vertical space for its canvas. Ranked bar lists need
+   room per row; doughnuts and short bars do not. */
+ 
+.iquz-chart-body--rank {
+  height: 215px;
+  flex: 0 0 auto;
+}
+ 
+.iquz-chart-body--rank canvas {
+  max-height: 215px;
+}
+ 
+.iquz-chart-body--compact {
+  height: 170px;
+  flex: 0 0 auto;
+}
+ 
+.iquz-chart-body--compact canvas {
+  max-height: 170px;
+}
+ 
+/* ── Caption ────────────────────────────────────────── */
+ 
+.iquz-card-note {
+  margin: 10px 0 0;
+  margin-top: auto;
+  padding-top: 9px;
+  border-top: 1px solid #f1f2f6;
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--z-mute);
+  min-height: 34px;
+}
+ 
+#iquz-month-summary strong {
+  color: var(--z-ink);
+  font-weight: 700;
+}
+ 
+/* ── Focus card ─────────────────────────────────────────
+   The running month is the chart checked daily, so it gets
+   a subtle accent rail rather than a louder colour that
+   would compete with the metric cards above. */
+ 
+.iquz-card--focus {
+  border-color: #cdc7f7;
+  box-shadow: 0 2px 10px rgba(91, 76, 224, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+ 
+.iquz-card--focus::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--z-purple);
+}
+ 
+.iquz-card-badge--live {
+  background: var(--z-purple-soft);
+  border-color: #cdc7f7;
+  color: var(--z-purple-dark);
+  font-weight: 700;
+}
+ 
+/* ── Empty state ────────────────────────────────────── */
+ 
+.iquz-chart-empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  min-height: 140px;
+  border: 1px dashed var(--z-line);
+  border-radius: 9px;
+  background: var(--z-bg);
+  font-size: 11.5px;
+  color: var(--z-mute);
+  text-align: center;
+  padding: 16px 18px;
+  line-height: 1.5;
+}
+ 
+/* ── Responsive ─────────────────────────────────────────
+   Three compact charts get cramped below 1300px, so the
+   three-up row drops to two, then everything stacks. */
+ 
+@media (max-width: 1300px) {
+  .iquz-chart-row--3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+ 
+@media (max-width: 900px) {
+ 
+  .iquz-chart-row--2,
+  .iquz-chart-row--3 {
+    grid-template-columns: 1fr;
+  }
+ 
+  .iquz-card-note {
+    min-height: 0;
+  }
+}
+ 

@@ -4,7 +4,7 @@
  * Plugin Name:       IQU Registration System
  * Plugin URI:        https://ilmulquranus.org
  * Description:       Secure student registration system for Ilm-ul-Quran USA — includes Free Enrollment & Summer Program forms, dashboard, Zelle/Zeffy payments, and Google reCAPTCHA v3.
- * Version:           2.2.2
+ * Version:           2.6.0
  * Author:            Ilm-ul-Quran USA (Muhammad Nurul Ahsan)
  * License:           GPL-2.0+
  * Text Domain:       iqu-registration
@@ -20,10 +20,11 @@ if (!defined('ABSPATH')) {
 // ============================================================
 // 📌 Constants
 // ============================================================
-define('IQU_VERSION', '2.2.2');
+define('IQU_VERSION', '2.6.0');
 define('IQU_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('IQU_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('IQU_TABLE_NAME', 'iqu_registrations');
+define('IQU_ZEFFY_TABLE', 'iqu_zeffy_payments');
 
 // Version-pinned CDN assets for intl-tel-input.
 define('IQU_INTL_TEL_INPUT_VERSION', '23.0.10');
@@ -84,28 +85,53 @@ require_once IQU_PLUGIN_DIR . 'includes/class-iqu-validator.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-recaptcha.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-mailer.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-pixel.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-zeffy-db.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-zeffy-api.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-zeffy-sync.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-zeffy-webhook.php';
 require_once IQU_PLUGIN_DIR . 'public/class-iqu-form.php';
 require_once IQU_PLUGIN_DIR . 'public/class-iqu-summer-form.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-admin.php';
+require_once IQU_PLUGIN_DIR . 'admin/class-iqu-zeffy-admin.php';
 
 // ============================================================
 // 🚀 Activation / Deactivation
 // ============================================================
-register_activation_hook(__FILE__, ['IQU_Database', 'create_table']);
-register_deactivation_hook(__FILE__, ['IQU_Database', 'on_deactivation']);
+function iqu_on_activation(): void
+{
+  IQU_Database::create_table();
+  IQU_Zeffy_DB::create_table();
+  IQU_Zeffy_Sync::schedule();
+}
 
-// ============================================================
-// 🔌 Init
-// ============================================================
+function iqu_on_deactivation(): void
+{
+  IQU_Database::on_deactivation();
+  IQU_Zeffy_Sync::unschedule();
+}
+
+register_activation_hook(__FILE__, 'iqu_on_activation');
+register_deactivation_hook(__FILE__, 'iqu_on_deactivation');
+
 add_action('plugins_loaded', function () {
   // Run schema upgrade if needed (fresh installs + upgrades)
   IQU_Database::maybe_upgrade();
+  IQU_Zeffy_DB::maybe_upgrade();
+
+  // Cron may have been lost (migration, clone, cron plugin) — re-arm it.
+  IQU_Zeffy_Sync::schedule();
 
   new IQU_Form();
   new IQU_Summer_Form();
 
+  // Sync handles cron + admin AJAX; webhook registers a REST route.
+  // Both must load outside is_admin() — cron and REST are front-end contexts.
+  new IQU_Zeffy_Sync();
+  new IQU_Zeffy_Webhook();
+
   if (is_admin()) {
     new IQU_Admin();
+    new IQU_Zeffy_Admin();
   }
 });
 

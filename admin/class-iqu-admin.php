@@ -79,8 +79,9 @@ class IQU_Admin
     });
     add_submenu_page('iqu-registrations', 'Summer Program — Level 2', 'Summer Program L2', 'manage_options', 'iqu-list-summer-l2', function () {
       $this->render_list_page(IQU_Database::FORM_SUMMER_LEVEL2, 'Summer Program — Level 2 (Ages 11–15)');
-    });
-    add_submenu_page('iqu-registrations', 'View Registration', '', 'manage_options', 'iqu-view-registration', [$this, 'render_view_page']);
+    }); 
+    add_submenu_page('iqu-registrations', 'Registration Details — IQU', 'View Registration', 'manage_options', 'iqu-view-registration', [$this, 'render_view_page']);
+    remove_submenu_page('iqu-registrations', 'iqu-view-registration');
   }
 
   public function enqueue_assets(string $hook): void
@@ -205,11 +206,12 @@ class IQU_Admin
 
   private function render_top_bar(string $title, string $subtitle, string $active_page = ''): void
   {
-    $tabs = [
-      'iqu-registrations' => 'All',
-      'iqu-list-free' => 'Free',
-      'iqu-list-summer-l1' => 'Level 1',
-      'iqu-list-summer-l2' => 'Level 2',
+        $tabs = [
+      'iqu-registrations'   => 'All',
+      'iqu-list-free'       => 'Free',
+      'iqu-list-summer-l1'  => 'Level 1',
+      'iqu-list-summer-l2'  => 'Level 2',
+      'iqu-zeffy-payments'  => 'Zeffy Payments',
     ];
   ?>
 <div class="iqu-top-bar">
@@ -256,6 +258,167 @@ class IQU_Admin
       . '</span>';
   }
 
+  /**
+   * Render the "Fee Preference" / payment cell for a registration row.
+   *
+   * Every payment display rule lives here — free vs summer forms,
+   * Zakat-eligible free places, complimentary seats, flexible amounts
+   * typed as free text, and standard packages.
+   */
+  private static function payment_cell_html(array $row): string
+  {
+    $form_type     = $row['form_type'] ?? '';
+    $admission_fee = $row['admission_fee'] ?? '';
+    $fee_pref      = $row['fee_pref'] ?? '';
+    $flexible_note = trim($row['flexible_fee_note'] ?? '');
+    $pay_amount    = (float) ($row['payment_amount'] ?? 0);
+
+    if ($form_type === 'free') {
+      return self::free_payment_html($fee_pref, $flexible_note);
+    }
+
+    if (in_array($form_type, ['summer_level1', 'summer_level2'], true)) {
+      return self::summer_payment_html($row, $admission_fee, $flexible_note, $pay_amount);
+    }
+
+    return '';
+  }
+
+  /**
+   * Payment cell for the free enrollment form. Nothing has been
+   * collected yet, so anything with an amount carries a "Pending" badge.
+   */
+  private static function free_payment_html(string $fee_pref, string $flexible_note): string
+  {
+    $pending = '<span class="iqu-free-pending-badge">Pending</span>';
+
+    if ($fee_pref === 'free') {
+      return '<span class="iqu-no-pay-chip">'
+        . '<span class="iqu-no-pay-badge">No Payment</span> Totally Free (Zakat)'
+        . '</span>';
+    }
+
+    if ($fee_pref === 'other' && $flexible_note !== '') {
+      $display = preg_match('/^\$?\d+(\.\d{1,2})?$/', $flexible_note)
+        ? '$' . ltrim($flexible_note, '$')
+        : $flexible_note;
+
+      return '<span class="iqu-pay-cell">' . $pending
+        . '<span class="iqu-amt">' . esc_html($display) . '</span></span>';
+    }
+
+    if ($fee_pref !== '') {
+      return '<span class="iqu-pay-cell">' . $pending
+        . '<span class="iqu-amt">' . esc_html(self::fee_pref_label($fee_pref)) . '</span></span>';
+    }
+
+    return '<span class="iqu-amt-free">—</span>';
+  }
+
+  /**
+   * Human label for a fee preference key. Unknown keys pass through.
+   */
+  private static function fee_pref_label(string $fee_pref): string
+  {
+    $labels = [
+      'arabic_50' => 'Arabic — $50/mo',
+      'hifz_100'  => 'Hifz — $100/mo',
+      'hifz_90'   => 'Hifz — $90/mo',
+      'hifz_80'   => 'Hifz — $80/mo',
+      'hifz_70'   => 'Hifz — $70/mo',
+      'hifz_60'   => 'Hifz — $60/mo',
+      'qaidah_80' => "Qa'idah — $80/mo",
+      'qaidah_70' => "Qa'idah — $70/mo",
+      'qaidah_60' => "Qa'idah — $60/mo",
+      'qaidah_50' => "Qa'idah — $50/mo",
+    ];
+
+    return $labels[$fee_pref] ?? $fee_pref;
+  }
+
+  /**
+   * Payment cell for the summer program forms.
+   */
+  private static function summer_payment_html(
+    array $row,
+    string $admission_fee,
+    string $flexible_note,
+    float $pay_amount
+  ): string {
+    if ($admission_fee === 'complimentary') {
+      return '<span class="iqu-no-pay-chip">'
+        . '<span class="iqu-no-pay-badge">No Payment</span> Complimentary'
+        . '</span>';
+    }
+
+    $asked_for_free = $flexible_note === ''
+      || strtolower($flexible_note) === 'requesting free enrollment';
+
+    if ($admission_fee === 'flexible' && $pay_amount <= 0 && $asked_for_free) {
+      return '<span class="iqu-no-pay-chip">'
+        . '<span class="iqu-no-pay-badge">No Payment</span> Totally Free'
+        . '</span>';
+    }
+
+    $resolved = self::resolve_amount($admission_fee, $flexible_note, $pay_amount);
+    $method   = strtolower(trim($row['payment_method'] ?? ''));
+
+    $html = '<span class="iqu-pay-cell">';
+
+    if ($method !== '') {
+      $method_classes = ['zelle' => 'iqu-pay-zelle', 'zeffy' => 'iqu-pay-zeffy'];
+      $method_class   = $method_classes[$method] ?? 'iqu-pay-other';
+
+      $html .= '<span class="iqu-pay-method ' . esc_attr($method_class) . '">'
+        . esc_html(ucfirst($method)) . '</span>'
+        . '<span class="iqu-pay-sep">·</span>';
+    }
+
+    if ($resolved > 0) {
+      $html .= '<span class="iqu-amt">$' . esc_html(number_format($resolved, 0)) . '</span>';
+
+      $package = self::package_label($resolved);
+      if ($package !== '') {
+        $html .= ' <span class="iqu-pkg-label">(' . esc_html($package) . ')</span>';
+      }
+    } else {
+      $html .= '<span class="iqu-amt-free">—</span>';
+    }
+
+    return $html . '</span>';
+  }
+
+  /**
+   * Fall back to the flexible note when payment_amount is empty —
+   * applicants sometimes type "$30" without a payment being recorded.
+   */
+  private static function resolve_amount(string $admission_fee, string $flexible_note, float $pay_amount): float
+  {
+    if ($pay_amount > 0) {
+      return $pay_amount;
+    }
+
+    if ($admission_fee === 'flexible'
+      && preg_match('/^\$?(\d+(\.\d{1,2})?)$/', $flexible_note, $m)
+    ) {
+      return (float) $m[1];
+    }
+
+    return 0.0;
+  }
+
+  /**
+   * Package name for a known price point.
+   */
+  private static function package_label(float $amount): string
+  {
+    if ($amount <= 0) {
+      return '';
+    }
+
+    $packages = [50 => 'Standard', 30 => 'Supported'];
+    return $packages[(int) $amount] ?? 'Custom';
+  }
 
 
   // ════════════════════════════════════════════════════
@@ -452,7 +615,7 @@ class IQU_Admin
             <tbody>
                 <?php if (empty($latest)): ?>
                 <tr>
-                    <td colspan="8" class="iqu-empty-state">No registrations yet.</td>
+                    <td colspan="9" class="iqu-empty-state">No registrations yet.</td>
                 </tr>
                 <?php else:
               foreach ($latest as $row):
@@ -467,118 +630,12 @@ class IQU_Admin
                     <td class="iqu-td-email"><?php echo esc_html($row['email']); ?></td>
                     <td><?php echo self::status_badge_html($row['status']); ?></td>
                     <td><?php echo self::referral_chip_html($row['referral'] ?? ''); ?></td>
-                    <td>
-                        <?php
-                    $form_type = $row['form_type'] ?? '';
-                    $admission_fee = $row['admission_fee'] ?? '';
-                    $fee_pref = $row['fee_pref'] ?? '';
-                    $flexible_note = trim($row['flexible_fee_note'] ?? '');
-                    $pay_amount = (float) ($row['payment_amount'] ?? 0);
- 
-                    // ── Free enrollment form ──────────────────────────────
-                    if ($form_type === 'free') {
-
-                      // ১. এখানে helper string তৈরি করুন
-                      $pending_badge = '<span class="iqu-free-pending-badge">Pending</span>';
-
-                      if ($fee_pref === 'free') {
-                        // Zakat-eligible free (এখানে badge দরকার নেই)
-                        echo '<span class="iqu-no-pay-chip"><span class="iqu-no-pay-badge">No Payment</span> Totally Free (Zakat)</span>';
-                      } elseif ($fee_pref === 'other' && $flexible_note !== '') {
-                        // Custom / "other" amount typed by user
-                        $display_note = preg_match('/^\$?\d+(\.\d{1,2})?$/', $flexible_note)
-                          ? '$' . ltrim($flexible_note, '$')
-                          : $flexible_note;
-                          
-                        // ২. এখানে শেষে $pending_badge যোগ করুন
-                        echo '<span class="iqu-pay-cell">' . $pending_badge . '<span class="iqu-amt">' . esc_html($display_note) . '</span></span>';
-                      } elseif ($fee_pref !== '') {
-                        // Standard package — e.g. hifz_80, qaidah_60, arabic_50
-                        $labels = [
-                          'arabic_50' => 'Arabic — $50/mo',
-                          'hifz_100' => 'Hifz — $100/mo',
-                          'hifz_90' => 'Hifz — $90/mo',
-                          'hifz_80' => 'Hifz — $80/mo',
-                          'hifz_70' => 'Hifz — $70/mo',
-                          'hifz_60' => 'Hifz — $60/mo',
-                          'qaidah_80' => "Qa'idah — $80/mo",
-                          'qaidah_70' => "Qa'idah — $70/mo",
-                          'qaidah_60' => "Qa'idah — $60/mo",
-                          'qaidah_50' => "Qa'idah — $50/mo",
-                        ];
-                        $label = $labels[$fee_pref] ?? $fee_pref;
-                        
-                        // ৩. এখানে শেষে $pending_badge যোগ করুন
-                        echo '<span class="iqu-pay-cell">' . $pending_badge . '<span class="iqu-amt">' . esc_html($label) . '</span></span>';
-                      } else {
-                        echo '<span class="iqu-amt-free">—</span>';
-                      }
-
-                      // ── Summer Level 1 / Level 2 ──────────────────────────
-                    } elseif (in_array($form_type, ['summer_level1', 'summer_level2'], true)) {
-
-                      $pay_method = strtolower(trim($row['payment_method'] ?? ''));
-
-                      // ── ১. Complimentary ──────────────────────────────────
-                      if ($admission_fee === 'complimentary') {
-                        echo '<span class="iqu-no-pay-chip"><span class="iqu-no-pay-badge">No Payment</span> Complimentary</span>';
-
-                        // ── ২. Totally Free ───────────────────────────────────
-                      } elseif (
-                        $admission_fee === 'flexible'
-                        && $pay_amount <= 0
-                        && ($flexible_note === '' || strtolower($flexible_note) === 'requesting free enrollment')
-                      ) {
-                        echo '<span class="iqu-no-pay-chip"><span class="iqu-no-pay-badge">No Payment</span> Totally Free</span>';
-
-                        // ── ৩. কোনো amount আছে ───────────────────────────────
-                      } else {
-
-                        // flexible_fee_note থেকে amount নাও যদি payment_amount শূন্য হয়
-                        $resolved = $pay_amount;
-                        if (
-                          $resolved <= 0 && $admission_fee === 'flexible'
-                          && preg_match('/^\$?(\d+(\.\d{1,2})?)$/', $flexible_note, $m)
-                        ) {
-                          $resolved = (float) $m[1];
-                        }
-
-                        // Package label
-                        $pkg_map   = [50 => 'Standard', 30 => 'Supported'];
-                        $pkg_label = $resolved > 0 ? ($pkg_map[(int) $resolved] ?? 'Custom') : '';
-
-                        // Payment method CSS class
-                        $method_class_map = ['zelle' => 'iqu-pay-zelle', 'zeffy' => 'iqu-pay-zeffy'];
-                        $method_cls = $method_class_map[$pay_method] ?? 'iqu-pay-other';
-
-                        echo '<span class="iqu-pay-cell">';
-
-                        if ($pay_method !== '') {
-                          echo '<span class="iqu-pay-method ' . esc_attr($method_cls) . '">'
-                            . esc_html(ucfirst($pay_method))
-                            . '</span>'
-                            . '<span class="iqu-pay-sep">·</span>';
-                        }
-
-                        if ($resolved > 0) {
-                          echo '<span class="iqu-amt">$' . esc_html(number_format($resolved, 0)) . '</span>';
-                          if ($pkg_label !== '') {
-                            echo ' <span class="iqu-pkg-label">(' . esc_html($pkg_label) . ')</span>';
-                          }
-                        } else {
-                          echo '<span class="iqu-amt-free">—</span>';
-                        }
-
-                        echo '</span>';
-                      }
-                    }
-                    ?>
-                    </td>
+                    <td><?php echo self::payment_cell_html($row); ?></td>
                     <td class="iqu-td-date"><?php
-                                          $dt = new DateTime($row['created_at'], new DateTimeZone('UTC'));
-                                          $dt->setTimezone(new DateTimeZone('Asia/Dhaka'));
-                                          echo esc_html($dt->format('M j, Y g:i A'));
-                                          ?>
+                      $dt = new DateTime($row['created_at'], new DateTimeZone('UTC'));
+                      $dt->setTimezone(new DateTimeZone('Asia/Dhaka'));
+                      echo esc_html($dt->format('M j, Y g:i A'));
+                      ?>
                     </td>
                     <td class="iqu-td-actions"><a href="<?php echo esc_url($view); ?>"
                             class="iqu-action-btn iqu-action-btn--view">View</a>
@@ -698,7 +755,8 @@ class IQU_Admin
             <tbody>
                 <?php if (empty($rows)): ?>
                 <tr>
-                    <td colspan="10" class="iqu-empty-state">No registrations found.</td>
+                    <td colspan="<?php echo $is_summer ? 11 : 9; ?>" class="iqu-empty-state">No registrations found.
+                    </td>
                 </tr>
                 <?php else:
               foreach ($rows as $row):
