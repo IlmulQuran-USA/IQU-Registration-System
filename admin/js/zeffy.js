@@ -601,6 +601,10 @@
       runAction("iqu_zeffy_backfill", $(this), cfg.i18n.importing, reloadSoon);
     });
 
+    $("#iquz-telegram-test").on("click", function () {
+      runAction("iqu_telegram_test", $(this), "Sending…");
+    });
+
     $(".iquz-toggle-detail").on("click", function () {
       var $detail = $(this).closest("tr").next(".iquz-detail-row");
       var isHidden = $detail.prop("hidden");

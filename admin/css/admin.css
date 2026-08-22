@@ -3,7 +3,7 @@
  * ═════════════════════════════════════════════════════════════ */
 
 :root {
-  --iqu-navy: #1a3a5c;
+  --iqu-navy: #2f4b68;
   --iqu-blue: #1e5fa0;
   --iqu-gold: #c98a00;
   --iqu-green: #1a8a45;
@@ -123,6 +123,7 @@
   background: var(--iqu-bg2);
   color: var(--iqu-text1);
 }
+  
 .iqu-tab-active,
 .iqu-tab-active:hover,
 .iqu-tab-active:focus {
@@ -130,6 +131,35 @@
   color: #fff !important;
   font-weight: 600;
   text-decoration: none;
+}
+
+/* Divider between each tab so the pill reads as separate buttons
+   rather than one solid block. */
+.iqu-tab + .iqu-tab {
+  border-left: 1px solid var(--iqu-bdr);
+}
+.iqu-tab-active + .iqu-tab,
+.iqu-tab.iqu-tab-active {
+  border-left-color: transparent;
+}
+
+@media (max-width: 782px) {
+  /* Tabs take the full width of the row and split it evenly between
+     buttons, instead of hugging the left with empty space on the
+     right. Labels wrap instead of being cut off. */
+  .iqu-top-bar-right {
+    width: 100%;
+  }
+  .iqu-tabs {
+    width: 100%;
+  }
+  .iqu-tab {
+    flex: 1 1 auto;
+    padding: 8px 6px;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+  }
 }
 
 /* ── Metric Cards ───────────────────────────────────────────── */

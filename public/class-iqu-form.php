@@ -93,7 +93,7 @@ class IQU_Form
         wp_localize_script('iqu-form-script', 'IQU_AJAX', [
             'ajax_url'       => esc_url(admin_url('admin-ajax.php')),
             'nonce'          => wp_create_nonce('iqu_registration_nonce'),
-            'recaptcha_site' => IQU_RECAPTCHA_SITE_KEY,
+            'recaptcha_site' => defined('IQU_RECAPTCHA_SITE_KEY') ? IQU_RECAPTCHA_SITE_KEY : '',
             'intl_utils_url' => IQU_INTL_TEL_INPUT_UTILS_JS,
             'zeffy_url'      => IQU_ZEFFY_URL,
             'zelle_phone'    => IQU_ZELLE_PHONE,
@@ -837,6 +837,7 @@ class IQU_Form
         // Emails
         IQU_Mailer::send_admin_notification($clean, $reg_id);
         IQU_Mailer::send_student_confirmation($clean);
+        do_action('iqu_registration_created', $clean, (int) $reg_id);
 
         // ── Meta Lead event (browser + server, event_id দিয়ে dedup) ──
         $event_id     = IQU_Pixel::new_event_id();

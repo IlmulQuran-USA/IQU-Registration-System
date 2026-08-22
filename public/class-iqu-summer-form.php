@@ -672,6 +672,7 @@ class IQU_Summer_Form
         // Emails
         IQU_Mailer::send_admin_notification($clean, $reg_id);
         IQU_Mailer::send_student_confirmation($clean);
+         do_action('iqu_registration_created', $clean, (int) $reg_id);
 
         // payment_amount — validator miss করলেও directly $_POST থেকে নাও
         $payment_method = !empty($clean['payment_method'])

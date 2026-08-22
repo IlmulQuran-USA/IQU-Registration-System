@@ -8,6 +8,7 @@
   --z-purple: #5b4ce0;
   --z-purple-dark: #4338ca;
   --z-purple-soft: #eeecfd;
+  --iqu-navy: #2f4b68;
   --z-green: #0f9d58;
   --z-green-soft: #e6f6ec;
   --z-amber: #c98a00;
@@ -19,11 +20,15 @@
   --z-line: #e5e7eb;
   --z-bg: #f7f7fb;
 
-  margin: 16px 20px 40px 0;
+  padding: 16px 20px;
   color: var(--z-ink);
   font-size: 13px;
 }
 
+/* Include the wrap itself, not just its children — otherwise the
+   20px side padding is added on top of WordPress's full width and
+   the page overflows to the right. */
+.iquz-wrap,
 .iquz-wrap * {
   box-sizing: border-box;
 }
@@ -50,15 +55,20 @@
 }
 
 .iquz-mark {
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: var(--z-purple-soft);
+  background: var(--iqu-navy);
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
 .iquz-mark img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
   display: block;
 }
 
@@ -109,6 +119,56 @@
   color: var(--z-mute);
 }
 
+/* ── Tab switcher ───────────────────────────────────────
+   Mirrors the registration pages' tab bar so the two areas
+   feel like one panel rather than two separate tools. */
+
+.iquz-tabs {
+  display: flex;
+  border: 1px solid var(--z-line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.iquz-tab {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--z-mute);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.iquz-tab:hover:not(.iquz-tab--active) {
+  background: var(--z-bg);
+  color: var(--z-ink);
+}
+
+/* Divider between each tab so the segments read as separate buttons
+   within the pill, without doubling up the outer .iquz-tabs border. */
+.iquz-tab + .iquz-tab {
+  border-left: 1px solid var(--z-line);
+}
+
+.iquz-tab--active {
+  background: var(--z-purple);
+  color: #fff;
+  font-weight: 600;
+}
+
+.iquz-tab--active + .iquz-tab,
+.iquz-tab.iquz-tab--active {
+  border-left-color: transparent;
+}
+
+.iquz-tab--active:hover {
+  color: #fff;
+}
+
 /* ── Buttons ────────────────────────────────────────── */
 .iquz-btn {
   display: inline-flex;
@@ -124,7 +184,10 @@
   line-height: 1.4;
   cursor: pointer;
   text-decoration: none;
-  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.05s;
 }
 
 .iquz-btn:hover {
@@ -234,7 +297,9 @@
   border-radius: 12px;
   padding: 16px 16px 14px;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
-  transition: box-shadow 0.15s, transform 0.15s;
+  transition:
+    box-shadow 0.15s,
+    transform 0.15s;
 }
 
 .iquz-metric:hover {
@@ -926,11 +991,42 @@
 /* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 782px) {
   .iquz-wrap {
-    margin-right: 10px;
+    padding: 10px 12px;
   }
 
   .iquz-header {
     align-items: flex-start;
+    padding: 0 0 12px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .iquz-header-left,
+  .iquz-header-right {
+    width: 100%;
+  }
+
+  /* Status pill and timestamp share one row, buttons the next. */
+  .iquz-header-right {
+    gap: 8px;
+  }
+
+  /* The tab bar takes a full row of its own and divides the width
+     evenly, matching how it renders on the registration screens
+     where it sits in open space rather than inside a padded card. */
+  .iquz-tabs {
+    width: 100%;
+    order: 10;
+  }
+
+  .iquz-tab {
+    flex: 1 1 auto;
+    padding: 7px 6px;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
   }
 
   .iquz-input--search {
@@ -954,11 +1050,11 @@
    guarantees side-by-side cards are always identical in
    height regardless of caption length.
    ══════════════════════════════════════════════════════ */
- 
+
 .iquz-section-head {
   margin: 26px 0 14px;
 }
- 
+
 .iquz-section-head h2 {
   margin: 0;
   font-size: 15px;
@@ -966,92 +1062,92 @@
   color: var(--z-ink);
   letter-spacing: -0.2px;
 }
- 
+
 .iquz-section-head p {
   margin: 4px 0 0;
   font-size: 12px;
   color: var(--z-mute);
 }
- 
+
 /* ── Row containers ─────────────────────────────────── */
- 
+
 .iquz-chart-row {
   display: grid;
   gap: 12px;
   margin-bottom: 12px;
   align-items: stretch;
 }
- 
+
 .iquz-chart-row--1 {
   grid-template-columns: 1fr;
 }
- 
+
 .iquz-chart-row--2 {
   grid-template-columns: repeat(2, 1fr);
 }
- 
+
 .iquz-chart-row--3 {
   grid-template-columns: repeat(3, 1fr);
 }
- 
+
 .iquz-chart-row:last-of-type {
   margin-bottom: 18px;
 }
- 
+
 /* ── Cards inside a row ─────────────────────────────────
    The card is a flex column and the note is pushed to the
    bottom with margin-top:auto. Without that, a one-line
    caption would leave its chart floating mid-card while the
    neighbour's two-line caption sat flush — same box height,
    mismatched internals. */
- 
+
 .iquz-chart-row .iquz-card {
   display: flex;
   flex-direction: column;
   height: 100%;
   padding: 14px 16px;
 }
- 
+
 .iquz-chart-row .iquz-card-head {
   padding-bottom: 10px;
   margin-bottom: 10px;
 }
- 
+
 .iquz-chart-row .iquz-card-title {
   font-size: 12.5px;
 }
- 
+
 .iquz-chart-row .iquz-card-badge {
   font-size: 10px;
   padding: 2px 8px;
   white-space: nowrap;
 }
- 
+
 /* ── Chart heights ──────────────────────────────────────
    Fixed per row type so every card in a row reserves the
    same vertical space for its canvas. Ranked bar lists need
    room per row; doughnuts and short bars do not. */
- 
+
 .iquz-chart-body--rank {
   height: 215px;
   flex: 0 0 auto;
 }
- 
+
 .iquz-chart-body--rank canvas {
   max-height: 215px;
 }
- 
+
 .iquz-chart-body--compact {
   height: 170px;
   flex: 0 0 auto;
 }
- 
+
 .iquz-chart-body--compact canvas {
   max-height: 170px;
 }
- 
+
 /* ── Caption ────────────────────────────────────────── */
- 
+
 .iquz-card-note {
   margin: 10px 0 0;
   margin-top: auto;
@@ -1062,24 +1158,24 @@
   color: var(--z-mute);
   min-height: 34px;
 }
- 
+
 #iquz-month-summary strong {
   color: var(--z-ink);
   font-weight: 700;
 }
- 
+
 /* ── Focus card ─────────────────────────────────────────
    The running month is the chart checked daily, so it gets
    a subtle accent rail rather than a louder colour that
    would compete with the metric cards above. */
- 
+
 .iquz-card--focus {
   border-color: #cdc7f7;
   box-shadow: 0 2px 10px rgba(91, 76, 224, 0.08);
   position: relative;
   overflow: hidden;
 }
- 
+
 .iquz-card--focus::before {
   content: "";
   position: absolute;
@@ -1087,16 +1183,16 @@
   width: 3px;
   background: var(--z-purple);
 }
- 
+
 .iquz-card-badge--live {
   background: var(--z-purple-soft);
   border-color: #cdc7f7;
   color: var(--z-purple-dark);
   font-weight: 700;
 }
- 
+
 /* ── Empty state ────────────────────────────────────── */
- 
+
 .iquz-chart-empty {
   display: grid;
   place-items: center;
@@ -1111,26 +1207,24 @@
   padding: 16px 18px;
   line-height: 1.5;
 }
- 
+
 /* ── Responsive ─────────────────────────────────────────
    Three compact charts get cramped below 1300px, so the
    three-up row drops to two, then everything stacks. */
- 
+
 @media (max-width: 1300px) {
   .iquz-chart-row--3 {
     grid-template-columns: repeat(2, 1fr);
   }
 }
- 
+
 @media (max-width: 900px) {
- 
   .iquz-chart-row--2,
   .iquz-chart-row--3 {
     grid-template-columns: 1fr;
   }
- 
+
   .iquz-card-note {
     min-height: 0;
   }
 }
- 

@@ -123,6 +123,7 @@ class IQU_Zeffy_Sync
                 'days'    => $days,
             ]);
         }
+        IQU_Notifier::check_refunds_and_disputes();
 
         return self::record_result([
             'ok'      => true,

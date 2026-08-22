@@ -243,6 +243,25 @@ class IQU_Zeffy_Admin
         <button type="button" class="iquz-btn iquz-btn--primary" id="iquz-sync-now">↻ Sync now</button>
         <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_SLUG . '&setup=1#iquz-settings')); ?>"
             class="iquz-btn">⚙ Settings</a>
+        <?php
+                // Same tab set as the registration pages, so moving between the
+                // two areas does not require going back through the sidebar.
+                $tabs = [
+                    'iqu-registrations'  => 'All',
+                    'iqu-list-free'      => 'Free',
+                    'iqu-list-summer-l1' => 'Level 1',
+                    'iqu-list-summer-l2' => 'Level 2',
+                    self::PAGE_SLUG      => 'Zeffy Payments',
+                ];
+                ?>
+        <div class="iquz-tabs">
+            <?php foreach ($tabs as $slug => $label): ?>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=' . $slug)); ?>"
+                class="iquz-tab <?php echo $slug === self::PAGE_SLUG ? 'iquz-tab--active' : ''; ?>">
+                <?php echo esc_html($label); ?>
+            </a>
+            <?php endforeach; ?>
+        </div>
     </div>
 </div>
 <div class="iquz-flash" id="iquz-flash" hidden></div>
@@ -874,6 +893,13 @@ class IQU_Zeffy_Admin
                 iquz-btn--primary">Save settings</button>
             <button type="button" class="iquz-btn" id="iquz-test">Test connection</button>
             <button type="button" class="iquz-btn iquz-btn--ghost" id="iquz-backfill">Import full history</button>
+
+            <button type="button" class="iquz-btn" id="iquz-telegram-test"
+                <?php disabled(!IQU_Telegram::is_configured()); ?>>
+                <?php echo IQU_Telegram::is_configured()
+                        ? '✈ Send test message'
+                        : '✈ Telegram not configured'; ?>
+            </button>
         </div>
     </form>
 
