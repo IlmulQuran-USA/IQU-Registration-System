@@ -32,8 +32,20 @@ class IQU_Validator
         'friend_family',
         'email',
     ];
-    // ⚠️ পুরনো fee_pref অপশনগুলো v2.8.0-তে বাদ — এখন কোর্স + দিন থেকে
-    //    দাম হিসাব হয়। Summer ফর্ম এই const ব্যবহার করে না।
+    private const ALLOWED_FEES       = [
+        'arabic_50',
+        'qaidah_50',
+        'qaidah_60',
+        'qaidah_70',
+        'qaidah_80',
+        'hifz_60',
+        'hifz_70',
+        'hifz_80',
+        'hifz_90',
+        'hifz_100',
+        'free',
+        'other',
+    ];
     private const ALLOWED_ENROLL = ['level1', 'level2'];
     private const ALLOWED_TRIBOOL = ['yes', 'no', 'maybe'];
     private const ALLOWED_ADM_FEE = ['50', '30', 'flexible', 'complimentary'];
@@ -111,6 +123,12 @@ class IQU_Validator
         }
         $this->clean['teacher_pref'] = $teacher;
 
+        $device = strtolower(sanitize_text_field($post['device'] ?? ''));
+        if (!in_array($device, self::ALLOWED_DEVICES, true)) {
+            $this->errors['device'] = 'Please select the device you will use.';
+        }
+        $this->clean['device'] = $device;
+
         $ref = strtolower(sanitize_text_field($post['referral'] ?? ''));
         if (!in_array($ref, self::ALLOWED_REFERRALS, true)) {
             $this->errors['referral'] = 'Please select how you heard about us.';
@@ -127,63 +145,40 @@ class IQU_Validator
             $this->clean['referral_other'] = $ref_other;
         }
 
-        // ── 💰 কোর্স ও প্রাইসিং ───────────────────────────
-        $course = strtolower(sanitize_text_field($post['course_type'] ?? ''));
-        if (!IQU_Pricing::is_valid_course($course)) {
-            $this->errors['course_type'] = 'Please select the course you would like to enroll in.';
-            $course = '';
+        $wa_group = strtolower(sanitize_text_field($post['whatsapp_group'] ?? ''));
+        if (!in_array($wa_group, ['yes', 'no'], true)) {
+            $this->errors['whatsapp_group'] = 'Please answer the WhatsApp group question.';
         }
-        $this->clean['course_type'] = $course;
+        $this->clean['whatsapp_group'] = $wa_group;
 
-        // কোর্সভেদে সর্বনিম্ন দিন — হেফজে ৩ দিন বাধ্যতামূলক
-        if ($course !== '' && $days_per_week > 0) {
-            $min_days = IQU_Pricing::min_days($course);
-            if ($days_per_week < $min_days) {
-                $this->errors['days_per_week'] = sprintf(
-                    '%s requires at least %d classes per week.',
-                    IQU_Pricing::label($course),
-                    $min_days
-                );
+        $fee = strtolower(sanitize_text_field($post['fee_pref'] ?? ''));
+        if (!in_array($fee, self::ALLOWED_FEES, true)) {
+            $this->errors['fee_pref'] = 'Please select a monthly fee option.';
+        }
+
+        if ($fee === 'other') {
+            $custom_fee = absint($post['fee_custom_amount'] ?? 0);
+            if ($custom_fee < 1) {
+                $this->errors['fee_pref'] = 'Please enter your custom monthly amount.';
+            } else {
+                $fee = 'custom_' . $custom_fee;
             }
         }
 
-        // ── 🎟️ কুপন ও যাকাত স্বীকৃতি ─────────────────────
-        // এখানে শুধু ফরম্যাট যাচাই। কুপনের বৈধতা ও ছাড়ের অঙ্ক
-        // IQU_Form::handle_ajax_submit()-এ IQU_Coupon::validate() দিয়ে
-        // হিসাব হয়, কারণ সেখানে চূড়ান্ত দামও জানা থাকে।
-        $coupon = strtoupper(trim(sanitize_text_field($post['coupon_code'] ?? '')));
-
-        if ($coupon !== '' && !preg_match('/^[A-Z0-9\-]{4,40}$/', $coupon)) {
-            $this->errors['coupon_code'] = 'That coupon code format is not valid.';
-            $coupon = '';
-        }
-
-        // handle_ajax_submit() এটি পড়ে, তারপর unset করে —
-        // এটি ডেটাবেজ কলাম নয়।
-        $this->clean['coupon_code_input'] = $coupon;
-
-        $this->clean['zakat_declaration'] = !empty($post['zakat_declaration']) ? 1 : 0;
-
-
-        $this->clean['special_discount'] = !empty($post['special_discount']) ? 1 : 0;
-
-        // দুটো ছাড় একসাথে নয়
-        if ($this->clean['special_discount'] && $coupon !== '') {
-            $this->errors['coupon_code'] =
-                'The special discount cannot be combined with a scholarship coupon.';
-        }
-
-        if ($coupon !== '' && !$this->clean['zakat_declaration']) {
-            $this->errors['zakat_declaration'] =
-                'Please confirm the Zakat eligibility declaration to use a coupon code.';
-        }
-
-        // পুরনো ফিল্ডগুলো আর ফর্মে নেই — খালি রেখে দাও যাতে
-        // ডেটাবেজ ইনসার্ট ও পুরনো রিপোর্ট অক্ষত থাকে।
-        $this->clean['fee_pref']            = '';
+        $this->clean['fee_pref'] = $fee;
         $this->clean['free_request_reason'] = '';
-        $this->clean['device']              = '';
-        $this->clean['whatsapp_group']      = '';
+
+        if ($fee === 'free') {
+            $reason = sanitize_textarea_field($post['free_request_reason'] ?? '');
+            if ($reason === '') {
+                $this->errors['free_request_reason'] = 'Please briefly explain your situation for free enrollment.';
+            } elseif (mb_strlen($reason) > 600) {
+                $this->errors['free_request_reason'] = 'Please keep your explanation under 600 characters.';
+            }
+            $this->clean['free_request_reason'] = $reason;
+        }
+
+
 
         $this->add_meta();
 

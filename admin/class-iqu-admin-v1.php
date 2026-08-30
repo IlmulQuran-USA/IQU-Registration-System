@@ -81,9 +81,7 @@ class IQU_Admin
       $this->render_list_page(IQU_Database::FORM_SUMMER_LEVEL2, 'Summer Program — Level 2 (Ages 11–15)');
     }); 
     add_submenu_page('iqu-registrations', 'Registration Details — IQU', 'View Registration', 'manage_options', 'iqu-view-registration', [$this, 'render_view_page']);
-    add_action('admin_head', function () {
-      remove_submenu_page('iqu-registrations', 'iqu-view-registration');
-    });
+    remove_submenu_page('iqu-registrations', 'iqu-view-registration');
   }
 
   public function enqueue_assets(string $hook): void
@@ -213,8 +211,8 @@ class IQU_Admin
       'iqu-list-free'       => 'Free',
       'iqu-list-summer-l1'  => 'Level 1',
       'iqu-list-summer-l2'  => 'Level 2',
-      'iqu-coupon-create'   => 'Create Coupon',
-      'iqu-coupon-list'     => 'Coupon List',
+      'iqu-coupon-create'   => 'Create Coupon',   
+      'iqu-coupon-list'     => 'Coupon List',     
       'iqu-zeffy-payments'  => 'Zeffy Payments',
     ];
   ?>
@@ -278,7 +276,7 @@ class IQU_Admin
     $pay_amount    = (float) ($row['payment_amount'] ?? 0);
 
     if ($form_type === 'free') {
-      return self::free_payment_html($row);
+      return self::free_payment_html($fee_pref, $flexible_note);
     }
 
     if (in_array($form_type, ['summer_level1', 'summer_level2'], true)) {
@@ -289,82 +287,16 @@ class IQU_Admin
   }
 
   /**
-   * Payment cell for the free enrollment form.
-   *
-   * v2.8.0 থেকে দাম কোর্স + দিন থেকে হিসাব হয় এবং `payment_amount`
-   * কলামে বসে। কিন্তু পুরনো রেকর্ডে সেই কলাম খালি আর `fee_pref`-এ
-   * তথ্য আছে — তাই দুটো পথই এখানে সামলানো হয়।
-   *
-   * কোনো টাকা এখনো সংগ্রহ হয়নি, তাই সব অঙ্কে "Pending" ব্যাজ থাকে।
+   * Payment cell for the free enrollment form. Nothing has been
+   * collected yet, so anything with an amount carries a "Pending" badge.
    */
-  private static function free_payment_html(array $row): string
+  private static function free_payment_html(string $fee_pref, string $flexible_note): string
   {
-    $pending  = '<span class="iqu-free-pending-badge">Pending</span>';
-    $course   = $row['course_type'] ?? '';
-    $fee_pref = $row['fee_pref'] ?? '';
-
-    // ── নতুন সিস্টেম (v2.8.0+) ──
-    if ($course !== '') {
-      $amount   = (float) ($row['payment_amount'] ?? 0);
-      $discount = (float) ($row['discount_amount'] ?? 0);
-      $original = (float) ($row['calculated_amount'] ?? 0);
-
-      // ছাড়ের উৎস — IQU_Form::handle_submit অনুযায়ী কুপন ও
-      // স্পেশাল ডিসকাউন্ট কখনো একসাথে চলে না, তাই একটাই সত্য।
-      // ⚠️ কুপন কোড ইচ্ছাকৃতভাবে দেখানো হয় না — লিস্ট পরিষ্কার
-      //    রাখতে; কোড দরকার হলে View পেজে আছে।
-      if (!empty($row['coupon_id'])) {
-        $src_class = 'coupon';
-        $src_label = 'Coupon applied';
-      } elseif (!empty($row['special_discount'])) {
-        $src_class = 'special';
-        $src_label = 'Special discount';
-      } else {
-        $src_class = 'none';
-        $src_label = 'No discount applied';
-      }
-
-      $source_html = '<span class="iqu-fee-source iqu-fee-source--'
-        . $src_class . '">' . esc_html($src_label) . '</span>';
-
-      // পূর্ণ স্কলারশিপ — টিউশন সম্পূর্ণ মওকুফ
-      if ($amount <= 0 && $discount > 0) {
-        return '<span class="iqu-pay-cell">'
-          . '<span class="iqu-no-pay-badge">Scholarship</span>'
-          . '<span class="iqu-amt">Full Zakat Scholarship</span>'
-          . $source_html
-          . '</span>';
-      }
-
-      $html = '<span class="iqu-pay-cell">' . $pending
-        . '<span class="iqu-amt">$' . number_format($amount, 2) . '</span>';
-
-      // আংশিক ছাড় হলে মূল দামটা কেটে দেখাও
-      // ⚠️ <br> ব্যবহার করা হয় না — সেল যেন দুই লাইনে না ভাঙে
-      if ($discount > 0 && $original > 0) {
-        $percent = (int) round(($discount / $original) * 100);
-        $html .= '<span class="iqu-fee-orig">'
-          . '<s>$' . number_format($original, 2) . '</s> · '
-          . $percent . '% off'
-          . '</span>';
-      }
-
-      $html .= $source_html . '</span>';
-      return $html;
-    }
-
-    // ── পুরনো রেকর্ড (v2.7.x এবং তার আগে) ──
-    $flexible_note = trim($row['flexible_fee_note'] ?? '');
-
-    // ⚠️ v2.8.0-এর আগের রেকর্ডে coupon/discount কলামই নেই,
-    //    তাই ছাড়ের উৎস বলা সম্ভব নয় — "Legacy record" নোট বসে।
-    $legacy_html = '<span class="iqu-fee-source iqu-fee-source--legacy">Legacy record</span>';
+    $pending = '<span class="iqu-free-pending-badge">Pending</span>';
 
     if ($fee_pref === 'free') {
-      return '<span class="iqu-pay-cell">'
-        . '<span class="iqu-no-pay-badge">No Payment</span>'
-        . '<span class="iqu-amt">Totally Free (Zakat)</span>'
-        . $legacy_html
+      return '<span class="iqu-no-pay-chip">'
+        . '<span class="iqu-no-pay-badge">No Payment</span> Totally Free (Zakat)'
         . '</span>';
     }
 
@@ -374,25 +306,19 @@ class IQU_Admin
         : $flexible_note;
 
       return '<span class="iqu-pay-cell">' . $pending
-        . '<span class="iqu-amt">' . esc_html($display) . '</span>'
-        . $legacy_html . '</span>';
+        . '<span class="iqu-amt">' . esc_html($display) . '</span></span>';
     }
 
     if ($fee_pref !== '') {
       return '<span class="iqu-pay-cell">' . $pending
-        . '<span class="iqu-amt">' . esc_html(self::fee_pref_label($fee_pref)) . '</span>'
-        . $legacy_html . '</span>';
+        . '<span class="iqu-amt">' . esc_html(self::fee_pref_label($fee_pref)) . '</span></span>';
     }
 
     return '<span class="iqu-amt-free">—</span>';
   }
 
   /**
-   * পুরনো fee_pref key-এর মানুষ-পাঠযোগ্য লেবেল।
-   *
-   * ⚠️ শুধুমাত্র v2.8.0-এর আগের রেকর্ডের জন্য। `custom_25` ধরনের
-   *    key-ও এখানে পড়ে — সেগুলো "$25/mo (custom)" হিসেবে দেখানো হয়,
-   *    কারণ পুরনো বাগের কারণে ওসব রেকর্ডে payment_amount শূন্য বসেছিল।
+   * Human label for a fee preference key. Unknown keys pass through.
    */
   private static function fee_pref_label(string $fee_pref): string
   {
@@ -409,19 +335,7 @@ class IQU_Admin
       'qaidah_50' => "Qa'idah — $50/mo",
     ];
 
-    if (isset($labels[$fee_pref])) {
-      return $labels[$fee_pref];
-    }
-
-    // custom_25 → $25/mo (custom)
-    if (strpos($fee_pref, 'custom_') === 0) {
-      $amount = (float) substr($fee_pref, 7);
-      if ($amount > 0) {
-        return '$' . number_format($amount, 2) . '/mo (custom)';
-      }
-    }
-
-    return $fee_pref;
+    return $labels[$fee_pref] ?? $fee_pref;
   }
 
   /**
@@ -832,9 +746,8 @@ class IQU_Admin
                     <th>Payment</th>
                     <?php else: ?>
                     <th>WhatsApp</th>
-                    <th>Course</th>
                     <th>Level</th>
-                    <th>Tuition</th>
+                    <th>Country</th>
                     <?php endif; ?>
                     <th>Status</th>
                     <th>Registered</th>
@@ -844,7 +757,7 @@ class IQU_Admin
             <tbody>
                 <?php if (empty($rows)): ?>
                 <tr>
-                    <td colspan="<?php echo $is_summer ? 11 : 11; ?>" class="iqu-empty-state">No registrations found.
+                    <td colspan="<?php echo $is_summer ? 11 : 9; ?>" class="iqu-empty-state">No registrations found.
                     </td>
                 </tr>
                 <?php else:
@@ -893,17 +806,8 @@ class IQU_Admin
                         <span class="iqu-amt-free">—</span>
                         <?php endif; ?>
                     </td>
-                    <td>
-                        <?php
-                        $lc = $row['course_type'] ?? '';
-                        echo $lc !== ''
-                            ? '<strong>' . esc_html(IQU_Pricing::label($lc)) . '</strong><br>'
-                              . '<small style="opacity:.7">' . (int) $row['days_per_week'] . ' days/week</small>'
-                            : '<span class="iqu-amt-free">—</span>';
-                        ?>
-                    </td>
                     <td><?php echo esc_html(ucfirst($row['quran_level'])); ?></td>
-                    <td><?php echo self::payment_cell_html($row); ?></td>
+                    <td><?php echo esc_html($row['country_res']); ?></td>
                     <?php endif; ?>
                     <td>
                         <select class="iqu-status-select" data-id="<?php echo (int) $row['id']; ?>">
@@ -1115,109 +1019,16 @@ class IQU_Admin
             </div>
 
             <?php if (!$is_summer): ?>
-            <div class="iqu-section-title">Course &amp; Tuition</div>
+            <div class="iqu-section-title">Fee Preference</div>
             <div class="iqu-detail-data">
-                <?php
-                $d_course   = $row['course_type'] ?? '';
-                $d_original = (float) ($row['calculated_amount'] ?? 0);
-                $d_discount = (float) ($row['discount_amount'] ?? 0);
-                $d_final    = (float) ($row['payment_amount'] ?? 0);
-                $d_coupon   = $row['coupon_code'] ?? '';
-                $d_rate     = (float) ($row['per_class_rate'] ?? 0);
-                $d_days     = (int) ($row['days_per_week'] ?? 0);
-                ?>
-
-                <?php if ($d_course !== ''): ?>
-                <!-- ── নতুন সিস্টেম (v2.8.0+) ── -->
                 <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Course</div>
-                    <div class="iqu-detail-val">
-                        <strong><?php echo esc_html(IQU_Pricing::label($d_course) ?: $d_course); ?></strong>
-                    </div>
-                </div>
-                <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Rate Breakdown</div>
-                    <div class="iqu-detail-val">
-                        <?php if ($d_rate > 0 && $d_days > 0): ?>
-                        <?php echo (int) ($d_days * IQU_Pricing::WEEKS_PER_MONTH); ?> classes/month
-                        &times; $<?php echo number_format($d_rate, 2); ?>/class
-                        <?php else: ?>
-                        &mdash;
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Regular Tuition</div>
-                    <div class="iqu-detail-val" style="font-family:var(--iqu-font-mono);">
-                        <?php echo $d_original > 0 ? '$' . number_format($d_original, 2) : '&mdash;'; ?>
-                    </div>
-                </div>
-
-                <?php if ($d_discount > 0 && !empty($row['special_discount'])): ?>
-                <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Special Discount</div>
-                    <div class="iqu-detail-val" style="color:#1a8a45;font-weight:600;">
-                        &minus;$<?php echo number_format($d_discount, 2); ?>
-                        <?php if ($d_original > 0): ?>
-                        <small style="opacity:.7">
-                            (<?php echo (int) round(($d_discount / $d_original) * 100); ?>% off &middot; student opted
-                            in)
-                        </small>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-
-                <?php if ($d_discount > 0 && empty($row['special_discount'])): ?>
-                <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Coupon Code</div>
-                    <div class="iqu-detail-val">
-                        <code><?php echo esc_html($d_coupon ?: '—'); ?></code>
-                    </div>
-                </div>
-                <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Zakat Scholarship</div>
-                    <div class="iqu-detail-val" style="color:#1a8a45;font-weight:600;">
-                        &minus;$<?php echo number_format($d_discount, 2); ?>
-                        <?php if ($d_original > 0): ?>
-                        <small style="opacity:.7">
-                            (<?php echo (int) round(($d_discount / $d_original) * 100); ?>%)
-                        </small>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Zakat Declaration</div>
-                    <div class="iqu-detail-val">
-                        <?php echo !empty($row['zakat_declaration'])
-                            ? '<span style="color:#1a8a45;font-weight:600;">&check; Confirmed by student</span>'
-                            : '<span style="color:#c0392b;font-weight:600;">&times; Not confirmed</span>'; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-
-                <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Monthly Amount Due</div>
-                    <div class="iqu-detail-val"
-                        style="font-family:var(--iqu-font-mono);font-size:1.15em;font-weight:700;<?php echo $d_final > 0 ? 'color:#1a5276' : 'color:#1a8a45'; ?>">
-                        $<?php echo number_format($d_final, 2); ?>
-                        <?php if ($d_final <= 0): ?>
-                        <small style="font-weight:400;">(full scholarship)</small>
-                        <?php endif; ?>
-                    </div>
-                </div>
-
-                <?php else: ?>
-                <!-- ── পুরনো রেকর্ড (v2.7.x ও তার আগে) ── -->
-                <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Monthly Fee <small style="opacity:.6">(legacy)</small></div>
+                    <div class="iqu-detail-lbl">Monthly Fee</div>
                     <div class="iqu-detail-val"><?php echo esc_html($row['fee_pref'] ?: '—'); ?></div>
                 </div>
                 <div class="iqu-detail-item">
                     <div class="iqu-detail-lbl">Free Request Reason</div>
                     <div class="iqu-detail-val"><?php echo esc_html($row['free_request_reason'] ?: '—'); ?></div>
                 </div>
-                <?php endif; ?>
             </div>
             <?php endif; ?>
 
@@ -1352,22 +1163,6 @@ class IQU_Admin
     self::send_json(IQU_Database::update_status($id, $status, $note));
   }
 
-  /**
-   * 🔒 CSV formula injection সুরক্ষা।
-   *
-   * Excel/Sheets-এ `=`, `+`, `-`, `@` দিয়ে শুরু হওয়া সেল সূত্র হিসেবে
-   * চলে। কেউ নাম বা নোটে `=HYPERLINK(...)` লিখে দিলে অ্যাডমিন ফাইল
-   * খোলামাত্র সেটা কার্যকর হতো। সামনে apostrophe দিলে তা আটকায়।
-   */
-  private static function csv_safe(?string $value): string
-  {
-    $value = (string) $value;
-    if ($value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
-      return "'" . $value;
-    }
-    return $value;
-  }
-
   public function handle_export_csv(): void
   {
     check_admin_referer('iqu_export_csv');
@@ -1383,68 +1178,9 @@ class IQU_Admin
     header('Content-Disposition: attachment; filename="iqu-registrations-' . ($form_type ?: 'all') . '-' . date('Y-m-d') . '.csv"');
     $out = fopen('php://output', 'w');
     fputs($out, "\xEF\xBB\xBF");
-    fputcsv($out, [
-      'ID', 'Form Type', 'First Name', 'Last Name', 'Email', 'Age',
-      'Country Origin', 'Country Residence', "Qur'an Level",
-
-      // 💰 নতুন কলাম — হেডার ও রো একই ক্রমে রাখতে হবে
-      'Course', 'Days/Week', 'Rate/Class', 'Regular Tuition',
-      'Coupon Code', 'Discount Amount', 'Special Discount', 'Declaration Signed',
-
-      'Preferred Days', 'Time Slot', 'Session Duration', 'Languages',
-      'WhatsApp', 'Memorized', 'Teacher Pref', 'Device', 'Referral',
-      'WA Updates', 'Fee Pref (legacy)', 'Free Request Note',
-      'Enrollment Level', 'Guardian', 'Guardian Contact', 'Guardian WhatsApp',
-      'WA Group', 'Admission Fee', 'Payment Method', 'Amount Due',
-      'Transaction ID', 'Payment Status', 'Status', 'Registered At',
-    ]);
+    fputcsv($out, ['ID', 'Form Type', 'First Name', 'Last Name', 'Email', 'Age', 'Country Origin', 'Country Residence', "Qur'an Level", 'Days/Week', 'Preferred Days', 'Time Slot', 'Session Duration', 'Languages', 'WhatsApp', 'Memorized', 'Teacher Pref', 'Device', 'Referral', 'WA Updates', 'Fee Pref', 'Free Request Note', 'Enrollment Level', 'Guardian', 'Guardian Contact', 'Guardian WhatsApp', 'WA Group', 'Admission Fee', 'Payment Method', 'Payment Amount', 'Transaction ID', 'Payment Status', 'Status', 'Registered At']);
     foreach ($rows as $r) {
-      fputcsv($out, [
-        $r['id'],
-        $r['form_type'],
-        self::csv_safe($r['first_name']),
-        self::csv_safe($r['last_name']),
-        self::csv_safe($r['email']),
-        $r['age'],
-        self::csv_safe($r['country_origin']),
-        self::csv_safe($r['country_res']),
-        $r['quran_level'],
-
-        // 💰 নতুন কোর্স ও প্রাইসিং কলাম
-        $r['course_type'] ?? '',
-        $r['days_per_week'],
-        $r['per_class_rate'] ?? '',
-        $r['calculated_amount'] ?? '',
-        self::csv_safe($r['coupon_code'] ?? ''),
-        $r['discount_amount'] ?? '',
-        !empty($r['special_discount']) ? 'Yes' : 'No',
-        !empty($r['zakat_declaration']) ? 'Yes' : 'No',
-
-        self::csv_safe($r['preferred_days']),
-        self::csv_safe($r['time_slot']),
-        $r['session_dur'],
-        self::csv_safe($r['languages']),
-        self::csv_safe($r['whatsapp']),
-        self::csv_safe($r['memorized']),
-        $r['teacher_pref'],
-        $r['device'],
-        $r['referral'],
-        $r['wa_updates'],
-        $r['fee_pref'],
-        self::csv_safe($r['free_request_reason']),
-        $r['enrollment_level'],
-        self::csv_safe($r['guardian_name']),
-        self::csv_safe($r['guardian_contact']),
-        self::csv_safe($r['guardian_whatsapp']),
-        $r['whatsapp_group'],
-        $r['admission_fee'],
-        $r['payment_method'],
-        $r['payment_amount'],
-        self::csv_safe($r['transaction_id']),
-        $r['payment_status'],
-        $r['status'],
-        $r['created_at'],
-      ]);
+      fputcsv($out, [$r['id'], $r['form_type'], $r['first_name'], $r['last_name'], $r['email'], $r['age'], $r['country_origin'], $r['country_res'], $r['quran_level'], $r['days_per_week'], $r['preferred_days'], $r['time_slot'], $r['session_dur'], $r['languages'], $r['whatsapp'], $r['memorized'], $r['teacher_pref'], $r['device'], $r['referral'], $r['wa_updates'], $r['fee_pref'], $r['free_request_reason'], $r['enrollment_level'], $r['guardian_name'], $r['guardian_contact'], $r['guardian_whatsapp'], $r['whatsapp_group'], $r['admission_fee'], $r['payment_method'], $r['payment_amount'], $r['transaction_id'], $r['payment_status'], $r['status'], $r['created_at']]);
     }
     fclose($out);
     exit;

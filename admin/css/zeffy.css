@@ -1016,14 +1016,16 @@
   /* The tab bar takes a full row of its own and divides the width
      evenly, matching how it renders on the registration screens
      where it sits in open space rather than inside a padded card. */
-  .iquz-tabs {
+.iquz-tabs {
     width: 100%;
     order: 10;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .iquz-tab {
-    flex: 1 1 auto;
-    padding: 7px 6px;
+    flex: 0 0 auto;
+    padding: 7px 12px;
     font-size: 11px;
     text-align: center;
     white-space: nowrap;

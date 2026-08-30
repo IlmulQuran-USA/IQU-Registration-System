@@ -251,6 +251,8 @@ class IQU_Zeffy_Admin
                     'iqu-list-free'      => 'Free',
                     'iqu-list-summer-l1' => 'Level 1',
                     'iqu-list-summer-l2' => 'Level 2',
+                    'iqu-coupon-create'  => 'Create Coupon',
+                    'iqu-coupon-list'    => 'Coupon List',
                     self::PAGE_SLUG      => 'Zeffy Payments',
                 ];
                 ?>
@@ -897,8 +899,8 @@ class IQU_Zeffy_Admin
             <button type="button" class="iquz-btn" id="iquz-telegram-test"
                 <?php disabled(!IQU_Telegram::is_configured()); ?>>
                 <?php echo IQU_Telegram::is_configured()
-                        ? '✈ Send test message'
-                        : '✈ Telegram not configured'; ?>
+                            ? '✈ Send test message'
+                            : '✈ Telegram not configured'; ?>
             </button>
         </div>
     </form>

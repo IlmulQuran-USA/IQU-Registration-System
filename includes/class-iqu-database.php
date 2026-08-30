@@ -53,6 +53,14 @@ class IQU_Database
             referral_other     VARCHAR(200)        NOT NULL DEFAULT '',
             wa_updates         VARCHAR(5)          NOT NULL DEFAULT 'no',
             fee_pref           VARCHAR(50)         NOT NULL DEFAULT '',
+            course_type        VARCHAR(20)         NOT NULL DEFAULT '',
+            per_class_rate     DECIMAL(6,2)        NOT NULL DEFAULT 0,
+            calculated_amount  DECIMAL(8,2)        NOT NULL DEFAULT 0,
+            coupon_code        VARCHAR(40)         NOT NULL DEFAULT '',
+            coupon_id          BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+            discount_amount    DECIMAL(8,2)        NOT NULL DEFAULT 0,
+            special_discount   TINYINT(1)          NOT NULL DEFAULT 0,
+            zakat_declaration  TINYINT(1)          NOT NULL DEFAULT 0,
             free_request_reason TEXT,
             enrollment_level   VARCHAR(20)         NOT NULL DEFAULT '',
             guardian_name      VARCHAR(150)        NOT NULL DEFAULT '',
@@ -76,7 +84,8 @@ class IQU_Database
             KEY                email (email),
             KEY                form_type (form_type),
             KEY                status (status),
-            KEY                created_at (created_at)
+            KEY                created_at (created_at),
+            KEY                coupon_id (coupon_id)
         ) {$charset};";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';

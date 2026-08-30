@@ -4,7 +4,7 @@
  * Plugin Name:       IQU Registration System
  * Plugin URI:        https://ilmulquranus.org
  * Description:       Secure student registration system for Ilm-ul-Quran USA — includes Free Enrollment & Summer Program forms, dashboard, Zelle/Zeffy payments, and Google reCAPTCHA v3.
- * Version:           2.7.8
+ * Version:           2.9.9
  * Author:            Ilm-ul-Quran USA (Muhammad Nurul Ahsan)
  * License:           GPL-2.0+
  * Text Domain:       iqu-registration
@@ -20,11 +20,12 @@ if (!defined('ABSPATH')) {
 // ============================================================
 // 📌 Constants
 // ============================================================
-define('IQU_VERSION', '2.7.8');
+define('IQU_VERSION', '2.9.9');
 define('IQU_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('IQU_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('IQU_TABLE_NAME', 'iqu_registrations');
 define('IQU_ZEFFY_TABLE', 'iqu_zeffy_payments');
+define('IQU_COUPON_TABLE', 'iqu_coupons');
 
 // Version-pinned CDN assets for intl-tel-input.
 define('IQU_INTL_TEL_INPUT_VERSION', '23.0.10');
@@ -53,15 +54,16 @@ define('IQU_ZEFFY_URL', 'https://www.zeffy.com/en-US/fundraising/d912691e-fbd0-4
 define('IQU_ZELLE_PHONE', '469-275-6450');
 define('IQU_ZELLE_EMAIL', 'admin@alhasanahfoundation.org');
 define('IQU_CONTACT_PHONE', '(214) 529-3544');
-define('IQU_CONTACT_EMAIL', 'info@ilmulquranusa.org');
+define('IQU_CONTACT_EMAIL', 'info@ilmulquranusa.org'); 
+define('IQU_MESSENGER_URL', 'https://www.facebook.com/ilmulquranusa');
 
-// Public brand assets for active payment methods.
-// ফাইলের নাম অনুযায়ী কোড ঠিক করুন
-define('IQU_ZELLE_LOGO_URL',
+define(
+  'IQU_ZELLE_LOGO_URL',
   IQU_PLUGIN_URL . 'assets/images/Zelle-Logo-Color.svg'
 );
 
-define('IQU_ZEFFY_LOGO_URL',
+define(
+  'IQU_ZEFFY_LOGO_URL',
   IQU_PLUGIN_URL . 'assets/images/Zeffy-Logo-Color.svg'
 );
 
@@ -84,6 +86,7 @@ require_once IQU_PLUGIN_DIR . 'includes/class-iqu-database.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-validator.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-recaptcha.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-mailer.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-reg-fields.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-pixel.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-zeffy-db.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-zeffy-api.php';
@@ -93,8 +96,12 @@ require_once IQU_PLUGIN_DIR . 'public/class-iqu-form.php';
 require_once IQU_PLUGIN_DIR . 'public/class-iqu-summer-form.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-admin.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-zeffy-admin.php';
+require_once IQU_PLUGIN_DIR . 'admin/class-iqu-coupon-admin.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-telegram.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-notifier.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-pricing.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-coupon-db.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-coupon.php';
 
 // ============================================================
 // 🚀 Activation / Deactivation
@@ -103,10 +110,11 @@ function iqu_on_activation(): void
 {
   IQU_Database::create_table();
   IQU_Zeffy_DB::create_table();
+  IQU_Coupon_DB::create_table();
   IQU_Zeffy_Sync::schedule();
   IQU_Notifier::schedule();
 }
- 
+
 function iqu_on_deactivation(): void
 {
   IQU_Database::on_deactivation();
@@ -120,20 +128,22 @@ register_deactivation_hook(__FILE__, 'iqu_on_deactivation');
 add_action('plugins_loaded', function () {
   IQU_Database::maybe_upgrade();
   IQU_Zeffy_DB::maybe_upgrade();
- 
+  IQU_Coupon_DB::maybe_upgrade();
+
   IQU_Zeffy_Sync::schedule();
-  IQU_Notifier::schedule();          // ← add
- 
+  IQU_Notifier::schedule();
+
   new IQU_Form();
   new IQU_Summer_Form();
- 
+
   new IQU_Zeffy_Sync();
   new IQU_Zeffy_Webhook();
-  new IQU_Notifier();                // ← add
- 
+  new IQU_Notifier();
+
   if (is_admin()) {
     new IQU_Admin();
     new IQU_Zeffy_Admin();
+    new IQU_Coupon_Admin(); 
   }
 });
 

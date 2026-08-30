@@ -25,6 +25,10 @@ class IQU_Form
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('wp_ajax_iqu_submit', [$this, 'handle_ajax_submit']);
         add_action('wp_ajax_nopriv_iqu_submit', [$this, 'handle_ajax_submit']);
+
+        // 🎟️ কুপন যাচাই (রিডিম নয় — শুধু চেক)
+        add_action('wp_ajax_iqu_apply_coupon', [$this, 'handle_apply_coupon']);
+        add_action('wp_ajax_nopriv_iqu_apply_coupon', [$this, 'handle_apply_coupon']);
     }
 
     public function enqueue_assets(): void
@@ -101,6 +105,10 @@ class IQU_Form
             'contact_phone'  => IQU_CONTACT_PHONE,
             'contact_email'  => IQU_CONTACT_EMAIL,
             'geoip_country'  => $geoip_country,
+
+            // 💰 প্রাইসিং কনফিগ — IQU_Pricing-ই একমাত্র সোর্স অব ট্রুথ
+            'pricing'        => IQU_Pricing::js_config(),
+            'messenger_url'  => IQU_MESSENGER_URL,
         ]);
     }
 
@@ -363,391 +371,497 @@ class IQU_Form
         </div>
     </header>
 
-    <!-- ═══ INTRO CARD ═══ -->
-    <section class="iqu-intro-card">
-        <p>JazakAllahu Khairan for your noble intention to learn the Qur'an and deepen your connection with the words of
-            Allah ﷻ. At <strong>ILM-UL-QURAN USA</strong>, we believe every soul deserves access to the light of the
-            Qur'an —
-            with
-            love, patience, and personalized care.</p>
-        <div class="iqu-highlight">
-            <p style="margin:0"><strong>🌟 Enjoy 1 Month of Free Classes</strong> to begin your journey with ease and
-                confidence. After that, continue at an affordable monthly tuition. Whether you're an adult, child, or a
-                sister
-                looking for female-to-female instruction — we offer both <strong>batch</strong> and
-                <strong>One-to-One</strong>
-                classes tailored to your needs.
-            </p>
-        </div>
-        <ul class="iqu-feature-list">
-            <li><span class="iqu-tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff"
-                        stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 6L9 17l-5-5" />
-                    </svg></span>Learn at your own pace</li>
-            <li><span class="iqu-tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff"
-                        stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 6L9 17l-5-5" />
-                    </svg></span>Flexible scheduling options</li>
-            <li><span class="iqu-tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff"
-                        stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 6L9 17l-5-5" />
-                    </svg></span>Qualified and caring teachers</li>
-            <li><span class="iqu-tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff"
-                        stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 6L9 17l-5-5" />
-                    </svg></span>Peaceful learning environment</li>
-        </ul>
-        <p>To help us arrange the best match for your schedule and goals, kindly fill out the form below to start this
-            transformative journey — one filled with knowledge, sincerity, and barakah. May Allah guide you every step
-            of the
-            way, Insha'Allah.</p>
-        <blockquote>
-            The best among you are those who learn the Qur'an and teach it.
-            <em>— Sahih al-Bukhari</em>
-        </blockquote>
+    <!-- ═══ SPLIT LAYOUT ═══
+         বড় ডিভাইসে: বাম পাশে ডেসক্রিপশন (sticky), ডান পাশে ফর্ম
+         ছোট ডিভাইসে: ডেসক্রিপশন উপরে, ফর্ম নিচে -->
+    <div class="iqu-split-layout">
 
-        <div class="iqu-important-note">
-            <div>
-                <strong>Important Note:</strong> Please submit a separate form for each student. Do not include multiple
-                students' information in a single submission. This will help us maintain accurate records for each
-                participant.
-                <em>JazakAllahu Khairan!</em>
+        <!-- ═══ LEFT COLUMN — INTRO ═══ -->
+        <aside class="iqu-split-side">
+            <div class="iqu-split-side-inner">
+
+                <!-- ═══ INTRO CARD ═══ -->
+                <section class="iqu-intro-card">
+                    <p>JazakAllahu Khairan for your noble intention to learn the Qur'an and deepen your connection with
+                        the words of
+                        Allah ﷻ. At <strong>ILM-UL-QURAN USA</strong>, we believe every soul deserves access to the
+                        light of the
+                        Qur'an —
+                        with
+                        love, patience, and personalized care.</p>
+                    <div class="iqu-highlight">
+                        <p style="margin:0"><strong>🌟 Enjoy 1 Month of Free Classes</strong> to begin your journey with
+                            ease and
+                            confidence. After that, continue at an affordable monthly tuition. Whether you're an adult,
+                            child, or a
+                            sister
+                            looking for female-to-female instruction — we offer both <strong>batch</strong> and
+                            <strong>One-to-One</strong>
+                            classes tailored to your needs.
+                        </p>
+                    </div>
+                    <ul class="iqu-feature-list">
+                        <li><span class="iqu-tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                    stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 6L9 17l-5-5" />
+                                </svg></span>Learn at your own pace</li>
+                        <li><span class="iqu-tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                    stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 6L9 17l-5-5" />
+                                </svg></span>Flexible timing options</li>
+                        <li><span class="iqu-tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                    stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 6L9 17l-5-5" />
+                                </svg></span>Qualified and caring teachers</li>
+                        <li><span class="iqu-tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                    stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 6L9 17l-5-5" />
+                                </svg></span>Peaceful learning environment</li>
+                    </ul>
+                    <p>To help us arrange the best match for your schedule and goals, kindly fill out the form below to
+                        start this
+                        transformative journey — one filled with knowledge, sincerity, and barakah. May Allah guide you
+                        every step
+                        of the
+                        way, Insha'Allah.</p>
+                    <blockquote>
+                        The best among you are those who learn the Qur'an and teach it.
+                        <em>— Sahih al-Bukhari</em>
+                    </blockquote>
+
+                    <div class="iqu-important-note">
+                        <div>
+                            <strong>Important Note:</strong> Please submit a separate form for each student. Do not
+                            include multiple
+                            students' information in a single submission. This will help us maintain accurate records
+                            for each
+                            participant.
+                            <em>JazakAllahu Khairan!</em>
+                        </div>
+                    </div>
+                    <p class="iqu-closing">We look forward to welcoming you! 🤲</p>
+                </section>
+
+                <!-- ═══ ZAKAT SCHOLARSHIP CALLOUT ═══ -->
+                <section class="iqu-zakat-callout">
+                    <div class="iqu-zakat-callout-head">
+                        <span class="iqu-zakat-icon" aria-hidden="true">🤲</span>
+                        <h3>Unable to Afford the Tuition?</h3>
+                    </div>
+                    <p>
+                        <strong>No sincere seeker of the Qur'an should be turned away because of financial
+                            hardship.</strong>
+                        If you are unable to afford the tuition and are Zakat-eligible, your fees may be
+                        covered partially or fully through our <em>Zakat Fund</em>, bi-idhnillah.
+                    </p>
+                    <p>
+                        <strong>How to Apply for a Scholarship:</strong><br>
+                        📩 Message us on the
+                        <a href="<?php echo esc_url(IQU_MESSENGER_URL); ?>" target="_blank" rel="noopener noreferrer"
+                            class="iqu-zakat-link">
+                            Ilm-ul-Quran USA Facebook page
+                        </a>
+                        and briefly share your situation. Our team will review your request and, if approved,
+                        provide a <strong>coupon code</strong> for the enrollment form.
+                    </p>
+                    <p class="iqu-zakat-note">
+                        🔒 All conversations are kept strictly confidential.
+                    </p>
+                </section>
+
             </div>
-        </div>
-        <p class="iqu-closing">We look forward to welcoming you! 🤲</p>
-    </section>
+        </aside>
 
-    <form id="iqu-reg-form" method="POST" novalidate class="iqu-form">
-        <?php wp_nonce_field('iqu_registration_nonce', '_iqu_nonce'); ?>
-        <input type="hidden" name="iqu_recaptcha_token" id="iqu_recaptcha_token" value="">
+        <!-- ═══ RIGHT COLUMN — FORM ═══ -->
+        <div class="iqu-split-main">
 
-        <!-- 🔒 Honeypot -->
-        <div class="iqu-hp-field" aria-hidden="true">
-            <label for="iqu_website">Leave this empty</label>
-            <input type="text" id="iqu_website" name="iqu_website" tabindex="-1" autocomplete="off" value="">
-        </div>
+            <form id="iqu-reg-form" method="POST" novalidate class="iqu-form">
+                <?php wp_nonce_field('iqu_registration_nonce', '_iqu_nonce'); ?>
+                <input type="hidden" name="iqu_recaptcha_token" id="iqu_recaptcha_token" value="">
 
-        <p class="iqu-required-note"><span class="req">*</span> Indicates required question</p>
-
-        <div class="form-display-flex">
-            <!-- ── First Name ───────────────────────────────── -->
-            <div class="iqu-question">
-                <label for="first_name">Participant's First Name <span class="req">*</span></label>
-                <input type="text" id="first_name" name="first_name" placeholder="Enter the participant's first name"
-                    maxlength="100" autocomplete="given-name" required>
-                <span class="iqu-error" data-field="first_name"></span>
-            </div>
-            <!-- ── Last Name ────────────────────────────────── -->
-            <div class="iqu-question">
-                <label for="last_name">Participant's Last Name <span class="req">*</span></label>
-                <input type="text" id="last_name" name="last_name" placeholder="Enter the participant's last name"
-                    maxlength="100" autocomplete="family-name" required>
-                <span class="iqu-error" data-field="last_name"></span>
-            </div>
-        </div>
-
-        <div class="form-display-flex">
-            <!-- ── Email ────────────────────────────────────── -->
-            <div class="iqu-question">
-                <label for="email">Participant's Email <span class="req">*</span></label>
-                <input type="email" id="email" name="email" placeholder="Which email should we send updates to?"
-                    maxlength="191" autocomplete="email" required>
-                <span class="iqu-error" data-field="email"></span>
-            </div>
-            <!-- ── Age ──────────────────────────────────────── -->
-            <div class="iqu-question">
-                <label for="age">Participant's Age <span class="req">*</span></label>
-                <input type="number" id="age" name="age" placeholder="How old is the participant?" min="4" max="100"
-                    required>
-                <span class="iqu-error" data-field="age"></span>
-            </div>
-        </div>
-
-        <div class="form-display-flex">
-            <!-- ── Country of Origin ────────────────────────── -->
-            <div class="iqu-question">
-                <label for="country_origin">Country of Origin <span class="req">*</span></label>
-                <input type="text" id="country_origin" name="country_origin"
-                    placeholder="Which country is the participant from?" maxlength="100" required>
-                <span class="iqu-error" data-field="country_origin"></span>
-            </div>
-            <!-- ── Country of Residence ─────────────────────── -->
-            <div class="iqu-question">
-                <label for="country_res">Country of Residence <span class="req">*</span></label>
-                <input type="text" id="country_res" name="country_res" placeholder="Which country do they live in now?"
-                    maxlength="100" required>
-                <span class="iqu-error" data-field="country_res"></span>
-            </div>
-        </div>
-
-        <div class="form-display-flex">
-            <!-- ── Current Level of Qur'an Reading ──────────── -->
-            <div class="iqu-question">
-                <label>Current Level of Qur'an Reading <span class="req">*</span></label>
-                <p class="iqu-help">Please select your current proficiency level in reciting the Holy Qur’an.</p>
-                <select id="quran_level" name="quran_level" required>
-                    <option value="">-- Please select a level --</option>
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                </select>
-                <span class="iqu-error" data-field="quran_level"></span>
-            </div>
-
-            <!-- ── Availability (short answer) ──────────────── -->
-            <div class="iqu-question">
-                <label for="days_per_week">How many classes are there in a week? <span class="req">*</span></label>
-                <p class="iqu-help">Choose your days per week — the checkboxes will update automatically.</p>
-                <select id="days_per_week" name="days_per_week" required>
-                    <option value="">— Select days per week —</option>
-                    <option value="1">1 day</option>
-                    <option value="2">2 days</option>
-                    <option value="3">3 days</option>
-                    <option value="4">4 days</option>
-                    <option value="5">5 days</option>
-                    <option value="6">6 days</option>
-                    <option value="7">7 days</option>
-                </select>
-                <span class="iqu-error" data-field="days_per_week"></span>
-            </div>
-        </div>
-
-        <!-- ── Preferred Days ──────────────────────────── -->
-        <div class="iqu-question iqu-preferred-days-question">
-            <label>Preferred Days for Classes? <span class="req">*</span></label>
-            <p class="iqu-help">Choose up to the number of days you entered above.</p>
-            <div class="iqu-day-chips">
-                <?php foreach (['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as $day): ?>
-                <label class="iqu-day-chip">
-                    <input type="checkbox" name="preferred_days[]" value="<?php echo esc_attr($day); ?>">
-                    <span><?php echo esc_html(ucfirst($day)); ?></span>
-                </label>
-                <?php endforeach; ?>
-            </div>
-            <span class="iqu-error" data-field="preferred_days"></span>
-        </div>
-
-        <!-- ── Time Slot ───────────────────────────────── -->
-        <div class="iqu-question">
-            <label>Preferred Time Slots (with time zone) <span class="req">*</span></label>
-            <p class="iqu-help">Pick your start time, end time, and time zone.</p>
-
-            <div class="iqu-time-slot-builder">
-                <div class="iqu-time-slot-col">
-                    <label for="iqu_time_start">Start Time</label>
-                    <input type="text" id="iqu_time_start" class="iqu-time-picker" placeholder="Select time" required>
+                <!-- 🔒 Honeypot -->
+                <div class="iqu-hp-field" aria-hidden="true">
+                    <label for="iqu_website">Leave this empty</label>
+                    <input type="text" id="iqu_website" name="iqu_website" tabindex="-1" autocomplete="off" value="">
                 </div>
 
-                <div class="iqu-time-slot-col">
-                    <label for="iqu_time_end">End Time</label>
-                    <input type="text" id="iqu_time_end" class="iqu-time-picker" placeholder="Select time" required>
+                <p class="iqu-required-note"><span class="req">*</span> Indicates required question</p>
+
+                <div class="form-display-flex">
+                    <!-- ── First Name ───────────────────────────────── -->
+                    <div class="iqu-question">
+                        <label for="first_name">Participant's First Name <span class="req">*</span></label>
+                        <input type="text" id="first_name" name="first_name"
+                            placeholder="Enter the participant's first name" maxlength="100" autocomplete="given-name"
+                            required>
+                        <span class="iqu-error" data-field="first_name"></span>
+                    </div>
+                    <!-- ── Last Name ────────────────────────────────── -->
+                    <div class="iqu-question">
+                        <label for="last_name">Participant's Last Name <span class="req">*</span></label>
+                        <input type="text" id="last_name" name="last_name"
+                            placeholder="Enter the participant's last name" maxlength="100" autocomplete="family-name"
+                            required>
+                        <span class="iqu-error" data-field="last_name"></span>
+                    </div>
                 </div>
 
-                <div class="iqu-time-slot-col">
-                    <label for="iqu_time_slot_timezone">Time Zone</label>
-                    <select id="iqu_time_slot_timezone" required>
-                        <option value="">-- Select Time Zone --</option>
-                        <option value="CST">CST (Central Standard Time)</option>
-                        <option value="CDT">CDT (Central Daylight Time)</option>
-                        <option value="EST">EST (Eastern Standard Time)</option>
-                        <option value="EDT">EDT (Eastern Daylight Time)</option>
-                        <option value="PST">PST (Pacific Standard Time)</option>
-                        <option value="PDT">PDT (Pacific Daylight Time)</option>
-                        <option value="GMT">GMT (Greenwich Mean Time)</option>
-                        <option value="UTC">UTC (Coordinated Universal Time)</option>
-                    </select>
+                <div class="form-display-flex">
+                    <!-- ── Email ────────────────────────────────────── -->
+                    <div class="iqu-question">
+                        <label for="email">Participant's Email <span class="req">*</span></label>
+                        <input type="email" id="email" name="email" placeholder="Which email should we send updates to?"
+                            maxlength="191" autocomplete="email" required>
+                        <span class="iqu-error" data-field="email"></span>
+                    </div>
+                    <!-- ── Age ──────────────────────────────────────── -->
+                    <div class="iqu-question">
+                        <label for="age">Participant's Age <span class="req">*</span></label>
+                        <input type="number" id="age" name="age" placeholder="How old is the participant?" min="4"
+                            max="100" required>
+                        <span class="iqu-error" data-field="age"></span>
+                    </div>
                 </div>
-            </div>
 
-            <input type="hidden" id="time_slot" name="time_slot" value="" required>
-            <span class="iqu-error" data-field="time_slot"></span>
-        </div>
-
-        <!-- ── Session Duration ────────────────────────── -->
-        <div class="form-display-flex">
-            <div class="iqu-question">
-                <label for="session_dur">Preferred Session Duration (in minutes) <span class="req">*</span></label>
-                <select id="session_dur" name="session_dur" required>
-                    <option value="">-- Please select an option --</option>
-                    <option value="30">30 minutes</option>
-                    <option value="45">45 minutes</option>
-                    <option value="60">60 minutes</option>
-                </select>
-                <span class="iqu-error" data-field="session_dur"></span>
-            </div>
-            <!-- ── Languages ──────────────────────────────── -->
-            <div class="iqu-question">
-                <label>Select the languages you can communicate in fluently. <span class="req">*</span></label>
-                <div class="iqu-radio-list" style="display:flex; flex-wrap:wrap; gap:8px 16px;">
-                    <?php foreach (['english' => 'English', 'arabic' => 'Arabic', 'urdu' => 'Urdu', 'bengali' => 'Bengali'] as $v => $lbl): ?>
-                    <label class="iqu-radio-label" style="margin:0;">
-                        <input type="checkbox" name="languages[]" value="<?php echo esc_attr($v); ?>">
-                        <span><?php echo esc_html($lbl); ?></span>
-                    </label>
-                    <?php endforeach; ?>
+                <div class="form-display-flex">
+                    <!-- ── Country of Origin ────────────────────────── -->
+                    <div class="iqu-question">
+                        <label for="country_origin">Country of Origin <span class="req">*</span></label>
+                        <input type="text" id="country_origin" name="country_origin"
+                            placeholder="Which country is the participant from?" maxlength="100" required>
+                        <span class="iqu-error" data-field="country_origin"></span>
+                    </div>
+                    <!-- ── Country of Residence ─────────────────────── -->
+                    <div class="iqu-question">
+                        <label for="country_res">Country of Residence <span class="req">*</span></label>
+                        <input type="text" id="country_res" name="country_res"
+                            placeholder="Which country do they live in now?" maxlength="100" required>
+                        <span class="iqu-error" data-field="country_res"></span>
+                    </div>
                 </div>
-                <span class="iqu-error" data-field="languages"></span>
-            </div>
-        </div>
 
-        <div class="form-display-flex">
-            <!-- ── WhatsApp ─────────────────────────────── -->
-            <div class="iqu-question">
-                <label for="whatsapp">WhatsApp Number (with country code) <span class="req">*</span></label>
-                <p class="iqu-help">
-                    <strong>Country code required.</strong>
-                    Select your flag from the dropdown, then enter your number.<br>
-                    Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
-                </p>
-                <input type="tel" id="whatsapp" name="whatsapp" maxlength="25" autocomplete="tel" required>
-                <span class="iqu-error" data-field="whatsapp"></span>
-            </div>
-            <!-- ── Memorized Qur'an ─────────────────────── -->
-            <div class="iqu-question">
-                <label for="memorized">Have you memorized any part of the Qur'an before? If yes, please specify the
-                    Surahs or
-                    Juz.
-                    <span class="req">*</span></label>
-                <textarea id="memorized" name="memorized"
-                    placeholder="If yes, tell us which Surahs or Juz. If not, just write &quot;No&quot;." rows="3"
-                    maxlength="500" style="height:78px; resize:none; min-height:0; " required></textarea>
-                <span class="iqu-error" data-field="memorized"></span>
-            </div>
-        </div>
+                <div class="form-display-flex">
+                    <!-- ── Current Level of Qur'an Reading ──────────── -->
+                    <div class="iqu-question">
+                        <label>Current Level of Qur'an Reading <span class="req">*</span></label>
+                        <p class="iqu-help">Select your proficiency level in reciting the Qur'an.
+                        </p>
+                        <select id="quran_level" name="quran_level" required>
+                            <option value="">-- Please select a level --</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                        <span class="iqu-error" data-field="quran_level"></span>
+                    </div>
 
-        <div class="form-display-flex">
-            <!-- ── Teacher Preference ───────────────────── -->
-            <div class="iqu-question">
-                <label for="teacher_pref">Do you prefer a male or female teacher? <span class="req">*</span></label>
-                <select id="teacher_pref" name="teacher_pref" required>
-                    <option value="">-- Please select an option --</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="no_preference">No preference</option>
-                </select>
-                <span class="iqu-error" data-field="teacher_pref"></span>
-            </div>
+                    <!-- ── Course Selection ─────────────────────────── -->
+                    <div class="iqu-question">
+                        <label for="course_type">Which course would you like to enroll in? <span
+                                class="req">*</span></label>
+                        <p class="iqu-help">Your monthly tuition is calculated from this selection.</p>
+                        <select id="course_type" name="course_type" required>
+                            <option value="">-- Please select a course --</option>
+                            <?php foreach (IQU_Pricing::course_options() as $key => $label): ?>
+                            <option value="<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="iqu-error" data-field="course_type"></span>
+                    </div>
 
-            <!-- ── Device ───────────────────────────────── -->
-            <div class="iqu-question">
-                <label for="device">What device will you use for classes? <span class="req">*</span></label>
-                <select id="device" name="device" required>
-                    <option value="">-- Please select an option --</option>
-                    <option value="smartphone">Smartphone</option>
-                    <option value="tablet">Tablet</option>
-                    <option value="laptop/desktop">Laptop/Desktop</option>
-                </select>
-                <span class="iqu-error" data-field="device"></span>
-            </div>
-        </div>
-
-
-        <div class="form-display-flex">
-            <!-- WhatsApp Group -->
-            <div class="iqu-question">
-                <label for="whatsapp_group">
-                    Stay updated via WhatsApp group?
-                    <span class="req">*</span>
-                </label>
-                <select id="whatsapp_group" name="whatsapp_group" required>
-                    <option value="">-- Please select an option --</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                </select>
-                <span class="iqu-error" data-field="whatsapp_group"></span>
-            </div>
-
-            <!-- Referral -->
-            <div class="iqu-question">
-                <label for="referral">
-                    How did you hear about Ilm-ul-Quran USA?
-                    <span class="req">*</span>
-                </label>
-
-                <select id="referral" name="referral" required>
-                    <option value="">-- Please select an option --</option>
-                    <option value="facebook">Facebook</option>
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="linkedin">LinkedIn</option>
-                    <option value="youtube">YouTube</option>
-                    <option value="website">Website</option>
-                    <option value="friend_family">Friend/Family</option>
-                    <option value="email">Email</option>
-                </select>
-                <div class="iqu-other-wrap iqu-referral-other-wrap" hidden>
-                    <input type="text" id="referral_other" name="referral_other" placeholder="Please specify" />
                 </div>
-                <span class="iqu-error" data-field="referral"></span>
-            </div>
-        </div>
 
-        <!-- ── Fee Preference ───────────────────────── -->
-        <div class="iqu-question">
-            <label>After the 1-month free period, what monthly fee would you be comfortable paying for continued Qur'an
-                learning? <span class="req">*</span></label>
-            <p class="iqu-help">
-                You can choose an amount that feels reasonable for your situation.<br>
-                <strong>If you have a different amount in mind, please specify below.</strong>
-            </p>
-            <div class="iqu-note-card">
-                <p>🌱 We encourage everyone to contribute <strong>at least $40 or more</strong> each month. Think of it
-                    not just
-                    as a monthly payment, but as an <strong>ongoing donation</strong> for the sake of Allah — a means
-                    for your
-                    success in both this world and the Hereafter.</p>
-                <p><strong>Please note:</strong> Contributions below $40 or 100% free enrollment are reserved for those
-                    who are
-                    genuinely in need and eligible for <em>Zakat</em>.</p>
-                <p>May Allah accept our combined efforts and make this service a source of lasting reward for us all. 🤲
-                </p>
-            </div>
-            <select id="fee_pref" name="fee_pref" class="iqu-radio-fee" required>
-                <option value="">-- Please select an option --</option>
-                <optgroup label="Arabic Language">
-                    <option value="arabic_50">Arabic Language — $50/month</option>
-                </optgroup>
-                <optgroup label="Hifz Students">
-                    <option value="hifz_100">Quran Hifz — $100/month</option>
-                    <option value="hifz_90">Quran Hifz — $90/month</option>
-                    <option value="hifz_80">Quran Hifz — $80/month</option>
-                    <option value="hifz_70">Quran Hifz — $70/month</option>
-                    <option value="hifz_60">Quran Hifz — $60/month</option>
-                </optgroup>
-                <optgroup label="Qa'idah / Nazirah Students">
-                    <option value="qaidah_80">Qa'idah / Nazirah — $80/month</option>
-                    <option value="qaidah_70">Qa'idah / Nazirah — $70/month</option>
-                    <option value="qaidah_60">Qa'idah / Nazirah — $60/month</option>
-                    <option value="qaidah_50">Qa'idah / Nazirah — $50/month</option>
-                </optgroup>
-                <option value="free">Free (Zakat Eligibles Only)</option>
-                <option value="other">Other</option>
-            </select>
+                <!-- ── Class Frequency + Preferred Days ─────────────
+             দুটো একসাথে থাকা দরকার: দিনের সংখ্যা বদলালে ডান পাশের
+             চেকবক্সগুলো সাথে সাথে আপডেট হয়, তাই পাশাপাশি থাকলে
+             ইউজার সম্পর্কটা চোখেই দেখতে পায়। -->
+                <div class="form-display-flex form-display-flex--days">
+                    <!-- ── Availability (short answer) ──────────────── -->
+                    <div class="iqu-question">
+                        <label for="days_per_week">How many classes are there in a week? <span
+                                class="req">*</span></label>
+                        <p class="iqu-help iqu-days-help">Choose your days per week — the checkboxes will update
+                            automatically.</p>
+                        <select id="days_per_week" name="days_per_week" required>
+                            <option value="">— Select days per week —</option>
+                            <?php for ($d = 1; $d <= IQU_Pricing::MAX_DAYS_PER_WEEK; $d++): ?>
+                            <option value="<?php echo (int) $d; ?>">
+                                <?php echo (int) $d; ?> <?php echo $d === 1 ? 'day' : 'days'; ?>
+                            </option>
+                            <?php endfor; ?>
+                        </select>
+                        <span class="iqu-error" data-field="days_per_week"></span>
+                    </div>
 
-            <div class="iqu-free-request-reason" hidden>
-                <label for="free_request_reason">If you are requesting free enrollment, please briefly explain your
-                    situation
-                    <span class="req">*</span></label>
-                <textarea id="free_request_reason" name="free_request_reason"
-                    placeholder="Requesting for free enrollment — please briefly explain your situation" rows="3"
-                    maxlength="600"></textarea>
-                <span class="iqu-error" data-field="free_request_reason"></span>
-            </div>
-            <span class="iqu-error" data-field="fee_pref"></span>
-        </div>
+                    <!-- ── Preferred Days ──────────────────────────── -->
+                    <div class="iqu-question iqu-preferred-days-question">
+                        <label>Preferred Days for Classes? <span class="req">*</span></label>
+                        <p class="iqu-help">Choose up to the number of days you entered above.</p>
+                        <!-- কোর্সভেদে সর্বনিম্ন দিনের বার্তা — JS ভরে দেয় -->
+                        <p class="iqu-min-days-note" hidden></p>
+                        <div class="iqu-day-chips">
+                            <?php foreach (['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as $day): ?>
+                            <label class="iqu-day-chip" title="<?php echo esc_attr($day); ?>">
+                                <input type="checkbox" name="preferred_days[]" value="<?php echo esc_attr($day); ?>">
+                                <!-- ⚠️ দেখানো হয় সংক্ষিপ্ত নাম, কিন্তু value পুরো নামই
+                             থাকে — ডেটাবেজ, ইমেইল ও টেলিগ্রামে পূর্ণ নাম যাবে -->
+                                <span><?php echo esc_html(substr($day, 0, 3)); ?></span>
+                            </label>
+                            <?php endforeach; ?>
+                        </div>
+                        <span class="iqu-error" data-field="preferred_days"></span>
+                    </div>
+                </div>
 
-        <div class="iqu-submit-area">
-            <div class="iqu-alert iqu-server-error" id="iqu-server-error" style="display:none"></div>
-            <button type="submit" id="iqu-submit-btn" class="iqu-btn-submit">
-                <span class="btn-text">Submit Registration</span>
-                <span class="btn-loading" style="display:none">Submitting…</span>
-            </button>
-            <p class="iqu-privacy-note">
-                🔒 Your information is kept private and will only be used to arrange your classes. This site is
-                protected by
-                reCAPTCHA v3.
-            </p>
-        </div>
-    </form>
+                <!-- ── Time Slot ───────────────────────────────── -->
+                <div class="iqu-question">
+                    <label>Preferred Time Slots (with time zone) <span class="req">*</span></label>
+                    <p class="iqu-help">Pick your start time, end time, and time zone.</p>
+
+                    <div class="iqu-time-slot-builder">
+                        <div class="iqu-time-slot-col">
+                            <label for="iqu_time_start">Start Time</label>
+                            <input type="text" id="iqu_time_start" class="iqu-time-picker" placeholder="Select time"
+                                required>
+                        </div>
+
+                        <div class="iqu-time-slot-col">
+                            <label for="iqu_time_end">End Time</label>
+                            <input type="text" id="iqu_time_end" class="iqu-time-picker" placeholder="Select time"
+                                required>
+                        </div>
+
+                        <div class="iqu-time-slot-col">
+                            <label for="iqu_time_slot_timezone">Time Zone</label>
+                            <select id="iqu_time_slot_timezone" required>
+                                <option value="">-- Select Time Zone --</option>
+                                <option value="CST">CST (Central Standard Time)</option>
+                                <option value="CDT">CDT (Central Daylight Time)</option>
+                                <option value="EST">EST (Eastern Standard Time)</option>
+                                <option value="EDT">EDT (Eastern Daylight Time)</option>
+                                <option value="PST">PST (Pacific Standard Time)</option>
+                                <option value="PDT">PDT (Pacific Daylight Time)</option>
+                                <option value="GMT">GMT (Greenwich Mean Time)</option>
+                                <option value="UTC">UTC (Coordinated Universal Time)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="time_slot" name="time_slot" value="" required>
+                    <span class="iqu-error" data-field="time_slot"></span>
+                </div>
+
+                <!-- ── Session Duration ────────────────────────── -->
+                <div class="form-display-flex">
+                    <div class="iqu-question">
+                        <label for="session_dur">Preferred Session Duration (in minutes) <span
+                                class="req">*</span></label>
+                        <select id="session_dur" name="session_dur" required>
+                            <option value="">-- Please select an option --</option>
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60">60 minutes</option>
+                        </select>
+                        <span class="iqu-error" data-field="session_dur"></span>
+                    </div>
+                    <!-- ── Languages ──────────────────────────────── -->
+                    <div class="iqu-question">
+                        <label>Select the languages you can communicate in fluently. <span class="req">*</span></label>
+                        <div class="iqu-radio-list" style="display:flex; flex-wrap:wrap; gap:8px 16px;">
+                            <?php foreach (['english' => 'English', 'arabic' => 'Arabic', 'urdu' => 'Urdu', 'bengali' => 'Bengali'] as $v => $lbl): ?>
+                            <label class="iqu-radio-label" style="margin:0;">
+                                <input type="checkbox" name="languages[]" value="<?php echo esc_attr($v); ?>">
+                                <span><?php echo esc_html($lbl); ?></span>
+                            </label>
+                            <?php endforeach; ?>
+                        </div>
+                        <span class="iqu-error" data-field="languages"></span>
+                    </div>
+                </div>
+
+                <div class="form-display-flex">
+                    <!-- ── WhatsApp ─────────────────────────────── -->
+                    <div class="iqu-question">
+                        <label for="whatsapp">WhatsApp Number (with country code) <span class="req">*</span></label>
+                        <p class="iqu-help">
+                            <strong>Country code required.</strong>
+                            Select your flag from the dropdown, then enter your number.<br>
+                            Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
+                        </p>
+                        <input type="tel" id="whatsapp" name="whatsapp" maxlength="25" autocomplete="tel" required>
+                        <span class="iqu-error" data-field="whatsapp"></span>
+                    </div>
+                    <!-- ── Memorized Qur'an ─────────────────────── -->
+                    <div class="iqu-question">
+                        <label for="memorized">Have you memorized any part of the Qur'an before? If yes, please specify
+                            the
+                            Surahs or
+                            Juz.
+                            <span class="req">*</span></label>
+                        <textarea id="memorized" name="memorized"
+                            placeholder="If yes, tell us which Surahs or Juz. If not, just write &quot;No&quot;."
+                            rows="3" maxlength="500" style="height:78px; resize:none; min-height:0; "
+                            required></textarea>
+                        <span class="iqu-error" data-field="memorized"></span>
+                    </div>
+                </div>
+
+                <div class="form-display-flex">
+                    <!-- ── Teacher Preference ───────────────────── -->
+                    <div class="iqu-question">
+                        <label for="teacher_pref">Do you prefer a male or female teacher? <span
+                                class="req">*</span></label>
+                        <select id="teacher_pref" name="teacher_pref" required>
+                            <option value="">-- Please select an option --</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="no_preference">No preference</option>
+                        </select>
+                        <span class="iqu-error" data-field="teacher_pref"></span>
+                    </div>
+
+                    <!-- Referral -->
+                    <div class="iqu-question">
+                        <label for="referral">
+                            How did you hear about Ilm-ul-Quran USA?
+                            <span class="req">*</span>
+                        </label>
+
+                        <select id="referral" name="referral" required>
+                            <option value="">-- Please select an option --</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="linkedin">LinkedIn</option>
+                            <option value="youtube">YouTube</option>
+                            <option value="website">Website</option>
+                            <option value="friend_family">Friend/Family</option>
+                            <option value="email">Email</option>
+                        </select>
+                        <div class="iqu-other-wrap iqu-referral-other-wrap" hidden>
+                            <input type="text" id="referral_other" name="referral_other" placeholder="Please specify" />
+                        </div>
+                        <span class="iqu-error" data-field="referral"></span>
+                    </div>
+                </div>
+
+                <!-- ── Tuition Summary ──────────────────────── -->
+                <div class="iqu-question iqu-tuition-block" id="iqu-tuition-block">
+                    <label>Your Monthly Tuition</label>
+                    <p class="iqu-help">
+                        This is calculated automatically from your course and the number of classes
+                        you attend each week. It updates as you change your selections above.
+                    </p>
+
+                    <!-- 💰 লাইভ প্রাইস ডিসপ্লে — JS আপডেট করে -->
+                    <div class="iqu-price-display" id="iqu-price-display" aria-live="polite">
+                        <!-- 🎁 ছাড় প্রয়োগ হলে আগের দামটা কাটা দাগে উপরে দেখা যাবে -->
+                        <div class="iqu-price-strike" id="iqu-price-strike" hidden>$0</div>
+                        <div class="iqu-price-amount" id="iqu-price-amount">$0</div>
+                        <div class="iqu-price-meta" id="iqu-price-meta">
+                            Select your course and class days to see your monthly tuition.
+                        </div>
+
+                        <!-- ছাড় প্রয়োগ হলে দেখা যাবে -->
+                        <div class="iqu-price-breakdown" id="iqu-price-breakdown" hidden>
+                            <div class="iqu-price-row">
+                                <span>Regular tuition</span>
+                                <span id="iqu-price-original">$0</span>
+                            </div>
+                            <div class="iqu-price-row iqu-price-row--discount">
+                                <span id="iqu-discount-label">Zakat scholarship</span>
+                                <span id="iqu-discount-amount">−$0</span>
+                            </div>
+                            <div class="iqu-price-row iqu-price-row--total">
+                                <span>You pay</span>
+                                <span id="iqu-price-final">$0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 🎁 স্পেশাল ডিসকাউন্ট — শুধু Qa'idah / Nazirah, ৩–৭ দিন -->
+                    <div class="iqu-special-wrap" id="iqu-special-wrap" hidden>
+                        <div class="iqu-special-pitch">
+                            <span class="iqu-special-pitch-lead">🎁 You qualify for a special discount</span>
+                            <!-- দিন-সংখ্যা অনুযায়ী JS ভরে দেয় -->
+                            <span class="iqu-special-pitch-detail" id="iqu-special-pitch-detail"></span>
+                        </div>
+                        <button type="button" id="iqu-special-btn" class="iqu-special-btn">
+                            Apply for special discount
+                        </button>
+                    </div>
+
+                    <div class="iqu-special-applied" id="iqu-special-applied" hidden>
+                        <span class="iqu-special-badge">
+                            🎉 Special discount applied — <span id="iqu-special-saved">$0</span> off
+                        </span>
+                        <button type="button" id="iqu-special-remove" class="iqu-special-remove">
+                            Remove
+                        </button>
+                    </div>
+
+                    <!-- সার্ভারে যাওয়া মান কেবল রেফারেন্স — চূড়ান্ত হিসাব সার্ভারেই হয় -->
+                    <input type="hidden" name="calculated_amount" id="calculated_amount" value="0">
+                    <input type="hidden" name="special_discount" id="special_discount" value="0">
+
+                    <!-- ── Coupon ───────────────────────────── -->
+                    <div class="iqu-coupon-wrap" id="iqu-coupon-wrap">
+                        <label for="coupon_code" class="iqu-coupon-label">
+                            Have a scholarship coupon code?
+                        </label>
+                        <p class="iqu-help">
+                            Optional. If you cannot afford the tuition, message us on
+                            <a href="<?php echo esc_url(IQU_MESSENGER_URL); ?>" target="_blank"
+                                rel="noopener noreferrer">Ilm-ul-Quran USA</a>
+                            to request one.
+                        </p>
+
+                        <div class="iqu-coupon-row">
+                            <input type="text" id="coupon_code" name="coupon_code" autocomplete="off" maxlength="40"
+                                placeholder="e.g. HFZ-260826-X7K2-80" aria-describedby="iqu-coupon-feedback">
+                            <button type="button" id="iqu-coupon-apply" class="iqu-coupon-btn">
+                                <span class="iqu-coupon-btn-text">Apply</span>
+                                <span class="iqu-coupon-btn-loading" hidden>Checking…</span>
+                            </button>
+                            <button type="button" id="iqu-coupon-remove" class="iqu-coupon-remove" hidden>
+                                Remove
+                            </button>
+                        </div>
+
+                        <div class="iqu-coupon-feedback" id="iqu-coupon-feedback" role="status"></div>
+
+                        <!-- যাচাই হওয়া কুপনের তথ্য — সার্ভারে আবার যাচাই হবে -->
+                        <input type="hidden" name="coupon_id" id="coupon_id" value="0">
+                    </div>
+
+                    <!-- ── Zakat Declaration ────────────────── -->
+                    <!-- কুপন প্রয়োগ হলেই দেখা যাবে (আংশিক বা পূর্ণ, দুই ক্ষেত্রেই) -->
+                    <div class="iqu-declaration" id="iqu-declaration" hidden>
+                        <label class="iqu-declaration-label">
+                            <input type="checkbox" id="zakat_declaration" name="zakat_declaration" value="1">
+                            <span class="iqu-declaration-text" id="iqu-declaration-text"></span>
+                        </label>
+                        <span class="iqu-error" data-field="zakat_declaration"></span>
+                    </div>
+
+                    <span class="iqu-error" data-field="course_pricing"></span>
+                </div>
+
+                <div class="iqu-submit-area">
+                    <div class="iqu-alert iqu-server-error" id="iqu-server-error" style="display:none"></div>
+                    <button type="submit" id="iqu-submit-btn" class="iqu-btn-submit">
+                        <span class="btn-text">Submit Registration</span>
+                        <span class="btn-loading" style="display:none">Submitting…</span>
+                    </button>
+                    <p class="iqu-privacy-note">
+                        🔒 Your information is kept private and will only be used to arrange your classes. This site is
+                        protected by
+                        reCAPTCHA v3.
+                    </p>
+                </div>
+            </form>
+
+        </div><!-- /.iqu-split-main -->
+    </div><!-- /.iqu-split-layout -->
 </div>
 <?php
         return ob_get_clean();
@@ -761,7 +875,7 @@ class IQU_Form
         // CSRF
         if (!check_ajax_referer('iqu_registration_nonce', '_iqu_nonce', false)) {
             wp_send_json_error(['message' => 'Security check failed. Please refresh the page and try again.', 'code' => 'invalid_nonce']);
-        } 
+        }
 
         // Honeypot
         if (!empty($_POST['iqu_website'])) {
@@ -796,42 +910,122 @@ class IQU_Form
         //   ]);
         // }
 
-        // ── Free form: fee_pref থেকে payment_amount বের করো ──
-        $fee_amount_map = [
-            'arabic_50'  => 50.00,
-            'hifz_100'   => 100.00,
-            'hifz_90'    => 90.00,
-            'hifz_80'    => 80.00,
-            'hifz_70'    => 70.00,
-            'hifz_60'    => 60.00,
-            'qaidah_80'  => 80.00,
-            'qaidah_70'  => 70.00,
-            'qaidah_60'  => 60.00,
-            'qaidah_50'  => 50.00,
-            'free'       => 0.00,
-        ];
+        // ── 💰 সার্ভার-সাইড রি-ক্যালকুলেশন ──────────────────
+        // ⚠️ ক্লায়েন্ট যে অঙ্ক পাঠিয়েছে তা সম্পূর্ণ উপেক্ষা করা হয়।
+        //    কেউ DevTools দিয়ে hidden field বদলে দিলেও এখানে ধরা পড়বে।
+        $course = $clean['course_type'] ?? '';
+        $days   = (int) ($clean['days_per_week'] ?? 0);
 
-        $fee_pref = $clean['fee_pref'] ?? '';
+        $calc = IQU_Pricing::calculate($course, $days);
 
-        if (isset($fee_amount_map[$fee_pref])) {
-            $clean['payment_amount'] = $fee_amount_map[$fee_pref];
-        } elseif ($fee_pref === 'other') {
-            // flexible_fee_note থেকে numeric amount বের করো
-            $note = trim($clean['flexible_fee_note'] ?? '');
-            $note_clean = ltrim($note, '$');
-            $clean['payment_amount'] = is_numeric($note_clean) ? (float) $note_clean : 0.00;
-        } else {
-            $clean['payment_amount'] = 0.00;
+        if (!$calc['valid']) {
+            wp_send_json_error([
+                'message' => $calc['error'] ?: 'Please review your course and class days.',
+                'errors'  => ['course_pricing' => $calc['error']],
+                'code'    => 'pricing_failed',
+            ]);
         }
 
-        // Free form-এ payment_status সবসময় pending (cash/zelle পরে confirm হবে)
-        $clean['payment_status'] = $fee_pref === 'free' ? 'pending' : 'pending';
+        $base_amount = (float) $calc['monthly_amount'];
+
+        $clean['per_class_rate']    = $calc['per_class_rate'];
+        $clean['calculated_amount'] = $base_amount;
+        $clean['discount_amount']   = 0.00;
+        $clean['coupon_code']       = '';
+        $clean['coupon_id']         = 0;
+        $clean['payment_amount']    = $base_amount;
+
+        // ── 🎁 স্পেশাল ডিসকাউন্ট — সার্ভারে নতুন করে যাচাই ──
+        // ক্লায়েন্ট শুধু "চাই / চাই না" বলতে পারে; অঙ্ক সবসময় এখানেই ঠিক হয়।
+        $wants_special = !empty($clean['special_discount']);
+        $coupon_input  = trim($clean['coupon_code_input'] ?? '');
+
+        if ($wants_special) {
+            // 🔒 দুটো ছাড় একসাথে নয় — স্পেশাল ডিসকাউন্ট নিলে কুপন চলবে না
+            if ($coupon_input !== '') {
+                wp_send_json_error([
+                    'message' => 'The special discount cannot be combined with a scholarship coupon. Please use one of them.',
+                    'errors'  => ['coupon_code' => 'Remove the special discount to use a coupon code.'],
+                    'code'    => 'discount_conflict',
+                ]);
+            }
+
+            $special = IQU_Pricing::calculate_special($course, $days);
+
+            if (!$special['valid']) {
+                wp_send_json_error([
+                    'message' => $special['error'],
+                    'errors'  => ['course_pricing' => $special['error']],
+                    'code'    => 'special_discount_invalid',
+                ]);
+            }
+
+            $clean['special_discount'] = 1;
+            $clean['discount_amount']  = $special['discount_amount'];
+            $clean['payment_amount']   = $special['final_amount'];
+        } else {
+            $clean['special_discount'] = 0;
+        }
+
+        // ── 🎟️ কুপন — সার্ভারে নতুন করে যাচাই ──────────────
+        $coupon_result = null;
+
+        if ($coupon_input !== '') {
+            $coupon_result = IQU_Coupon::validate($coupon_input, $course, $base_amount);
+
+            if (!$coupon_result['valid']) {
+                wp_send_json_error([
+                    'message' => $coupon_result['error'],
+                    'errors'  => ['coupon_code' => $coupon_result['error']],
+                    'code'    => 'coupon_invalid',
+                ]);
+            }
+
+            // কুপন থাকলে যাকাতের স্বীকৃতি বাধ্যতামূলক
+            if (empty($clean['zakat_declaration'])) {
+                wp_send_json_error([
+                    'message' => 'Please confirm the Zakat eligibility declaration to continue.',
+                    'errors'  => ['zakat_declaration' => 'This confirmation is required.'],
+                    'code'    => 'declaration_required',
+                ]);
+            }
+
+            $clean['coupon_code']     = $coupon_result['code'];
+            $clean['coupon_id']       = $coupon_result['coupon_id'];
+            $clean['discount_amount'] = $coupon_result['discount_amount'];
+            $clean['payment_amount']  = $coupon_result['final_amount'];
+        } else {
+            // কুপন ছাড়া স্বীকৃতির প্রশ্নই আসে না
+            $clean['zakat_declaration'] = 0;
+        }
+
+        // ইনপুট ফিল্ডটা DB কলাম নয় — ইনসার্টের আগে সরিয়ে দাও
+        unset($clean['coupon_code_input']);
+
+        $clean['payment_status'] = 'pending';
 
         // Insert
         $reg_id = IQU_Database::insert_registration($clean);
         if (!$reg_id) {
             error_log('[IQU] Free registration DB insert failed.');
             wp_send_json_error(['message' => 'Registration failed due to a server error. Please try again or contact us.', 'code' => 'db_error']);
+        }
+
+        // ── 🎟️ কুপন রিডিম — রেজিস্ট্রেশন সেভ হওয়ার পরেই ──
+        // insert ব্যর্থ হলে কুপন যেন নষ্ট না হয়, তাই ক্রমটা এই।
+        if (!empty($clean['coupon_id'])) {
+            $redeemed = IQU_Coupon_DB::redeem((int) $clean['coupon_id']);
+
+            if (!$redeemed) {
+                // বিরল রেস কন্ডিশন — দুজন একসাথে শেষ ব্যবহারটা নিয়েছে।
+                // রেজিস্ট্রেশন বাতিল করা হয় না; অ্যাডমিন ম্যানুয়ালি দেখবেন।
+                error_log(sprintf(
+                    '[IQU] Coupon %s (id %d) could not be redeemed for registration #%d — usage limit may have been reached concurrently.',
+                    $clean['coupon_code'],
+                    (int) $clean['coupon_id'],
+                    (int) $reg_id
+                ));
+            }
         }
 
         // Emails
@@ -857,5 +1051,90 @@ class IQU_Form
             'content_name' => $content_name,
             'value'        => $lead_value,
         ]);
+    }
+
+    // ════════════════════════════════════════════════════
+    // 🎟️ Coupon check (AJAX) — যাচাই করে, রিডিম করে না
+    // ════════════════════════════════════════════════════
+
+    public function handle_apply_coupon(): void
+    {
+        // CSRF
+        if (!check_ajax_referer('iqu_registration_nonce', '_iqu_nonce', false)) {
+            wp_send_json_error([
+                'message' => 'Security check failed. Please refresh the page and try again.',
+            ]);
+        }
+
+        // 🔒 রেট লিমিট — কুপন কোড ব্রুট-ফোর্স ঠেকাতে।
+        // এক IP থেকে ঘণ্টায় ২০ বারের বেশি চেষ্টা করা যাবে না।
+        $ip  = self::client_ip();
+        $key = 'iqu_coupon_try_' . md5($ip);
+
+        $attempts = (int) get_transient($key);
+        if ($attempts >= 20) {
+            wp_send_json_error([
+                'message' => 'Too many attempts. Please wait a while and try again, or contact us for help.',
+            ]);
+        }
+        set_transient($key, $attempts + 1, HOUR_IN_SECONDS);
+
+        $code   = sanitize_text_field($_POST['coupon_code'] ?? '');
+        $course = sanitize_text_field($_POST['course_type'] ?? '');
+        $days   = absint($_POST['days_per_week'] ?? 0);
+
+        if (!IQU_Pricing::is_valid_course($course)) {
+            wp_send_json_error([
+                'message' => 'Please select your course before applying a coupon.',
+            ]);
+        }
+
+        $calc = IQU_Pricing::calculate($course, $days);
+        if (!$calc['valid']) {
+            wp_send_json_error([
+                'message' => $calc['error'] ?: 'Please select your class days before applying a coupon.',
+            ]);
+        }
+
+        $base_amount = (float) $calc['monthly_amount'];
+        $result      = IQU_Coupon::validate($code, $course, $base_amount);
+
+        if (!$result['valid']) {
+            wp_send_json_error(['message' => $result['error']]);
+        }
+
+        wp_send_json_success([
+            'coupon_id'           => $result['coupon_id'],
+            'code'                => $result['code'],
+            'original_amount'     => $base_amount,
+            'discount_amount'     => $result['discount_amount'],
+            'final_amount'        => $result['final_amount'],
+            'discount_percent'    => $result['discount_percent'],
+            'is_full_scholarship' => $result['is_full_scholarship'],
+            'original_formatted'  => IQU_Pricing::format($base_amount),
+            'discount_formatted'  => IQU_Pricing::format($result['discount_amount']),
+            'final_formatted'     => IQU_Pricing::format($result['final_amount']),
+            'declaration_text'    => IQU_Coupon::declaration_text(
+                $result['discount_percent'],
+                $result['discount_amount']
+            ),
+            'message'             => sprintf(
+                'Coupon applied — %s scholarship granted from the Zakat fund.',
+                IQU_Pricing::format($result['discount_amount'])
+            ),
+        ]);
+    }
+
+    /** প্রক্সি/Cloudflare-সচেতন ক্লায়েন্ট IP */
+    private static function client_ip(): string
+    {
+        if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+            return sanitize_text_field($_SERVER['HTTP_CF_CONNECTING_IP']);
+        }
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $parts = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            return sanitize_text_field(trim($parts[0]));
+        }
+        return sanitize_text_field($_SERVER['REMOTE_ADDR'] ?? '');
     }
 }

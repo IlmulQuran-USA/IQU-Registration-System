@@ -282,387 +282,66 @@
 
       syncPreferredDayLimit();
 
-      // ══════════════════════════════════════════════════
-      // 💰 Live tuition engine  +  🎟️ coupon
-      // ══════════════════════════════════════════════════
-      const pricing = (window.IQU_AJAX && IQU_AJAX.pricing) || null;
-      if (!pricing || !pricing.courses) return;
+      const $feeQuestion = $form
+        .find('[name="fee_pref"]')
+        .first()
+        .closest(".iqu-question");
+      if ($feeQuestion.length) {
+        $feeQuestion.find(".iqu-radio-label").addClass("iqu-radio-card");
 
-      const $courseInput = $form.find("#course_type");
-      const $priceAmount = $form.find("#iqu-price-amount");
-      const $priceMeta = $form.find("#iqu-price-meta");
-      const $breakdown = $form.find("#iqu-price-breakdown");
-      const $origOut = $form.find("#iqu-price-original");
-      const $discLabel = $form.find("#iqu-discount-label");
-      const $discOut = $form.find("#iqu-discount-amount");
-      const $finalOut = $form.find("#iqu-price-final");
-      const $calcField = $form.find("#calculated_amount");
-      const $minNote = $form.find(".iqu-min-days-note");
+        let $customFee = $feeQuestion.find(".iqu-custom-fee");
+        if (!$customFee.length) {
+          $customFee = $(
+            '<div class="iqu-custom-fee" hidden>' +
+              '<label for="iqu_fee_custom_amount">Custom Monthly Amount in USD <span class="req">*</span></label>' +
+              '<p class="iqu-help">Any amount below $40 will be subsidized from zakat fund.</p>' +
+              '<div class="iqu-input-prefix">' +
+              "<span>$</span>" +
+              '<input type="number" id="iqu_fee_custom_amount" name="fee_custom_amount" min="1" max="9999" step="1" placeholder="How much would feel manageable each month?">' +
+              "</div>" +
+              "</div>",
+          );
+          $feeQuestion.find(".iqu-radio-fee").after($customFee);
+        }
 
-      const $couponInput = $form.find("#coupon_code");
-      const $couponId = $form.find("#coupon_id");
-      const $couponApply = $form.find("#iqu-coupon-apply");
-      const $couponRemove = $form.find("#iqu-coupon-remove");
-      const $couponMsg = $form.find("#iqu-coupon-feedback");
-      const $declaration = $form.find("#iqu-declaration");
-      const $declText = $form.find("#iqu-declaration-text");
-      const $declCheck = $form.find("#zakat_declaration");
+        const $feeInput = $customFee.find("#iqu_fee_custom_amount");
+        const $freeReason = $feeQuestion.find(".iqu-free-request-reason");
+        const $freeReasonInput = $freeReason.find("#free_request_reason");
 
-      // 🎁 স্পেশাল ডিসকাউন্ট
-      const $priceStrike = $form.find("#iqu-price-strike");
-      const $specialWrap = $form.find("#iqu-special-wrap");
-      const $specialBtn = $form.find("#iqu-special-btn");
-      const $specialApplied = $form.find("#iqu-special-applied");
-      const $specialPitch = $form.find("#iqu-special-pitch-detail");
-      const $specialSaved = $form.find("#iqu-special-saved");
-      const $specialRemove = $form.find("#iqu-special-remove");
-      const $specialField = $form.find("#special_discount");
-      const $couponWrap = $form.find("#iqu-coupon-wrap");
+        function toggleFeeInputs() {
+          const selected = $form.find('[name="fee_pref"]').val();
+          const showCustom = selected === "other";
+          const showFreeReason = selected === "free";
 
-      // প্রয়োগ হওয়া কুপনের অবস্থা
-      let appliedCoupon = null;
+          $customFee.prop("hidden", !showCustom);
+          if (!showCustom) {
+            $feeInput.val("").removeClass("iqu-invalid");
+          }
 
-      // ইউজার স্পেশাল ডিসকাউন্ট নিতে চেয়েছে কি না
-      let specialWanted = false;
+          $freeReason.prop("hidden", !showFreeReason);
+          if (!showFreeReason) {
+            $freeReasonInput.val("").removeClass("iqu-invalid");
+            showFieldError($form, "free_request_reason", "");
+          }
+        }
 
-      function money(n) {
-        return "$" + Number(n).toFixed(2).replace(/\.00$/, "");
-      }
-
-      /** বর্তমান কোর্স + দিন থেকে হিসাব — সার্ভারের একই ডেটা */
-      function currentQuote() {
-        const course = $courseInput.val();
-        const days = parseInt($daysInput.val(), 10);
-        if (!course || !pricing.courses[course]) return null;
-        if (!Number.isInteger(days)) return null;
-        const entry = pricing.courses[course].byDays[days];
-        return entry ? { course: course, days: days, entry: entry } : null;
-      }
-
-      /**
-       * কোর্স বদলালে দিনের ড্রপডাউনে অনুমোদিত অপশন সীমিত করো।
-       * হেফজে ৩ দিনের নিচে সিলেক্টই করা যাবে না।
-       */
-      function syncDayOptions() {
-        const course = $courseInput.val();
-        const conf = course ? pricing.courses[course] : null;
-        const minDays = conf ? conf.minDays : 1;
-
-        $daysInput.find("option").each(function () {
-          const v = parseInt(this.value, 10);
-          if (!Number.isInteger(v)) return;
-          $(this).prop("disabled", v < minDays);
+        $form.on("change", '[name="fee_pref"]', function () {
+          toggleFeeInputs();
+          showFieldError($form, "fee_pref", "");
         });
 
-        // বর্তমান নির্বাচন এখন অবৈধ হলে পরিষ্কার করো
-        const cur = parseInt($daysInput.val(), 10);
-        if (Number.isInteger(cur) && cur < minDays) {
-          $daysInput.val("");
-          syncPreferredDayLimit();
-        }
+        $feeInput.on("input", function () {
+          showFieldError($form, "fee_pref", "");
+          $(this).removeClass("iqu-invalid");
+        });
 
-        if (conf && minDays > 1) {
-          $minNote
-            .text(
-              "⚠️ " +
-                conf.label +
-                " requires a minimum of " +
-                minDays +
-                " classes per week.",
-            )
-            .prop("hidden", false);
-        } else {
-          $minNote.prop("hidden", true).text("");
-        }
+        $freeReasonInput.on("input", function () {
+          showFieldError($form, "free_request_reason", "");
+          $(this).removeClass("iqu-invalid");
+        });
+
+        toggleFeeInputs();
       }
-
-      /** এই কোর্স + দিনে স্পেশাল ডিসকাউন্ট আছে কি না */
-      function specialFor(quote) {
-        if (!quote) return 0;
-        const amt = Number(quote.entry.special || 0);
-        return amt > 0 && amt < Number(quote.entry.amount) ? amt : 0;
-      }
-
-      /** স্পেশাল ডিসকাউন্টের বাটন ও ব্যাজের অবস্থা ঠিক করো */
-      function syncSpecialUI(quote) {
-        const special = specialFor(quote);
-
-        // যোগ্যতা না থাকলে বা কুপন প্রয়োগ থাকলে — সবকিছু বন্ধ
-        if (!special || appliedCoupon) {
-          specialWanted = false;
-          $specialField.val(0);
-          $specialWrap.prop("hidden", true);
-          $specialApplied.prop("hidden", true);
-          $couponWrap.prop("hidden", false);
-          return 0;
-        }
-
-        if (specialWanted) {
-          // ছাড় প্রয়োগ — বাটন লুকাও, কুপনের পুরো ব্লকও লুকাও
-          $specialField.val(1);
-          $specialWrap.prop("hidden", true);
-          $specialApplied.prop("hidden", false);
-          $specialSaved.text(money(quote.entry.amount - special));
-          $couponWrap.prop("hidden", true);
-        } else {
-          // ছাড় নেওয়ার আগে — কী পাবে সেটা স্পষ্ট করে দেখাও
-          const base = Number(quote.entry.amount);
-          const off = base - special;
-          const pct = Math.round((off / base) * 100);
-
-          $specialPitch.text(
-            "Save " +
-              money(off) +
-              " (" +
-              pct +
-              "% off) — pay " +
-              money(special) +
-              " a month instead of " +
-              money(base) +
-              ".",
-          );
-
-          $specialField.val(0);
-          $specialWrap.prop("hidden", false);
-          $specialApplied.prop("hidden", true);
-          $couponWrap.prop("hidden", false);
-        }
-
-        return special;
-      }
-
-      /** প্রাইস ডিসপ্লে রিফ্রেশ */
-      function refreshPrice() {
-        const quote = currentQuote();
-
-        if (!quote) {
-          specialWanted = false;
-          $specialField.val(0);
-          $specialWrap.prop("hidden", true);
-          $specialApplied.prop("hidden", true);
-          $couponWrap.prop("hidden", false);
-
-          $priceStrike.prop("hidden", true);
-          $priceAmount.text("$0");
-          $priceMeta.text(
-            "Select your course and class days to see your monthly tuition.",
-          );
-          $breakdown.prop("hidden", true);
-          $calcField.val(0);
-          return;
-        }
-
-        const base = quote.entry.amount;
-        $calcField.val(base);
-
-        const special = syncSpecialUI(quote);
-
-        const meta =
-          quote.entry.classes +
-          " classes per month × " +
-          money(quote.entry.rate) +
-          " per class";
-
-        if (appliedCoupon) {
-          // কুপন প্রয়োগ থাকলে ভাঙা হিসাব দেখাও
-          $priceStrike.text(appliedCoupon.original_formatted).prop("hidden", false);
-          $priceAmount.text(appliedCoupon.final_formatted);
-          $priceMeta.text(meta);
-          $origOut.text(appliedCoupon.original_formatted);
-          $discOut.text("−" + appliedCoupon.discount_formatted);
-          $discLabel.text(
-            Math.round(appliedCoupon.discount_percent) +
-              "% Zakat scholarship",
-          );
-          $finalOut.text(appliedCoupon.final_formatted);
-          $breakdown.prop("hidden", false);
-        } else if (specialWanted && special) {
-          // 🎁 স্পেশাল ডিসকাউন্ট প্রয়োগ
-          $priceStrike.text(money(base)).prop("hidden", false);
-          $priceAmount.text(money(special));
-          $priceMeta.text(meta);
-          $origOut.text(money(base));
-          $discOut.text("−" + money(base - special));
-          $discLabel.text("Special discount");
-          $finalOut.text(money(special));
-          $breakdown.prop("hidden", false);
-        } else {
-          $priceStrike.prop("hidden", true);
-          $priceAmount.text(money(base));
-          $priceMeta.text(meta + " · per month");
-          $breakdown.prop("hidden", true);
-        }
-      }
-
-      /**
-       * কোর্স বা দিন বদলালে আগের কুপন বাতিল —
-       * নইলে সস্তা কোর্সে দামি কোর্সের ছাড় থেকে যেত।
-       */
-      function invalidateCoupon(reason) {
-        if (!appliedCoupon) return;
-        appliedCoupon = null;
-        $couponId.val(0);
-        $couponInput.prop("readonly", false);
-        $couponApply.prop("hidden", false);
-        $couponRemove.prop("hidden", true);
-        $declaration.prop("hidden", true);
-        $declCheck.prop("checked", false);
-        showFieldError($form, "zakat_declaration", "");
-        setCouponMsg(reason || "", "warn");
-      }
-
-      function setCouponMsg(text, kind) {
-        $couponMsg
-          .removeClass("is-ok is-err is-warn")
-          .addClass(
-            kind === "ok" ? "is-ok" : kind === "warn" ? "is-warn" : "is-err",
-          )
-          .text(text || "");
-      }
-
-      function couponLoading(on) {
-        $couponApply.prop("disabled", on);
-        $couponApply.find(".iqu-coupon-btn-text").prop("hidden", on);
-        $couponApply.find(".iqu-coupon-btn-loading").prop("hidden", !on);
-      }
-
-      // ── 🎁 স্পেশাল ডিসকাউন্ট প্রয়োগ ──
-      $specialBtn.on("click", function () {
-        const quote = currentQuote();
-        if (!specialFor(quote)) return;
-
-        specialWanted = true;
-
-        // কুপনের ঘর পরিষ্কার — দুটো ছাড় একসাথে চলবে না
-        $couponInput.val("");
-        setCouponMsg("", "warn");
-
-        refreshPrice();
-      });
-
-      // ── স্পেশাল ডিসকাউন্ট সরানো ──
-      $specialRemove.on("click", function () {
-        specialWanted = false;
-        refreshPrice();
-      });
-
-      // ── কুপন প্রয়োগ ──
-      $couponApply.on("click", function () {
-        const code = ($couponInput.val() || "").trim();
-        if (!code) {
-          setCouponMsg("Please enter your coupon code.", "err");
-          return;
-        }
-
-        const quote = currentQuote();
-        if (!quote) {
-          setCouponMsg(
-            "Please select your course and class days first.",
-            "err",
-          );
-          return;
-        }
-
-        couponLoading(true);
-        setCouponMsg("", "warn");
-
-        $.post(IQU_AJAX.ajax_url, {
-          action: "iqu_apply_coupon",
-          _iqu_nonce: IQU_AJAX.nonce,
-          coupon_code: code,
-          course_type: quote.course,
-          days_per_week: quote.days,
-        })
-          .done(function (res) {
-            if (res && res.success) {
-              appliedCoupon = res.data;
-              $couponId.val(res.data.coupon_id);
-              $couponInput.val(res.data.code).prop("readonly", true);
-              $couponApply.prop("hidden", true);
-              $couponRemove.prop("hidden", false);
-
-              $declText.text(res.data.declaration_text);
-              $declaration.prop("hidden", false);
-              $declCheck.prop("checked", false);
-
-              setCouponMsg(res.data.message, "ok");
-              refreshPrice();
-            } else {
-              setCouponMsg(
-                (res && res.data && res.data.message) ||
-                  "This coupon code is not valid.",
-                "err",
-              );
-            }
-          })
-          .fail(function () {
-            setCouponMsg(
-              "Could not verify the coupon right now. Please try again.",
-              "err",
-            );
-          })
-          .always(function () {
-            couponLoading(false);
-          });
-      });
-
-      // ── কুপন সরানো ──
-      $couponRemove.on("click", function () {
-        $couponInput.val("");
-        invalidateCoupon("");
-        refreshPrice();
-      });
-
-      // ── চেকবক্সে ক্লিক করলে লেখাটা লাল হবে ──
-      $declCheck.on("change", function () {
-        $declaration.toggleClass("is-confirmed", this.checked);
-        showFieldError($form, "zakat_declaration", "");
-      });
-
-      // ── কোর্স / দিন বদল ──
-      $courseInput.on("change", function () {
-        showFieldError($form, "course_type", "");
-        $(this).removeClass("iqu-invalid");
-        syncDayOptions();
-        invalidateCoupon(
-          "Your course changed, so the coupon was removed. Please apply it again.",
-        );
-        refreshPrice();
-      });
-
-      $daysInput.on("change", function () {
-        invalidateCoupon(
-          "Your class days changed, so the coupon was removed. Please apply it again.",
-        );
-        refreshPrice();
-      });
-
-      // ── সাবমিটের আগে শেষ চেক ──
-      // ⚠️ এই হ্যান্ডলারটি wireFreeForm()-এর AJAX হ্যান্ডলারের *আগে* বাঁধা হয়
-      //    (enhanceFreeFormUI আগে কল হয়)। তাই একই এলিমেন্টের পরের হ্যান্ডলার
-      //    থামাতে stopImmediatePropagation() লাগে — শুধু return false যথেষ্ট নয়।
-      $form.on("submit", function (e) {
-        if (appliedCoupon && !$declCheck.is(":checked")) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-
-          showFieldError(
-            $form,
-            "zakat_declaration",
-            "Please confirm this declaration to continue.",
-          );
-          $declaration.addClass("is-missing");
-          $declaration[0].scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-          return false;
-        }
-        return true;
-      });
-
-      syncDayOptions();
-      refreshPrice();
     }
 
     function wireSummerForm($form) {

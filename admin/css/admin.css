@@ -46,6 +46,11 @@
   margin-bottom: 18px;
   flex-wrap: wrap;
   gap: 10px;
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  padding: 16px 20px;
 }
 .iqu-top-bar-left {
   display: flex;
@@ -123,7 +128,7 @@
   background: var(--iqu-bg2);
   color: var(--iqu-text1);
 }
-  
+
 .iqu-tab-active,
 .iqu-tab-active:hover,
 .iqu-tab-active:focus {
@@ -144,18 +149,20 @@
 }
 
 @media (max-width: 782px) {
-  /* Tabs take the full width of the row and split it evenly between
-     buttons, instead of hugging the left with empty space on the
-     right. Labels wrap instead of being cut off. */
+  .iqu-top-bar {
+    padding: 14px 16px;
+  }
   .iqu-top-bar-right {
     width: 100%;
   }
   .iqu-tabs {
     width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .iqu-tab {
-    flex: 1 1 auto;
-    padding: 8px 6px;
+    flex: 0 0 auto;
+    padding: 8px 12px;
     font-size: 11px;
     text-align: center;
     white-space: nowrap;
@@ -257,18 +264,6 @@
   }
 }
 
-/* ── Chart Row ──────────────────────────────────────────────── */
-.iqu-chart-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-@media (max-width: 720px) {
-  .iqu-chart-row {
-    grid-template-columns: 1fr;
-  }
-}
 .iqu-chart-body {
   padding: 16px;
   position: relative;
@@ -484,29 +479,42 @@
   flex: 1;
   min-width: 200px;
 }
-.iqu-filter-bar .button {
+/* ⚠️ WP-এর .button ক্লাসে line-height: 2.15 থাকায় <a> ট্যাগে
+   লেখা উল্লম্বভাবে অফ-সেন্টার বসে, আর মোবাইলে বাটন চওড়া হলে
+   বাঁয়ে ঘেঁষে যায়। inline-flex + center দিয়ে তিন ধরনের বাটনই
+   (button, a.button, a.iqu-export-btn) একই উচ্চতা ও অ্যালাইনমেন্ট পায়। */
+.iqu-filter-bar .button,
+.iqu-filter-bar .button-primary,
+.iqu-filter-bar .iqu-export-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   height: 34px;
+  min-height: 34px;
   padding: 0 16px;
+  margin: 0;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
   border-radius: var(--iqu-radius-md);
 }
 
+/* সাইজ ও অ্যালাইনমেন্ট উপরের .iqu-filter-bar রুল থেকে আসে —
+   এখানে শুধু রঙ ও আইকনের গ্যাপ */
 .iqu-export-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 5px 14px;
-  font-size: 12px;
-  font-weight: 600;
   color: var(--iqu-blue);
   background: #e3effa;
   border: 1px solid #b0cff0;
-  border-radius: var(--iqu-radius-md);
-  text-decoration: none;
   transition: background 0.15s;
   cursor: pointer;
-  height: 34px;
 }
 .iqu-export-btn:hover {
   background: #d0e4f8;
@@ -540,13 +548,14 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-}
+} 
 .iqu-tbl td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--iqu-bdr);
   color: var(--iqu-text1);
   vertical-align: middle;
   font-size: 12.5px;
+  white-space: nowrap;
 }
 .iqu-tbl tbody tr:last-child td {
   border-bottom: none;
@@ -586,10 +595,10 @@
   font-size: 11px;
   color: var(--iqu-text2);
   white-space: nowrap;
-}
+} 
 .iqu-tbl .iqu-td-actions {
   white-space: nowrap;
-  width: 120px;
+  width: auto;
 }
 
 /* ── Chips ──────────────────────────────────────────────────── */
@@ -706,32 +715,69 @@
 }
 
 /* ── Pagination ─────────────────────────────────────────────── */
+/* ⚠️ পেজ সংখ্যা বেশি হলে নাম্বারগুলো র‍্যাপ করে। বাইরের flex-এ
+   flex-wrap + gap না থাকায় আগে লাইনগুলো গায়ে গায়ে লেগে যেত।
+   margin-এর বদলে gap ব্যবহার করায় দুই লাইনের মাঝেও সমান ফাঁকা। */
 .iqu-pagination {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  gap: 8px 12px;
+  padding: 12px 14px;
   font-size: 12px;
   color: var(--iqu-text2);
   border-top: 1px solid var(--iqu-bdr);
 }
+.iqu-pagination > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
 .iqu-pagination .page-numbers {
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 28px;
+  padding: 0 9px;
+  margin: 0; /* gap-ই স্পেসিং দিচ্ছে */
   border: 1px solid var(--iqu-bdr);
   border-radius: var(--iqu-radius-md);
   background: var(--iqu-bg1);
   font-size: 12px;
+  line-height: 1;
   color: var(--iqu-text1);
   text-decoration: none;
-  margin: 0 2px;
+  white-space: nowrap;
+}
+.iqu-pagination .page-numbers.dots {
+  border-color: transparent;
+  background: transparent;
 }
 .iqu-pagination .page-numbers.current {
   background: var(--iqu-navy);
   color: #fff;
   border-color: var(--iqu-navy);
 }
-.iqu-pagination .page-numbers:hover:not(.current) {
+.iqu-pagination .page-numbers:hover:not(.current):not(.dots) {
   background: var(--iqu-bg2);
+}
+
+/* মোবাইলে "Page X of Y" আলাদা লাইনে, নাম্বারগুলো নিচে সেন্টারে */
+@media (max-width: 600px) {
+  .iqu-pagination {
+    justify-content: center;
+    text-align: center;
+  }
+  .iqu-pagination > span {
+    flex: 0 0 100%;
+  }
+  .iqu-pagination > div {
+    justify-content: center;
+  }
 }
 
 /* ── Detail View ────────────────────────────────────────────── */
@@ -968,6 +1014,20 @@
   .iqu-bar-pct {
     text-align: left;
   }
+
+  /* সার্চ ও ড্রপডাউন আলাদা সারিতে, নিচে তিন বাটন সমান ভাগে */
+  .iqu-filter-bar input[type="search"],
+  .iqu-filter-bar select {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .iqu-filter-bar .button,
+  .iqu-filter-bar .button-primary,
+  .iqu-filter-bar .iqu-export-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 8px;
+  }
 }
 
 @media (max-width: 425px) {
@@ -1049,7 +1109,10 @@
 
 /* Chart row — 3 columns */
 .iqu-chart-row {
+  display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
 }
 @media (max-width: 1100px) {
   .iqu-chart-row {
@@ -1087,13 +1150,55 @@
   border: 1px solid transparent;
 }
 
-
 /* ── Payment Method Badge ─────────────────────────────────── */
 .iqu-pay-cell {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+/* মূল দাম + শতকরা ছাড় */
+.iqu-fee-orig {
+  font-size: 11px;
+  color: var(--iqu-text2);
+  white-space: nowrap;
+}
+
+/* ছাড়ের উৎস — কুপন / স্পেশাল / কিছুই না */
+.iqu-fee-source {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.iqu-fee-source--coupon {
+  background: #e3effa;
+  color: #1255a0;
+  border-color: #b0cff0;
+}
+.iqu-fee-source--special {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+.iqu-fee-source--none {
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+.iqu-fee-source--legacy {
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #d1d5db;
+  font-style: italic;
+  font-weight: 600;
 }
 .iqu-pay-method {
   display: inline-flex;
@@ -1106,12 +1211,32 @@
   white-space: nowrap;
   border: 1px solid transparent;
 }
-.iqu-pay-zelle  { background: #f3e8ff; color: #6D1ED4; border-color: #c4a0f5; }
-.iqu-pay-zeffy  { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
-.iqu-pay-other  { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
-.iqu-pay-sep    { color: #d1d5db; font-size: 13px; font-weight: 300; line-height: 1; }
-.iqu-pkg-label  { font-size: 10px; color: var(--iqu-text2); font-weight: 400; }
-
+.iqu-pay-zelle {
+  background: #f3e8ff;
+  color: #6d1ed4;
+  border-color: #c4a0f5;
+}
+.iqu-pay-zeffy {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+.iqu-pay-other {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
+}
+.iqu-pay-sep {
+  color: #d1d5db;
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1;
+}
+.iqu-pkg-label {
+  font-size: 10px;
+  color: var(--iqu-text2);
+  font-weight: 400;
+}
 
 /* ── No Payment Chip ─────────────────────────────────────── */
 .iqu-no-pay-chip {
@@ -1138,7 +1263,6 @@
   border: 1px solid #fca5a5;
 }
 
-
 /* ── Free Enrollment Pending Badge ──────────────────────── */
 .iqu-free-pending-badge {
   display: inline-flex;
@@ -1153,4 +1277,426 @@
   color: #c05a00;
   border: 1px solid #fcd59a;
   vertical-align: middle;
+}
+
+/* ═════════════════════════════════════════════════════════════
+ * IQU Admin — Coupon pages (v2.8.0)
+ *
+ * এই ব্লকটা admin.css-এর একদম শেষে যোগ করো।
+ *
+ * সব রুল .iqu-cpn-form / .iqu-fld / .iqu-cpn-* দিয়ে স্কোপড, তাই
+ * ড্যাশবোর্ড বা রেজিস্ট্রেশন পেজের স্টাইল বদলাবে না।
+ *
+ * রঙ ও কোণ বিদ্যমান টোকেন থেকে নেওয়া (--iqu-navy, --iqu-bdr,
+ * --iqu-radius-md), তাই বাকি অ্যাডমিনের সাথে মিলে যাবে।
+ * ═════════════════════════════════════════════════════════════ */
+
+/* ── Form grid ──────────────────────────────────────────────── */
+.iqu-cpn-form {
+  padding: 0;
+}
+
+.iqu-fld-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 24px;
+  padding: 22px 20px;
+}
+
+.iqu-fld--full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .iqu-fld-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Field ──────────────────────────────────────────────────── */
+.iqu-fld label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+  letter-spacing: 0.2px;
+}
+
+.iqu-fld label em {
+  color: var(--iqu-red);
+  font-style: normal;
+  margin-left: 2px;
+}
+
+.iqu-fld input[type="text"],
+.iqu-fld input[type="number"],
+.iqu-fld input[type="date"],
+.iqu-fld select,
+.iqu-fld textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: var(--iqu-font-sans);
+  color: var(--iqu-text1);
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.iqu-fld input:focus,
+.iqu-fld select:focus,
+.iqu-fld textarea:focus {
+  outline: none;
+  border-color: var(--iqu-blue);
+  box-shadow: 0 0 0 3px rgba(30, 95, 160, 0.1);
+}
+
+.iqu-fld textarea {
+  resize: vertical;
+  min-height: 78px;
+  line-height: 1.55;
+}
+
+.iqu-fld input::placeholder,
+.iqu-fld textarea::placeholder {
+  color: #9aa5b1;
+}
+
+/* ছোট সংখ্যার ঘর — Usage Limit পুরো প্রস্থ নিলে অদ্ভুত লাগে */
+.iqu-fld input.iqu-fld-narrow {
+  max-width: 150px;
+}
+
+.iqu-fld-hint {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--iqu-text2);
+}
+
+.iqu-fld-hint strong {
+  color: var(--iqu-text1);
+  font-weight: 600;
+}
+
+/* ── Input + suffix ─────────────────────────────────────────── */
+.iqu-input-group {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  background: var(--iqu-bg1);
+  overflow: hidden;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.iqu-input-group:focus-within {
+  border-color: var(--iqu-blue);
+  box-shadow: 0 0 0 3px rgba(30, 95, 160, 0.1);
+}
+
+/* ভেতরের ইনপুটের নিজস্ব বর্ডার বাতিল — নইলে বর্ডারের ভেতরে বর্ডার */
+.iqu-input-group input {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.iqu-input-suffix {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iqu-text2);
+  background: var(--iqu-bg2);
+  border-left: 1px solid var(--iqu-bdr);
+  white-space: nowrap;
+}
+
+/* ── Actions bar ────────────────────────────────────────────── */
+.iqu-cpn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch; /* দুই বাটন সমান উচ্চতা */
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--iqu-bdr);
+  background: var(--iqu-bg2);
+}
+
+.iqu-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.3;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--iqu-navy);
+  border: 1px solid var(--iqu-navy);
+  border-radius: var(--iqu-radius-md);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.iqu-btn-primary:hover {
+  background: #23394f;
+}
+
+.iqu-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.3;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--iqu-text1);
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.iqu-btn-ghost:hover {
+  background: var(--iqu-bg2);
+  color: var(--iqu-text1);
+}
+
+/* ── মোবাইলে দুই বাটন এক লাইনে ───────────────────────────────
+   ⚠️ flex-wrap: wrap থাকায় সরু স্ক্রিনে বাটন দুটো নিচে নেমে
+   যাচ্ছিল। nowrap + flex: 1 1 0 দিয়ে দুটোকে সমান ভাগে এক
+   লাইনে রাখা হলো; padding ও font-size কমানোয় লেখা ভাঙে না। */
+@media (max-width: 600px) {
+  .iqu-cpn-actions {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .iqu-cpn-actions .iqu-btn-primary,
+  .iqu-cpn-actions .iqu-btn-ghost {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 9px 6px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 380px) {
+  .iqu-cpn-actions .iqu-btn-primary,
+  .iqu-cpn-actions .iqu-btn-ghost {
+    padding: 9px 4px;
+    font-size: 11px;
+    letter-spacing: -0.1px;
+  }
+}
+
+/* ── Success card ───────────────────────────────────────────── */
+.iqu-cpn-success {
+  margin-bottom: 18px;
+  border-left: 3px solid var(--iqu-green);
+}
+
+.iqu-cpn-success-body {
+  padding: 18px 20px;
+}
+
+.iqu-cpn-success-body > p:first-child {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--iqu-text1);
+}
+
+.iqu-code-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.iqu-code-row code {
+  padding: 11px 18px;
+  font-family: var(--iqu-font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--iqu-navy);
+  background: var(--iqu-bg2);
+  border: 1px dashed var(--iqu-navy);
+  border-radius: var(--iqu-radius-md);
+
+  /* লম্বা কোড সরু স্ক্রিনে যেন উপচে না পড়ে */
+  word-break: break-all;
+}
+
+/* ── List table tweaks ──────────────────────────────────────── */
+.iqu-tbl code {
+  font-family: var(--iqu-font-mono);
+  font-size: 12px;
+  color: var(--iqu-navy);
+  background: var(--iqu-bg2);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+/* ── Coupon metric accents ─────────────────────────────────── */
+
+/* মেয়াদোত্তীর্ণ — কমলা, যা "সময় শেষ" বোঝায় */
+.iqu-metric-accent--expired {
+  background: var(--iqu-orange);
+}
+
+/* রিডিম হওয়া — বেগুনি, ড্যাশবোর্ডের revenue accent-এর মতো,
+   কারণ এটাও যাকাত থেকে ব্যয় হওয়া অর্থের হিসাব */
+.iqu-metric-accent--redeemed {
+  background: var(--iqu-purple);
+}
+
+/* dashboard-এর টেবিলের মতোই — কনটেন্ট অনুযায়ী কলাম বড়/ছোট হবে,
+   দরকার হলে পুরো টেবিল ডানে-বামে স্ক্রল হবে, কোনো কাটাকুটি নেই */
+.iqu-coupon-tbl {
+  min-width: 1000px;
+}
+.iqu-code-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.iqu-code-cell .iqu-copy-btn {
+  flex-shrink: 0;
+}
+
+/* ── Copy Coupon Code Button ───────────────────────────────── */
+.iqu-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--iqu-bdr);
+  background: var(--iqu-bg2);
+  border-radius: 4px;
+  padding: 3px 5px;
+  line-height: 0;
+  cursor: pointer;
+  color: var(--iqu-text2);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.iqu-copy-btn.iqu-copied {
+  background: #e6f5ec !important;
+  border-color: #b0dfc0 !important;
+  color: #1a8a45 !important;
+}
+
+.iqu-copy-btn:hover {
+  background: var(--iqu-navy);
+  color: #fff;
+}
+
+/* ══════════════════════════════════════════════════════════
+ * DISCOUNT SUMMARY CARD (v2.9.6)
+ * .iqu-metrics গ্রিডের ভেতরে বসে, কিন্তু পুরো সারি জুড়ে —
+ * তাই মোবাইলে উপরের দুই কার্ডের সমান চওড়া দেখায়।
+ * ══════════════════════════════════════════════════════════ */
+.iqu-discount-card { 
+  box-sizing: border-box;
+  padding: 16px 18px 14px;
+  margin-bottom: 16px;
+}
+
+.iqu-metric-accent--discount {
+  background: linear-gradient(90deg, var(--iqu-green), var(--iqu-gold));
+}
+
+.iqu-discount-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px dashed var(--iqu-bdr);
+}
+
+.iqu-discount-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--iqu-text2);
+}
+
+.iqu-discount-total {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--iqu-text1);
+  line-height: 1.1;
+}
+
+.iqu-discount-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.iqu-discount-item {
+  padding: 10px 12px;
+  background: var(--iqu-bg2);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+}
+
+.iqu-discount-amt {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+  line-height: 1.15;
+}
+
+.iqu-discount-lbl {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--iqu-text2);
+  line-height: 1.35;
+}
+
+.iqu-discount-sub {
+  margin-top: 2px;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--iqu-text2);
+}
+
+@media (max-width: 900px) {
+  .iqu-discount-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 380px) {
+  .iqu-discount-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -79,9 +79,61 @@ class IQU_Mailer
     $admin_url = admin_url('admin.php?page=iqu-view-registration&id=' . $id);
     $form_type = $data['form_type'] ?? '';
 
-    // 📋 ফিল্ড তালিকা IQU_Reg_Fields থেকে — টেলিগ্রামও ঠিক এই
-    //    একই তালিকা ব্যবহার করে, তাই দুটো কখনো আলাদা হবে না।
-    $rows = IQU_Reg_Fields::admin_rows($data, $id);
+    $rows = [];
+    $rows[] = ['Form', self::form_label($form_type)];
+    $rows[] = ['Participant', ($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')];
+    $rows[] = ['Email', $data['email'] ?? ''];
+
+    if ($form_type === IQU_Database::FORM_FREE) {
+      $rows[] = ['Age', (int) ($data['age'] ?? 0)];
+      $rows[] = ['Country of Origin', $data['country_origin'] ?? ''];
+      $rows[] = ['Country of Residence', $data['country_res'] ?? ''];
+      $rows[] = ['Qur\'an Level', ucfirst($data['quran_level'] ?? '')];
+      $rows[] = ['Days / Week', $data['days_per_week'] ?? ''];
+      $rows[] = ['Preferred Days', $data['preferred_days'] ?? ''];
+      $rows[] = ['Time Slot', $data['time_slot'] ?? ''];
+      $rows[] = ['Session Duration', $data['session_dur'] ?? ''];
+      $rows[] = ['Languages', $data['languages'] ?? ''];
+      $rows[] = ['WhatsApp', $data['whatsapp'] ?? ''];
+      $rows[] = ['Memorized', $data['memorized'] ?? ''];
+      $rows[] = ['Teacher Preference', $data['teacher_pref'] ?? ''];
+      $rows[] = ['Device', $data['device'] ?? ''];
+      $rows[] = ['Referral', $data['referral'] ?? ''];
+      $rows[] = ['Monthly Fee Pref.', self::format_free_fee($data['fee_pref'] ?? '')];
+      if (!empty($data['free_request_reason'])) {
+        $rows[] = ['Free Enrollment Note', $data['free_request_reason']];
+      }
+    } else {
+      $rows[] = ['Age', (int) ($data['age'] ?? 0)];
+      $rows[] = ['Enrollment Level', strtoupper($data['enrollment_level'] ?? '')];
+      $rows[] = ['Country of Origin', $data['country_origin'] ?? ''];
+      $rows[] = ['Country of Residence', $data['country_res'] ?? ''];
+      $rows[] = ['Guardian', $data['guardian_name'] ?? ''];
+      $rows[] = ['Guardian Contact', $data['guardian_contact'] ?? ''];
+      $rows[] = ['Guardian WhatsApp', $data['guardian_whatsapp'] ?? ''];
+      $rows[] = ['Join WhatsApp Group', ucfirst($data['whatsapp_group'] ?? '')];
+      $rows[] = ['Referral', $data['referral'] ?? ''];
+
+      $fee_display = self::format_admission_fee($data['admission_fee'] ?? '');
+      $rows[] = ['Admission Fee', $fee_display];
+
+      if (!empty($data['flexible_fee_note'])) {
+        $rows[] = ['Flexible/Free Note', $data['flexible_fee_note']];
+      }
+
+      if (!empty($data['payment_method'])) {
+        $rows[] = ['Payment Method', strtoupper($data['payment_method'])];
+      }
+      if (isset($data['payment_amount']) && (float) $data['payment_amount'] > 0) {
+        $rows[] = ['Payment Amount', '$' . number_format((float) $data['payment_amount'], 2)];
+      }
+      if (!empty($data['transaction_id'])) {
+        $rows[] = ['Transaction ID', $data['transaction_id']];
+      }
+      if (!empty($data['payment_status'])) {
+        $rows[] = ['Payment Status', ucfirst($data['payment_status'])];
+      }
+    }
 
     // Submitted at
     $rows[] = ['Submitted', date('M j, Y · g:i A (T)')];
@@ -195,9 +247,16 @@ class IQU_Mailer
         $summary[] = ['Transaction ID', $data['transaction_id']];
       }
     } else {
-      // 📋 ফ্রি এনরোলমেন্টের সারাংশ IQU_Reg_Fields থেকে —
-      //    কোর্স, ক্লাস সংখ্যা ও চূড়ান্ত টিউশন সহ।
-      $summary = array_merge($summary, IQU_Reg_Fields::student_rows($data));
+      $summary[] = ['Name', ($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')];
+      $summary[] = ['Qur\'an Level', ucfirst($data['quran_level'] ?? '')];
+      $summary[] = ['Preferred Days', $data['preferred_days'] ?? ''];
+      $summary[] = ['Time Slot', $data['time_slot'] ?? ''];
+      $summary[] = ['Session Duration', ($data['session_dur'] ?? '') . ' minutes'];
+      $summary[] = ['Teacher Preference', ucfirst($data['teacher_pref'] ?? '')];
+      $summary[] = ['Monthly Fee', self::format_free_fee($data['fee_pref'] ?? '')];
+      if (!empty($data['free_request_reason'])) {
+        $summary[] = ['Free Enrollment Note', $data['free_request_reason']];
+      }
     }
 
     $title = $is_summer
@@ -375,30 +434,18 @@ class IQU_Mailer
         return '';
     }
   }
-  /**
-   * পুরনো fee_pref key-এর লেবেল।
-   *
-   * ⚠️ v2.8.0 থেকে ফ্রি ফর্মে fee_pref আর ব্যবহার হয় না — দাম এখন
-   *    IQU_Pricing থেকে আসে। এই মেথডটি কেবল পুরনো রেকর্ডের জন্য
-   *    রাখা হয়েছে (যেমন কোনো পুরনো রেজিস্ট্রেশনের ইমেইল পুনরায়
-   *    পাঠানো হলে)।
-   */
   public static function format_free_fee(string $fee): string
   {
-    if ($fee === '') {
-      return '';
-    }
-
     if (strpos($fee, 'custom_') === 0) {
       return '$' . substr($fee, 7) . '/month (Custom)';
     }
 
     $map = [
       'arabic_50' => 'Arabic Language $50/month',
-      'qaidah_50' => "Qa'idah / Nazirah Students $50/month",
-      'qaidah_60' => "Qa'idah / Nazirah Students $60/month",
-      'qaidah_70' => "Qa'idah / Nazirah Students $70/month",
-      'qaidah_80' => "Qa'idah / Nazirah Students $80/month",
+      'qaidah_50' => "QÄ'idah / Nazirah Students $50/month",
+      'qaidah_60' => "QÄ'idah / Nazirah Students $60/month",
+      'qaidah_70' => "QÄ'idah / Nazirah Students $70/month",
+      'qaidah_80' => "QÄ'idah / Nazirah Students $80/month",
       'hifz_60' => 'Hifz Students $60/month',
       'hifz_70' => 'Hifz Students $70/month',
       'hifz_80' => 'Hifz Students $80/month',

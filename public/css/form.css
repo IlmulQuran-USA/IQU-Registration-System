@@ -13,6 +13,50 @@
   margin: 0;
   padding: 0;
 }
+
+/* ══════════════════════════════════════════════════════════
+ * INTL-TEL-INPUT — FLAG SPRITE PATH FIX (v2.9.6)
+ *
+ * সমস্যা: v23-এর ডিফল্ট CSS-এ flag sprite relative path-এ
+ * (../img/flags.png) থাকে। ক্যাশ/CSS-combine লেয়ার সেই path
+ * রিরাইট করায় 1x ফাইলটা 404 হচ্ছিল — ডেস্কটপে পতাকা উধাও,
+ * অথচ রেটিনা মোবাইল 2x ফাইল পাওয়ায় ঠিকই দেখাচ্ছিল।
+ *
+ * সমাধান: দুটো path-ই absolute CDN URL-এ পিন করা।
+ * ⚠️ intl-tel-input ভার্সন বদলালে নিচের ২৩.০.১০ও বদলাতে হবে।
+ * ══════════════════════════════════════════════════════════ */
+
+:root,
+.iqu-form-wrapper,
+.iti--container {
+  --iti-path-flags-1x: url("https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/img/flags.png");
+  --iti-path-flags-2x: url("https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/img/flags@2x.png");
+  --iti-path-globe-1x: url("https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/img/globe.png");
+  --iti-path-globe-2x: url("https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/img/globe@2x.png");
+}
+
+/* dropdown মোবাইলে fullscreen popup <body>-র সরাসরি সন্তান হয়,
+   তাই সেখানেও ভেরিয়েবল পৌঁছানো দরকার */
+.iti__flag {
+  background-image: var(--iti-path-flags-1x) !important;
+}
+
+@media (min-resolution: 2x) {
+  .iti__flag {
+    background-image: var(--iti-path-flags-2x) !important;
+  }
+}
+
+.iti__globe {
+  background-image: var(--iti-path-globe-1x) !important;
+}
+
+@media (min-resolution: 2x) {
+  .iti__globe {
+    background-image: var(--iti-path-globe-2x) !important;
+  }
+}
+
 /* .sc-root {
   font-family: "Poppins", sans-serif;
   background: #fff;
@@ -159,8 +203,8 @@
 .sc-hills {
   display: block;
   width: 100%;
-  height: 70px;
-  margin-top: -2px;
+  height: 150px;
+  margin-top: 0;
 }
 
 /* ── Body ───────────────────────────────────────────────── */
@@ -194,51 +238,51 @@
 .sc-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 14px 0;
+  gap: 6px;
+  margin: 12px 0;
 }
 .sc-info-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   background: #fff;
-  border-radius: 12px;
-  padding: 10px 12px;
-  border: 1.5px solid #d4ede3;
+  border-radius: 10px;
+  padding: 8px 10px;
+  border: 1px solid #d4ede3;
 }
 .sc-info-icon {
-  font-size: 30px;
+  font-size: 22px;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 .sc-info-text {
-  font-size: 14.5px; /* body small */
-  font-weight: 700;
+  font-size: 12.5px; /* body small */
+  font-weight: 600;
   color: #1a3a2e;
-  line-height: 1.45;
+  line-height: 1.35;
 }
 .sc-info-text strong {
   display: block;
   color: #000000;
-  font-size: 11px; /* label */
+  font-size: 9.5px; /* label */
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 2px;
+  letter-spacing: 0.4px;
+  margin-bottom: 1px;
 }
 
 /* ── Level Cards ────────────────────────────────────────── */
 .sc-levels {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 14px 0;
+  gap: 8px;
+  margin: 12px 0;
 }
 .sc-level {
-  border-radius: 14px;
-  padding: 14px 14px;
+  border-radius: 10px;
+  padding: 10px 10px;
   text-align: center;
-  border: 2px solid;
+  border: 1.5px solid;
 }
 .sc-level-1 {
   background: #fff8e6;
@@ -250,11 +294,11 @@
 }
 
 .sc-level-tag {
-  font-size: 15px; /* label */
+  font-size: 10.5px; /* label */
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
 }
 .sc-level-1 .sc-level-tag {
   color: #9a6800;
@@ -264,9 +308,9 @@
 }
 
 .sc-level-name {
-  font-size: 20px; /* H3 */
+  font-size: 16px; /* H3 */
   font-weight: 700;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 .sc-level-1 .sc-level-name {
   color: #7a5000;
@@ -276,7 +320,7 @@
 }
 
 .sc-level-ages {
-  font-size: 13px; /* body small */
+  font-size: 11px; /* body small */
   font-weight: 600;
 }
 .sc-level-1 .sc-level-ages {
@@ -288,7 +332,7 @@
 
 /* ── Section Title (H2) ─────────────────────────────────── */
 .sc-subjects-title {
-  font-size: 25px; /* H2 */
+  font-size: 20px; /* H2 */
   font-weight: 700;
   color: #0d3d52;
   margin: 16px 0 10px;
@@ -299,18 +343,19 @@
 .sc-subjects {
   display: flex;
   flex-wrap: wrap;
-  gap: 15px;
-  margin-bottom: 14px;
+  gap: 5px;
+  margin-bottom: 12px;
 }
 .sc-sub {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border-radius: 24px;
-  font-size: 17px; /* caption / chip */
+  gap: 3px;
+  padding: 6px 11px;
+  border-radius: 14px;
+  font-size: 10px;
   font-weight: 600;
-  border: 2px solid;
+  border: 1px solid;
+  white-space: nowrap; /* চিপের ভেতরে লেখা যেন না ভাঙে */
 }
 .sc-sub-0 {
   background: #fff0e6;
@@ -338,8 +383,8 @@
   border-color: #e8b84a;
 }
 .sc-sub-dot {
-  width: 7px;
-  height: 7px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -363,17 +408,19 @@
 .sc-features {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 10px 0 14px;
+  gap: 5px;
+  margin: 8px 0 12px;
 }
 .sc-feat {
   color: #fff;
-  font-size: 19px; /* caption pill */
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.3px;
-  padding: 7px 15px;
-  border-radius: 24px;
+  letter-spacing: 0.1px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
 }
+
 .sc-feat-0 {
   background: #1d9e75;
 }
@@ -479,11 +526,18 @@
     font-size: 20px;
   }
   .sc-sub {
-    padding: 8px 16px;
-    font-size: 14px;
+    padding: 3px 8px;
+    gap: 3px;
+    font-size: 10px;
+  }
+  .sc-sub-dot {
+    width: 5px;
+    height: 5px;
   }
   .sc-feat {
-    font-size: 12px;
+    padding: 6px 8px;
+    font-size: 10px;
+    letter-spacing: 0;
   }
 
   /* Stack layouts */
@@ -500,12 +554,6 @@
   }
   .sc-levels {
     grid-template-columns: 1fr;
-  }
-  .display-flex-payment {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 90%;
   }
 }
 
@@ -640,6 +688,7 @@
   margin-bottom: 14px;
   box-shadow: 0 1px 4px rgba(26, 82, 118, 0.05);
 }
+
 .iqu-question label {
   display: block;
   color: #000;
@@ -1092,12 +1141,6 @@
     align-items: stretch;
     flex: 1;
   }
-  .display-flex-payment {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 90%;
-  }
   .iqu-hero h2 {
     font-size: 1.45rem;
   }
@@ -1487,12 +1530,6 @@
     align-items: stretch;
     width: 100%;
   }
-  .display-flex-payment {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 90%;
-  }
 }
 
 /* ── Preferred Day Chips ─────────────────────────────────── */
@@ -1505,7 +1542,6 @@
 
 .iqu-day-chip {
   display: inline-flex;
-  align-items: center;
   gap: 7px;
   padding: 8px 16px;
   border: 1.5px solid #d0dce8;
@@ -1692,13 +1728,6 @@
   box-shadow: 0 0 0 3px rgba(26, 82, 118, 0.12);
 }
 
-.iqu-time-slot-builder {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 15px;
-  align-items: end;
-}
-
 .iqu-time-slot-col {
   width: 100%;
 }
@@ -1722,7 +1751,7 @@
   background: #faf8f4;
   border: 1px solid #e8e2d4;
   border-radius: 0 0 20px 20px;
-  margin: 0 0 14px 0;
+  margin: 0 0 40px 0;
   padding: 0;
   text-align: center;
 }
@@ -1969,8 +1998,7 @@
   background: #fff;
   border: 1px solid #e8e2d4;
   border-radius: 18px;
-  padding: 34px 30px;
-  margin: 16px 0 18px;
+  padding: 34px 30px; 
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   position: relative;
   overflow: hidden;
@@ -2301,13 +2329,6 @@
   box-sizing: border-box;
 }
 
-.iqu-form .iti__selected-country {
-  transition: background 0.15s ease;
-  cursor: pointer;
-  min-height: 48px;
-  box-sizing: border-box;
-}
-
 .iqu-form .iti__selected-country:hover {
   background: linear-gradient(180deg, #d0e8f5, #c4dff0) !important;
 }
@@ -2499,5 +2520,893 @@
   .iti--fullscreen-popup .iti__country-listbox {
     max-height: 220px !important;
     overflow-y: auto !important;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════
+ * IQU — v2.8.0 additions
+ *
+ * এই ব্লকটা form.css-এর **একদম শেষে** যোগ করতে হবে।
+ *
+ * ⚠️ কেন শেষে?
+ * form.css-এ .iqu-form-wrapper দুইবার (লাইন ৫১২, ১১২৭) আর
+ * .iqu-intro-card চারবার সংজ্ঞায়িত। শেষে রাখলে cascade-এ এগুলো
+ * জেতে, তাই !important ছাড়াই কাজ করে এবং পুরনো কোনো রুল
+ * মুছতে হয় না — Summer ফর্মও অক্ষত থাকে।
+ *
+ * Palette (বিদ্যমান ব্র্যান্ড থিম):
+ *   Primary #1a5276 · Accent #f0b429 · Deep #1E4D6B
+ * ══════════════════════════════════════════════════════════ */
+
+:root {
+  --iqu-primary: #1a5276;
+  --iqu-primary-dark: #143f5a;
+  --iqu-accent: #f0b429;
+  --iqu-success: #1a8a45;
+  --iqu-danger: #c0392b;
+  --iqu-border: #dbe4ec;
+  --iqu-surface: #f7fafc;
+
+  /* 📐 দুই এনরোলমেন্ট পেজের হিরো একই উচ্চতার রাখতে —
+     একটাই সংখ্যা বদলালে দুটোই বদলাবে */
+  --iqu-hero-min-h: 460px;
+}
+
+/* ══════════════════════════════════════════════════════════
+ * HERO — দুই ফর্মে একই উচ্চতা
+ *
+ * split layout আসার পরে র‍্যাপার ৮২০px থেকে ১২৮০px হয়েছে।
+ * ফলে Summer-এর হিরো একই কনটেন্ট নিয়ে বেশি চওড়া জায়গায়
+ * ছড়িয়ে গেছে, তাই দেখতে চ্যাপ্টা লাগছিল। এখন দুটোরই
+ * সর্বনিম্ন উচ্চতা এক।
+ * ══════════════════════════════════════════════════════════ */
+
+.iqu-hero,
+.sc-hero {
+  min-height: var(--iqu-hero-min-h);
+}
+
+/* Summer হিরোর কনটেন্ট উল্লম্বভাবে ছড়িয়ে দাও, নইলে বাড়তি
+   জায়গাটা নিচে ফাঁকা পড়ে থাকবে।
+   ⚠️ justify-content: center ছিল — তাতে পাহাড়টাও মাঝে চলে যেত আর
+      তার নিচে খালি গ্রেডিয়েন্ট পড়ে থাকত। flex-start + .sc-hero-inner-এ
+      flex:1 দিলে কনটেন্ট মাঝে বসে, পাহাড় নিচে লেগে থাকে। */
+.sc-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 2.5rem 1.5rem 0;
+}
+
+.sc-hero-inner {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* পাহাড় হিরোর প্যাডিং উপেক্ষা করে দুই প্রান্ত পর্যন্ত যাবে */
+.sc-hills {
+  margin-left: -1.5rem;
+  margin-right: -1.5rem;
+  width: calc(100% + 3rem);
+}
+
+@media (max-width: 640px) {
+  .sc-hills {
+    height: 100px;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    width: calc(100% + 2rem);
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --iqu-hero-min-h: 360px;
+  }
+}
+
+.iqu-form-wrapper:has(.iqu-split-layout) {
+  max-width: 1280px;
+}
+
+.iqu-split-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* 🖥️ ডেস্কটপ — দুই কলাম */
+@media (min-width: 1024px) {
+  .iqu-split-layout {
+    grid-template-columns: 380px minmax(0, 1fr);
+    gap: 32px;
+  }
+
+  /* বাম কলাম স্ক্রলের সাথে আটকে থাকে।
+     ⚠️ এখানে max-height / overflow দেওয়া হয়নি — ইচ্ছাকৃত।
+        আগে দেওয়া ছিল, ফলে ডেসক্রিপশন লম্বা হওয়ায় কলামের ভেতরে
+        আলাদা স্ক্রলবার তৈরি হচ্ছিল, যা দেখতে খারাপ। এখন কনটেন্ট
+        লম্বা হলে সেটা স্বাভাবিকভাবে পেজের সাথেই স্ক্রল করে, আর
+        ছোট হলে sticky হয়ে আটকে থাকে। */
+  .iqu-split-side-inner {
+    position: sticky;
+    top: 96px; /* ← থিমের fixed হেডারের উচ্চতা */
+  }
+}
+
+/* 🖥️ বড় ডেস্কটপ — বাম কলাম একটু চওড়া */
+@media (min-width: 1400px) {
+  .iqu-split-layout {
+    grid-template-columns: 420px minmax(0, 1fr);
+    gap: 40px;
+  }
+}
+
+/* 📱 ট্যাবলেট ও মোবাইল — এক কলাম, ডেসক্রিপশন উপরে */
+@media (max-width: 1023px) {
+  .iqu-split-side-inner {
+    position: static;
+  }
+}
+
+.iqu-split-main {
+  min-width: 0; /* গ্রিড আইটেম যেন উপচে না পড়ে */
+}
+
+@media (min-width: 1024px) {
+  .iqu-split-main .iqu-form {
+    background: #fff;
+    border: 1px solid var(--iqu-border);
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 4px 24px rgba(18, 53, 77, 0.06);
+  }
+
+  .iqu-split-main .iqu-question {
+    background: transparent;
+    border: none;
+    border-top: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 22px;
+  }
+
+  /* টিউশন ব্লকটি আলাদা করে চোখে পড়া দরকার — তাই ওটা
+     কার্ড হিসেবেই থাকে */
+  .iqu-split-main .iqu-question.iqu-tuition-block {
+    background: linear-gradient(180deg, #ffffff 0%, #f9fcff 100%);
+    border: 2px solid var(--iqu-primary) !important;
+    border-radius: 14px;
+    padding: 24px;
+    margin-top: 28px;
+  }
+
+  /* দুই কলামের সারি — গ্যাপ একটু বাড়ানো */
+  .iqu-split-main .form-display-flex {
+    gap: 20px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+ * CLASS FREQUENCY + PREFERRED DAYS — এক সারিতে, ৫০/৫০
+ *
+ * দুটো প্রশ্ন যুক্ত: বাঁয়ে দিনের সংখ্যা বাছলে ডানের চেকবক্সগুলো
+ * সাথে সাথে আপডেট হয়। পাশাপাশি থাকলে ইউজার সম্পর্কটা চোখেই
+ * দেখতে পায়।
+ *
+ * ⚠️ .form-display-flex-এ align-items: center আছে (form.css
+ *    লাইন ৬২৪)। দুই পাশের উচ্চতা আলাদা হওয়ায় সেটা কার্ড দুটোকে
+ *    উপর-নিচ ভাসিয়ে দিত — তাই এখানে stretch করা হয়েছে।
+ * ══════════════════════════════════════════════════════════ */
+
+.form-display-flex--days {
+  align-items: stretch;
+}
+
+@media (min-width: 1024px) {
+  .form-display-flex--days > .iqu-question {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+/* দিনের চিপ — সংক্ষিপ্ত নাম (Sat, Sun…) হওয়ায় সাতটাই
+   ৫০% প্রস্থে দুই সারিতে আরামে বসে */
+.form-display-flex--days .iqu-day-chips {
+  gap: 7px;
+}
+
+.form-display-flex--days .iqu-day-chip {
+  padding: 8px 13px;
+  gap: 6px;
+}
+
+/* ছোট স্ক্রিনে উপর-নিচ */
+@media (max-width: 1023px) {
+  .form-display-flex--days {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+ * ZAKAT CALLOUT — বাম কলামে
+ * ══════════════════════════════════════════════════════════ */
+
+.iqu-zakat-callout {
+  margin-top: 20px;
+  padding: 22px;
+  background: linear-gradient(135deg, #fffdf5 0%, #fff8e6 100%);
+  border: 1px solid #f3dfa6;
+  border-left: 4px solid var(--iqu-accent);
+  border-radius: 12px;
+}
+
+.iqu-zakat-callout-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.iqu-zakat-callout-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--iqu-primary);
+  line-height: 1.3;
+}
+
+.iqu-zakat-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.iqu-zakat-callout p {
+  margin: 0 0 10px;
+  font-size: 0.93rem;
+  line-height: 1.65;
+  color: #2c3e50;
+}
+
+.iqu-zakat-callout p:last-child {
+  margin-bottom: 0;
+}
+
+.iqu-zakat-link {
+  color: var(--iqu-primary);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.iqu-zakat-link:hover {
+  color: var(--iqu-accent);
+}
+
+.iqu-zakat-note {
+  font-size: 0.82rem !important;
+  color: #7f8c8d !important;
+  font-style: italic;
+}
+
+/* ══════════════════════════════════════════════════════════
+ * MINIMUM DAYS NOTE
+ * ══════════════════════════════════════════════════════════ */
+
+.iqu-min-days-note {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  background: #fff8e6;
+  border-left: 3px solid var(--iqu-accent);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #8a6d1f;
+}
+
+/* ══════════════════════════════════════════════════════════
+ * TUITION DISPLAY
+ * ══════════════════════════════════════════════════════════ */
+
+.iqu-tuition-block {
+  border: 2px solid var(--iqu-primary) !important;
+  border-radius: 14px;
+}
+
+.iqu-price-display {
+  margin: 16px 0;
+  padding: 26px 20px;
+  text-align: center;
+  background: linear-gradient(135deg, #f4f9fd 0%, #eaf3fa 100%);
+  border: 1px solid var(--iqu-border);
+  border-radius: 12px;
+}
+
+.iqu-price-amount {
+  font-size: clamp(2.4rem, 7vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--iqu-primary);
+  letter-spacing: -1px;
+
+  /* সংখ্যা বদলালে যেন লাফ না দেয় */
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s ease;
+}
+
+.iqu-price-meta {
+  margin-top: 8px;
+  font-size: 0.88rem;
+  color: #5a6c7d;
+  line-height: 1.5;
+}
+
+/* ── ছাড়ের ভাঙা হিসাব ── */
+.iqu-price-breakdown {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--iqu-border);
+  text-align: left;
+}
+
+.iqu-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 0.92rem;
+  color: #2c3e50;
+  font-variant-numeric: tabular-nums;
+}
+
+.iqu-price-row--discount {
+  color: var(--iqu-success);
+  font-weight: 600;
+}
+
+.iqu-price-row--total {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--iqu-border);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--iqu-primary);
+}
+
+/* ══════════════════════════════════════════════════════════
+ * COUPON
+ * ══════════════════════════════════════════════════════════ */
+
+.iqu-coupon-wrap {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--iqu-border);
+}
+
+.iqu-coupon-label {
+  font-weight: 700;
+  color: var(--iqu-primary);
+}
+
+.iqu-coupon-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.iqu-coupon-row input[type="text"] {
+  flex: 1 1 220px;
+  min-width: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.iqu-coupon-row input[readonly] {
+  background: #eef6ee;
+  border-color: var(--iqu-success);
+  color: var(--iqu-success);
+  font-weight: 700;
+}
+
+.iqu-coupon-btn,
+.iqu-coupon-remove {
+  flex: 0 0 auto;
+  padding: 0 22px;
+
+  /* 📱 মোবাইলে অন্তত ৪৪px টাচ টার্গেট */
+  min-height: 46px;
+
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, opacity 0.18s ease;
+}
+
+.iqu-coupon-btn {
+  background: var(--iqu-primary);
+  color: #fff;
+}
+
+.iqu-coupon-btn:hover:not(:disabled) {
+  background: var(--iqu-primary-dark);
+}
+
+.iqu-coupon-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.iqu-coupon-remove {
+  background: transparent;
+  color: var(--iqu-danger);
+  border: 1px solid var(--iqu-danger);
+}
+
+.iqu-coupon-remove:hover {
+  background: var(--iqu-danger);
+  color: #fff;
+}
+
+.iqu-coupon-feedback {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  font-weight: 600;
+  min-height: 1.2em; /* বার্তা এলে লেআউট যেন লাফ না দেয় */
+}
+
+.iqu-coupon-feedback:empty {
+  margin-top: 0;
+  min-height: 0;
+}
+
+.iqu-coupon-feedback.is-ok {
+  color: var(--iqu-success);
+}
+.iqu-coupon-feedback.is-err {
+  color: var(--iqu-danger);
+}
+.iqu-coupon-feedback.is-warn {
+  color: #b7791f;
+}
+
+/* ══════════════════════════════════════════════════════════
+ * ZAKAT DECLARATION
+ * ══════════════════════════════════════════════════════════ */
+
+.iqu-declaration {
+  margin-top: 20px;
+  padding: 18px;
+  background: #fffaf5;
+  border: 2px solid #f0c9a4;
+  border-radius: 10px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.iqu-declaration.is-missing {
+  border-color: var(--iqu-danger);
+  background: #fdf3f2;
+  animation: iqu-shake 0.35s ease;
+}
+
+@keyframes iqu-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+.iqu-declaration-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.iqu-declaration-label input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+
+  /* 📐 লেখার প্রথম লাইনের অপটিক্যাল সেন্টারে বসাতে —
+     line-height 1.7 × font-size 0.9rem ≈ 24px লাইন;
+     (24 − 16) / 2 = 4px উপরে নামালে ঠিক মাঝে বসে */
+  margin: 4px 0 0 !important;
+  padding: 0 !important;
+  position: static !important;
+  top: auto !important;
+  vertical-align: top !important;
+
+  cursor: pointer;
+  accent-color: var(--iqu-success);
+}
+
+.iqu-declaration-text {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: #34495e;
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+/* ✅ চেক করার সাথে সাথে লেখা সবুজ ও বোল্ড — নিশ্চিত হওয়ার ইঙ্গিত */
+.iqu-declaration.is-confirmed {
+  background: #f1faf4;
+  border-color: var(--iqu-success);
+}
+
+.iqu-declaration.is-confirmed .iqu-declaration-text {
+  color: var(--iqu-success);
+  font-weight: 700;
+}
+
+/* ══════════════════════════════════════════════════════════
+ * RESPONSIVE
+ * ══════════════════════════════════════════════════════════ */
+
+@media (max-width: 560px) {
+  .iqu-price-display {
+    padding: 20px 14px;
+  }
+
+  .iqu-coupon-row {
+    flex-direction: column;
+  }
+
+  .iqu-coupon-row input[type="text"],
+  .iqu-coupon-btn,
+  .iqu-coupon-remove {
+    width: 100%;
+  }
+
+  .iqu-zakat-callout {
+    padding: 18px 15px;
+    margin: 14px;
+  }
+
+  .iqu-declaration {
+    padding: 15px;
+  }
+}
+
+/* ♿ যাঁরা অ্যানিমেশন কমাতে চান */
+@media (prefers-reduced-motion: reduce) {
+  .iqu-declaration.is-missing {
+    animation: none;
+  }
+  .iqu-price-amount,
+  .iqu-declaration,
+  .iqu-declaration-text {
+    transition: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+ * SUMMER FORM — split layout সমন্বয়
+ *
+ * Summer ফর্ম আলাদা থিম ব্যবহার করে (.sc-* ক্লাস), তাই কয়েকটা
+ * সমন্বয় দরকার। সব রুল .iqu-split-layout--summer দিয়ে স্কোপড,
+ * তাই ফ্রি ফর্মের স্টাইল ছোঁয়া হয় না।
+ * ══════════════════════════════════════════════════════════ */
+
+/* Summer হিরো full-bleed — split শুরু হওয়ার আগেই শেষ।
+   গ্রিডের দুপাশে প্যাডিং দরকার, নইলে কনটেন্ট প্রান্তে লেগে থাকে। */
+.iqu-split-layout--summer {
+  padding: 32px 0 0;
+}
+
+@media (min-width: 1024px) {
+  /* .sc-body-র নিজস্ব ১.৫rem প্যাডিং কলামের ভেতরে দুইবার
+     ইনডেন্ট করত — গ্রিডের gap-ই যথেষ্ট */
+  .iqu-split-layout--summer .sc-body {
+    padding: 0;
+  }
+
+  /* Summer ফর্মের ফিল্ডগুলোও ডান পাশে সাদা কার্ডের ভেতরে */
+  .iqu-split-layout--summer .iqu-split-main .iqu-form {
+    background: #fff;
+    border: 1px solid #d6ece2;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 4px 24px rgba(26, 138, 69, 0.07);
+  }
+
+  .iqu-split-layout--summer .iqu-split-main .iqu-question {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 22px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .iqu-split-layout--summer {
+    padding: 24px 0 0;
+  }
+ 
+  .iqu-split-layout--summer .sc-body {
+    padding: 0 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .iqu-split-layout--summer {
+    padding: 18px 0 0;
+  }
+
+  /* ছোট ফোনেও একই ১৪px — Free ফর্মের সাথে মিল */
+  .iqu-split-layout--summer .sc-body {
+    padding: 0 14px;
+  }
+}
+
+.iqu-modal {
+  z-index: 99999;
+}
+
+
+.iqu-day-chip {
+  display: inline-flex;
+  align-items: center;       
+  justify-content: flex-start; 
+  gap: 8px;
+  line-height: 1;
+}
+
+.iqu-day-chip input[type="checkbox"] {
+  margin: 0 !important;          /* থিমের margin-top/bottom বাতিল */
+  padding: 0 !important;
+  position: static !important;   /* থিমের position:relative + top বাতিল */
+  top: auto !important;
+  vertical-align: middle !important;
+  align-self: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+}
+
+.iqu-day-chip > span {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;  
+}
+ 
+/* ══════════════════════════════════════════════════════════
+ * 🎁 SPECIAL DISCOUNT (Qa'idah / Nazirah — opt-in)
+ * ══════════════════════════════════════════════════════════ */
+
+/* ছাড়ের আগের দাম — কাটা দাগে, ম্লান ছাই রঙে */
+.iqu-price-strike {
+  margin-bottom: 2px;
+  font-size: clamp(1.05rem, 3vw, 1.35rem);
+  font-weight: 600;
+  color: #9aa7b4;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+/* ⚠️ display:flex থাকায় [hidden] নিজে থেকে কাজ করে না — স্পষ্ট করে দিতে হয় */
+.iqu-special-wrap[hidden],
+.iqu-special-applied[hidden],
+.iqu-coupon-wrap[hidden],
+.iqu-price-strike[hidden] {
+  display: none !important;
+}
+
+.iqu-special-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: -6px 0 14px;
+  padding: 12px 14px;
+  background: #fffdf5;
+  border: 1px dashed #f0dfa6;
+  border-radius: 10px;
+}
+
+/* ── বাঁ পাশের ব্যাখ্যা ── */
+.iqu-special-pitch {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+
+.iqu-special-pitch-lead {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--iqu-primary);
+  line-height: 1.4;
+}
+
+.iqu-special-pitch-detail {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--iqu-success);
+  line-height: 1.5;
+}
+
+.iqu-special-btn {
+  padding: 9px 18px;
+  min-height: 40px;
+  background: transparent;
+  color: var(--iqu-primary);
+  border: 1.5px dashed var(--iqu-accent);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.iqu-special-btn:hover,
+.iqu-special-btn:focus-visible {
+  background: var(--iqu-accent);
+  border-color: var(--iqu-accent);
+  color: #1a1a1a;
+}
+
+.iqu-special-applied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: -6px 0 14px;
+  padding: 10px 14px;
+  background: #eaf7ef;
+  border: 1px solid #bfe3cd;
+  border-radius: 8px;
+}
+
+.iqu-special-badge {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--iqu-success);
+}
+
+.iqu-special-remove {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--iqu-danger);
+  border: 1px solid var(--iqu-danger);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.iqu-special-remove:hover {
+  background: var(--iqu-danger);
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .iqu-special-wrap { justify-content: stretch; }
+  .iqu-special-btn { width: 100%; }
+  .iqu-special-applied { flex-direction: column; align-items: flex-start; }
+  .iqu-special-remove { width: 100%; }
+}
+
+
+
+/* ══════════════════════════════════════════════════════════
+ * ☁️ SUMMER HERO — ভাসমান মেঘ
+ *
+ * মেঘ ডান থেকে বামে যায় এবং সূর্যের পেছন দিয়ে পার হয়।
+ * সূর্যের SVG মার্কআপে মেঘের *পরে* আছে, তাই z-index ছাড়াই
+ * সূর্য উপরে থাকে — শুধু নিশ্চিত করতে নিচে স্তরগুলো স্পষ্ট করা হলো।
+ * ══════════════════════════════════════════════════════════ */
+
+.sc-clouds {
+  z-index: 1;
+  height: 130px;
+}
+
+.sc-sun {
+  z-index: 2;
+}
+
+.sc-hero-inner,
+.sc-hills {
+  position: relative;
+  z-index: 3;
+}
+
+/* ⚠️ SVG-র ভেতরে CSS transform ইউজার-ইউনিটে হিসাব হয় (viewBox = 800 চওড়া),
+   px নয়। তাই +900 থেকে −260 মানে ডান প্রান্তের বাইরে থেকে বাম প্রান্তের
+   বাইরে — সবচেয়ে চওড়া মেঘটাও পুরোপুরি বেরিয়ে যায়। */
+@keyframes sc-cloud-drift {
+  from {
+    transform: translateX(900px);
+  }
+  to {
+    transform: translateX(-260px);
+  }
+}
+
+.sc-cloud {
+  animation: sc-cloud-drift linear infinite;
+  will-change: transform;
+}
+
+/* আলাদা গতি ও ঋণাত্মক delay — পেজ লোডেই মেঘগুলো ছড়ানো অবস্থায় থাকে,
+   সবগুলো একসাথে ডান প্রান্ত থেকে ঢোকে না */
+.sc-cloud--1 {
+  animation-duration: 46s;
+  animation-delay: -6s;
+}
+
+.sc-cloud--2 {
+  animation-duration: 64s;
+  animation-delay: -30s;
+}
+
+.sc-cloud--3 {
+  animation-duration: 38s;
+  animation-delay: -20s;
+}
+
+/* মোবাইলে একটু দ্রুত — স্ক্রিন ছোট, নইলে মেঘ স্থির মনে হয় */
+@media (max-width: 640px) {
+  .sc-cloud--1 {
+    animation-duration: 30s;
+  }
+  .sc-cloud--2 {
+    animation-duration: 42s;
+  }
+  .sc-cloud--3 {
+    animation-duration: 25s;
+  }
+}
+
+/* ♿ অ্যানিমেশন কমাতে চাইলে মেঘ স্থির */
+@media (prefers-reduced-motion: reduce) {
+  .sc-cloud {
+    animation: none;
+  }
+}
+
+/* ☀️ হ্যালোসহ সূর্য — viewBox 80×80 হওয়ায় সাইজ সামান্য বড় */
+.sc-sun {
+  top: 22px;
+  right: 44px;
+  width: 74px;
+  height: 74px;
+}
+
+@media (max-width: 640px) {
+  .sc-sun {
+    top: 14px;
+    right: 18px;
+    width: 58px;
+    height: 58px;
   }
 }

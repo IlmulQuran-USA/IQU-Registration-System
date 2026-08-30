@@ -242,54 +242,75 @@ class IQU_Notifier
         }
 
         $form_type = (string) ($clean['form_type'] ?? '');
-        $is_free   = $form_type === IQU_Database::FORM_FREE;
+        $is_summer = in_array($form_type, ['summer_level1', 'summer_level2'], true);
 
-        // 📋 ইমেইলের হুবহু একই ফিল্ড তালিকা।
-        //    IQU_Reg_Fields-এ নতুন ফিল্ড যোগ করলে এখানেও আপনাআপনি আসবে।
-        $field_rows = IQU_Reg_Fields::admin_rows($clean, $reg_id);
+        $name = trim(($clean['first_name'] ?? '') . ' ' . ($clean['last_name'] ?? ''));
 
-        $rows = [];
-        foreach ($field_rows as [$label, $value]) {
-            $value = trim((string) $value);
+        $rows = [
+            'Student'   => IQU_Telegram::esc($name),
+            'Programme' => IQU_Telegram::esc(IQU_Mailer::form_label($form_type)),
+            'Age'       => IQU_Telegram::esc($clean['age'] ?? ''),
+            'Email'     => IQU_Telegram::esc($clean['email'] ?? ''),
+            'Country'   => IQU_Telegram::esc($clean['country_res'] ?? ''),
+        ];
 
-            // compose() খালি সারি এমনিতেই বাদ দেয়, কিন্তু অ্যাডমিনের
-            // জানা দরকার কোন ঘর ফাঁকা এসেছে — তাই স্পষ্ট চিহ্ন বসাই।
-            if ($value === '') {
-                $value = '(not provided)';
-            }
+        if ($is_summer) {
+            $rows['Guardian'] = IQU_Telegram::esc($clean['guardian_name'] ?? '');
+            $rows['Contact']  = IQU_Telegram::esc($clean['guardian_contact'] ?? '');
+            $rows['Fee']      = IQU_Telegram::esc(self::summer_fee_label($clean));
+        } else {
+            $rows['WhatsApp'] = IQU_Telegram::esc($clean['whatsapp'] ?? '');
+            $rows['Level']    = IQU_Telegram::esc(ucfirst((string) ($clean['quran_level'] ?? '')));
+            $rows['Fee']      = IQU_Telegram::esc(self::free_fee_label($clean));
+        }
 
-            // 'Form' সারিটা বাদ — শিরোনামেই প্রোগ্রামের নাম আছে।
-            if ($label === 'Form') {
-                continue;
-            }
-
-            $rows[IQU_Telegram::esc($label)] = IQU_Telegram::esc($value);
+        if (!empty($clean['referral'])) {
+            $rows['Heard via'] = IQU_Telegram::esc(
+                ucwords(str_replace('_', ' ', (string) $clean['referral']))
+            );
         }
 
         $view = admin_url('admin.php?page=iqu-view-registration&id=' . $reg_id);
         $rows['—'] = IQU_Telegram::link($view, 'View full registration →');
 
-        // 🎟️ স্কলারশিপ থাকলে শিরোনামেই চোখে পড়ুক
-        $title = '📝 New Registration';
+        IQU_Telegram::send(IQU_Telegram::compose(
+            '📝 New Registration',
+            $rows,
+            'Registration #' . $reg_id . ' · ' . IQU_Telegram::now()
+        ));
+    }
 
-        if ($is_free && (float) ($clean['discount_amount'] ?? 0) > 0) {
-            if (!empty($clean['special_discount'])) {
-                $title = '🎁 New Registration — Special Discount';
-            } else {
-                $title = (float) ($clean['payment_amount'] ?? 0) <= 0
-                    ? '🤲 New Registration — Full Zakat Scholarship'
-                    : '🎟️ New Registration — Partial Scholarship';
-            }
+    private static function free_fee_label(array $clean): string
+    {
+        $pref = (string) ($clean['fee_pref'] ?? '');
+
+        if ($pref === 'free')  return 'Requesting free enrollment (Zakat)';
+        if ($pref === 'other') return trim((string) ($clean['flexible_fee_note'] ?? 'Custom amount'));
+        if ($pref === '')      return '';
+
+        // Reuse the same labels the dashboard shows, so the two never drift.
+        return str_replace('_', ' ', ucfirst($pref));
+    }
+
+    private static function summer_fee_label(array $clean): string
+    {
+        $fee    = (string) ($clean['admission_fee'] ?? '');
+        $amount = (float) ($clean['payment_amount'] ?? 0);
+        $method = (string) ($clean['payment_method'] ?? '');
+
+        if ($fee === 'complimentary') return 'Complimentary';
+
+        if ($amount > 0) {
+            $label = '$' . number_format($amount, 0);
+            return $method !== '' ? $label . ' via ' . ucfirst($method) : $label;
         }
 
-        $footer = sprintf(
-            'Registration #%d · %s · %s',
-            $reg_id,
-            IQU_Mailer::form_label($form_type),
-            IQU_Telegram::now()
-        );
+        if ($fee === 'flexible') {
+            $note = trim((string) ($clean['flexible_fee_note'] ?? ''));
+            return $note !== '' ? $note : 'Flexible / requesting free';
+        }
 
-        IQU_Telegram::send(IQU_Telegram::compose($title, $rows, $footer));
+        return $fee;
     }
 
     // ════════════════════════════════════════════════════
