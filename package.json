@@ -1,0 +1,25 @@
+{
+  "name": "iqu-registration",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bs-config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation browser-sync start --config bs-config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IlmulQuran-USA/IQU-Registration-System.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/IlmulQuran-USA/IQU-Registration-System/issues"
+  },
+  "homepage": "https://github.com/IlmulQuran-USA/IQU-Registration-System#readme",
+  "devDependencies": {
+    "cross-env": "^10.1.0"
+  }
+}

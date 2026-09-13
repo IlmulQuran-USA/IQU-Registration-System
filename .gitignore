@@ -1,0 +1,98 @@
+# ---------------------------------------------
+# IQU Registration Plugin — .gitignore
+# WordPress plugin | XAMPP (Windows) | BrowserSync
+# ---------------------------------------------
+
+# --- Node / npm ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm/
+
+# NOTE: package.json and package-lock.json ARE committed on purpose.
+
+# --- BrowserSync ---
+.browser-sync/
+bs-config.local.js
+
+# --- Secrets / local overrides ---
+.env
+.env.*
+!.env.example
+*.local.php
+local-config.php
+secrets.php
+credentials.json
+service-account*.json
+
+# --- Database dumps (student/parent data — never commit) ---
+*.sql
+*.sql.gz
+*.sql.zip
+*.mwb.bak
+
+# --- WordPress debug output ---
+debug.log
+error_log
+error.log
+wp-content/debug.log
+
+# --- Editors / IDE ---
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+
+# --- Windows / OS junk ---
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+.DS_Store
+._*
+
+# --- Backups, temp, merge leftovers ---
+*.bak
+*.backup
+*.old
+*.tmp
+*.temp
+*~
+*.swp
+*.swo
+*.orig
+*.rej
+Copy\ of\ *
+
+# --- Archives (plugin zip builds) ---
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# --- Build output (future SCSS/JS pipeline) ---
+dist/
+build/
+.cache/
+*.css.map
+*.js.map
+
+# --- PHP tooling (future) ---
+/vendor/
+composer.phar
+.phpunit.result.cache
+.php-cs-fixer.cache
+.phpcs-cache
+
+# --- Misc ---
+*.pid
+*.seed
+coverage/
