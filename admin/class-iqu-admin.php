@@ -15,6 +15,7 @@ class IQU_Admin
     'iqu-list-free',
     'iqu-list-summer-l1',
     'iqu-list-summer-l2',
+    'iqu-list-weekend',
   ];
 
   private static function referral_chip_html(string $referral): string
@@ -80,6 +81,9 @@ class IQU_Admin
     add_submenu_page('iqu-registrations', 'Summer Program — Level 2', 'Summer Program L2', 'manage_options', 'iqu-list-summer-l2', function () {
       $this->render_list_page(IQU_Database::FORM_SUMMER_LEVEL2, 'Summer Program — Level 2 (Ages 11–15)');
     }); 
+    add_submenu_page('iqu-registrations', 'Weekend Ilm Program', 'Weekend Program', 'manage_options', 'iqu-list-weekend', function () {
+      $this->render_list_page(IQU_Database::weekend_types(), 'Weekend Ilm Program (Ages 5–15)');
+    });
     add_submenu_page('iqu-registrations', 'Registration Details — IQU', 'View Registration', 'manage_options', 'iqu-view-registration', [$this, 'render_view_page']);
     add_action('admin_head', function () {
       remove_submenu_page('iqu-registrations', 'iqu-view-registration');
@@ -186,11 +190,24 @@ class IQU_Admin
       $ref_data[]   = (int) $rr['cnt'];
     }
 
-    return [
-      'weekly'   => ['labels' => $week_labels, 'data' => $week_counts],
-      'revenue'  => ['labels' => ['Free Enrollment', 'Summer L1', 'Summer L2'], 'data' => [$revenue_free, $revenue_l1, $revenue_l2], 'total' => $total_revenue],
-      'referral' => ['labels' => $ref_labels, 'data' => $ref_data],
+    // ── 📊 Enrollment breakdown (ভার্টিকেল বার চার্ট) ──────
+    $breakdown = [
+      'labels' => ['Free', 'Summer L1', 'Summer L2', 'Weekend · Existing', 'Weekend · New'],
+      'data'   => [
+        IQU_Database::count_registrations(['form_type' => IQU_Database::FORM_FREE]),
+        IQU_Database::count_registrations(['form_type' => IQU_Database::FORM_SUMMER_LEVEL1]),
+        IQU_Database::count_registrations(['form_type' => IQU_Database::FORM_SUMMER_LEVEL2]),
+        IQU_Database::count_registrations(['form_type' => IQU_Database::FORM_WEEKEND_EXISTING]),
+        IQU_Database::count_registrations(['form_type' => IQU_Database::FORM_WEEKEND_NEW]),
+      ],
+      'colors' => ['#1e5fa0', '#1a8a45', '#c98a00', '#0e9490', '#f7941d'],
+    ];
 
+    return [
+      'weekly'    => ['labels' => $week_labels, 'data' => $week_counts],
+      'revenue'   => ['labels' => ['Free Enrollment', 'Summer L1', 'Summer L2'], 'data' => [$revenue_free, $revenue_l1, $revenue_l2], 'total' => $total_revenue],
+      'referral'  => ['labels' => $ref_labels, 'data' => $ref_data],
+      'breakdown' => $breakdown,
     ];
   }
 
@@ -213,6 +230,7 @@ class IQU_Admin
       'iqu-list-free'       => 'Free',
       'iqu-list-summer-l1'  => 'Level 1',
       'iqu-list-summer-l2'  => 'Level 2',
+      'iqu-list-weekend'    => 'Weekend Program',
       'iqu-coupon-create'   => 'Create Coupon',
       'iqu-coupon-list'     => 'Coupon List',
       'iqu-zeffy-payments'  => 'Zeffy Payments',
@@ -285,7 +303,27 @@ class IQU_Admin
       return self::summer_payment_html($row, $admission_fee, $flexible_note, $pay_amount);
     }
 
+    if (in_array($form_type, IQU_Database::weekend_types(), true)) {
+      return self::weekend_payment_html($row);
+    }
+
     return '';
+  }
+
+  /**
+   * Weekend Ilm Program-এর Payment কলাম।
+   * 🎁 প্রোগ্রামটি সবার জন্য সম্পূর্ণ ফ্রি — দেখানোর মতো কোনো অঙ্ক নেই।
+   */
+  private static function weekend_payment_html(array $row): string
+  {
+    $is_new = ($row['form_type'] ?? '') === IQU_Database::FORM_WEEKEND_NEW;
+
+    return '<span class="iqu-pay-cell">'
+      . '<span class="iqu-no-pay-badge">Free</span>'
+      . '<span class="iqu-amt">'
+      . ($is_new ? 'New student' : 'Existing student')
+      . '</span>'
+      . '</span>';
   }
 
   /**
@@ -523,6 +561,9 @@ class IQU_Admin
       'free' => IQU_Database::count_registrations(['form_type' => IQU_Database::FORM_FREE]),
       'summer_l1' => IQU_Database::count_registrations(['form_type' => IQU_Database::FORM_SUMMER_LEVEL1]),
       'summer_l2' => IQU_Database::count_registrations(['form_type' => IQU_Database::FORM_SUMMER_LEVEL2]),
+      'wk_existing' => IQU_Database::count_registrations(['form_type' => IQU_Database::FORM_WEEKEND_EXISTING]),
+      'wk_new' => IQU_Database::count_registrations(['form_type' => IQU_Database::FORM_WEEKEND_NEW]),
+      'weekend' => IQU_Database::count_registrations(['form_type' => IQU_Database::weekend_types()]),
       'pending' => IQU_Database::count_registrations(['status' => 'pending']),
       'confirmed' => IQU_Database::count_registrations(['status' => 'confirmed']),
       'enrolled' => IQU_Database::count_registrations(['status' => 'enrolled']),
@@ -584,6 +625,17 @@ class IQU_Admin
                 href="<?php echo esc_url(admin_url('admin.php?page=iqu-list-summer-l2')); ?>">View list →</a>
         </div>
         <div class="iqu-metric">
+            <div class="iqu-metric-accent iqu-metric-accent--weekend"></div>
+            <div class="iqu-metric-num"><?php echo (int) $counts['weekend']; ?></div>
+            <div class="iqu-metric-lbl">🗓️ Weekend Program</div>
+            <div class="iqu-metric-sub">
+                <?php echo (int) $counts['wk_new']; ?> new ·
+                <?php echo (int) $counts['wk_existing']; ?> existing
+            </div>
+            <a class="iqu-metric-link" href="<?php echo esc_url(admin_url('admin.php?page=iqu-list-weekend')); ?>">View
+                list →</a>
+        </div>
+        <div class="iqu-metric">
             <div class="iqu-metric-accent iqu-metric-accent--revenue"></div>
             <div class="iqu-metric-num">$<?php echo number_format($total_revenue, 0); ?></div>
             <div class="iqu-metric-lbl">💰 Payment Collected</div>
@@ -603,6 +655,8 @@ class IQU_Admin
             ['Free Enrollment', $counts['free'], '#1e5fa0'],
             ['Summer · Level 1', $counts['summer_l1'], '#1a8a45'],
             ['Summer · Level 2', $counts['summer_l2'], '#c98a00'],
+            ['Weekend · Existing', $counts['wk_existing'], '#0e9490'],
+            ['Weekend · New', $counts['wk_new'], '#f7941d'],
           ];
           foreach ($bars as [$label, $count, $color]):
             $pct = round(((int) $count / $total) * 100);
@@ -617,6 +671,11 @@ class IQU_Admin
                 <div class="iqu-bar-pct"><?php echo (int) $pct; ?>%</div>
             </div>
             <?php endforeach; ?>
+
+            <!-- 📊 প্রোগ্রামভিত্তিক ভার্টিকেল বার চার্ট -->
+            <div class="iqu-breakdown-chart">
+                <canvas id="iqu-breakdown-chart" aria-label="Registrations by program"></canvas>
+            </div>
         </div>
 
         <div class="iqu-card">
@@ -760,7 +819,10 @@ class IQU_Admin
   // LIST PAGE
   // ════════════════════════════════════════════════════
 
-  public function render_list_page(string $form_type, string $title): void
+  /**
+   * @param string|array $form_type একটি টাইপ, বা Weekend-এর মতো টাইপের তালিকা
+   */
+  public function render_list_page($form_type, string $title): void
   {
     if (!current_user_can('manage_options'))
       wp_die('Permission denied.');
@@ -779,15 +841,19 @@ class IQU_Admin
     $total_rows = IQU_Database::count_registrations($args);
     $pages = (int) ceil($total_rows / $perpage);
 
-    $export_url = admin_url('admin-ajax.php?action=iqu_export_csv&form_type=' . rawurlencode($form_type) . '&_wpnonce=' . wp_create_nonce('iqu_export_csv'));
-    $is_summer = in_array($form_type, [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true);
+    // একাধিক টাইপ হলে URL-এ একটাই সিন্থেটিক কী যায় — 'weekend'
+    $type_key = is_array($form_type) ? 'weekend' : $form_type;
+
+    $export_url = admin_url('admin-ajax.php?action=iqu_export_csv&form_type=' . rawurlencode($type_key) . '&_wpnonce=' . wp_create_nonce('iqu_export_csv'));
+    $is_summer = in_array($type_key, [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true);
 
     $tab_map = [
       IQU_Database::FORM_FREE => 'iqu-list-free',
       IQU_Database::FORM_SUMMER_LEVEL1 => 'iqu-list-summer-l1',
       IQU_Database::FORM_SUMMER_LEVEL2 => 'iqu-list-summer-l2',
+      'weekend' => 'iqu-list-weekend',
     ];
-    $active_tab = $tab_map[$form_type] ?? '';
+    $active_tab = $tab_map[$type_key] ?? '';
   ?>
 <div class="wrap iqu-admin-wrap">
 
@@ -967,6 +1033,7 @@ class IQU_Admin
     }
 
     $is_summer = in_array($row['form_type'], [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true);
+    $is_weekend = in_array($row['form_type'], IQU_Database::weekend_types(), true);
     $ref_page = sanitize_key($_GET['from'] ?? 'iqu-registrations');
     $back_page = in_array($ref_page, self::ALLOWED_BACK_PAGES, true) ? $ref_page : 'iqu-registrations';
     $back_url = admin_url('admin.php?page=' . $back_page);
@@ -1025,13 +1092,14 @@ class IQU_Admin
                 </div>
             </div>
 
-            <?php if ($is_summer): ?>
+            <?php if ($is_summer || $is_weekend): ?>
             <div class="iqu-section-title">Guardian Information</div>
             <div class="iqu-detail-data">
                 <div class="iqu-detail-item">
                     <div class="iqu-detail-lbl">Guardian Name</div>
                     <div class="iqu-detail-val"><?php echo esc_html($row['guardian_name'] ?: '—'); ?></div>
                 </div>
+                <?php if ($is_summer): ?>
                 <div class="iqu-detail-item">
                     <div class="iqu-detail-lbl">Guardian WhatsApp</div>
                     <div class="iqu-detail-val">
@@ -1043,12 +1111,38 @@ class IQU_Admin
                   endif; ?>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
 
             <div class="iqu-section-title">Academic</div>
             <div class="iqu-detail-data">
-                <?php if (!$is_summer): ?>
+                <?php if ($is_weekend): ?>
+                <div class="iqu-detail-item">
+                    <div class="iqu-detail-lbl">Program</div>
+                    <div class="iqu-detail-val">Weekend Ilm Program</div>
+                </div>
+                <div class="iqu-detail-item">
+                    <div class="iqu-detail-lbl">Student Status</div>
+                    <div class="iqu-detail-val">
+                        <?php echo $row['form_type'] === IQU_Database::FORM_WEEKEND_NEW
+                          ? '🆕 New student'
+                          : '✅ Existing student'; ?>
+                    </div>
+                </div>
+                <div class="iqu-detail-item">
+                    <div class="iqu-detail-lbl">Class Days</div>
+                    <div class="iqu-detail-val">Saturday &amp; Sunday · 10&ndash;11 AM (CST)</div>
+                </div>
+                <div class="iqu-detail-item">
+                    <div class="iqu-detail-lbl">Referral</div>
+                    <div class="iqu-detail-val"><?php echo esc_html($row['referral'] ?: '—'); ?></div>
+                </div>
+                <div class="iqu-detail-item">
+                    <div class="iqu-detail-lbl">Tuition</div>
+                    <div class="iqu-detail-val"><span class="iqu-amt-free">Fully free</span></div>
+                </div>
+                <?php elseif (!$is_summer): ?>
                 <div class="iqu-detail-item">
                     <div class="iqu-detail-lbl">Qur'an Level</div>
                     <div class="iqu-detail-val"><?php echo esc_html(ucfirst($row['quran_level']) ?: '—'); ?></div>
@@ -1114,7 +1208,7 @@ class IQU_Admin
                 <?php endif; ?>
             </div>
 
-            <?php if (!$is_summer): ?>
+            <?php if (!$is_summer && !$is_weekend): ?>
             <div class="iqu-section-title">Course &amp; Tuition</div>
             <div class="iqu-detail-data">
                 <?php
@@ -1375,8 +1469,11 @@ class IQU_Admin
       wp_die('Permission denied.');
     $form_type = sanitize_text_field($_GET['form_type'] ?? '');
     $args = ['per_page' => 9999, 'page' => 1];
-    if ($form_type)
+    if ($form_type === 'weekend') {
+      $args['form_type'] = IQU_Database::weekend_types();
+    } elseif ($form_type) {
       $args['form_type'] = $form_type;
+    }
     $rows = IQU_Database::get_registrations($args);
     nocache_headers();
     header('Content-Type: text/csv; charset=utf-8');

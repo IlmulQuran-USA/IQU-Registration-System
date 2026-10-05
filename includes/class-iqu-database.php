@@ -21,6 +21,17 @@ class IQU_Database
     public const FORM_SUMMER_LEVEL1 = 'summer_level1';
     public const FORM_SUMMER_LEVEL2 = 'summer_level2';
 
+    // 🆕 Weekend Ilm Program — নতুন ও পুরনো ছাত্র আলাদা রাখা হয়,
+    //    যাতে ড্যাশবোর্ডে "কতজন নতুন এসেছে" সরাসরি গোনা যায়।
+    public const FORM_WEEKEND_EXISTING = 'weekend_existing';
+    public const FORM_WEEKEND_NEW      = 'weekend_new';
+
+    /** Weekend প্রোগ্রামের দুটো form_type একসাথে। */
+    public static function weekend_types(): array
+    {
+        return [self::FORM_WEEKEND_EXISTING, self::FORM_WEEKEND_NEW];
+    }
+
     /**
      * Plugin activation: create table (or migrate)
      */
@@ -303,8 +314,13 @@ class IQU_Database
         $values = [];
 
         if (! empty($args['form_type'])) {
-            $where   .= ' AND form_type = %s';
-            $values[] = sanitize_text_field($args['form_type']);
+            // string বা array — দুটোই চলে (Weekend-এ দুটো টাইপ একসাথে লাগে)
+            $types = array_map('sanitize_text_field', (array) $args['form_type']);
+            $ph    = implode(',', array_fill(0, count($types), '%s'));
+            $where .= " AND form_type IN ({$ph})";
+            foreach ($types as $t) {
+                $values[] = $t;
+            }
         }
 
         if (! empty($args['status'])) {
@@ -341,8 +357,12 @@ class IQU_Database
         $values = [];
 
         if (! empty($args['form_type'])) {
-            $where   .= ' AND form_type = %s';
-            $values[] = sanitize_text_field($args['form_type']);
+            $types = array_map('sanitize_text_field', (array) $args['form_type']);
+            $ph    = implode(',', array_fill(0, count($types), '%s'));
+            $where .= " AND form_type IN ({$ph})";
+            foreach ($types as $t) {
+                $values[] = $t;
+            }
         }
         if (! empty($args['status'])) {
             $where   .= ' AND status = %s';

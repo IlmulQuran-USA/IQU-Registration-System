@@ -4,7 +4,7 @@
  * Plugin Name:       IQU Registration System
  * Plugin URI:        https://ilmulquranus.org
  * Description:       Secure student registration system for Ilm-ul-Quran USA — includes Free Enrollment & Summer Program forms, dashboard, Zelle/Zeffy payments, and Google reCAPTCHA v3.
- * Version:           2.9.9
+ * Version:           3.0.2
  * Author:            Ilm-ul-Quran USA (Muhammad Nurul Ahsan)
  * License:           GPL-2.0+
  * Text Domain:       iqu-registration
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 // ============================================================
 // 📌 Constants
 // ============================================================
-define('IQU_VERSION', '2.9.9');
+define('IQU_VERSION', '3.0.2');
 define('IQU_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('IQU_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('IQU_TABLE_NAME', 'iqu_registrations');
@@ -67,6 +67,11 @@ define(
   IQU_PLUGIN_URL . 'assets/images/Zeffy-Logo-Color.svg'
 );
 
+define(
+  'IQU_WEEKEND_HERO_IMG',
+  IQU_PLUGIN_URL . 'assets/images/weekend-hero.png'
+);
+
 // Set this to a hosted image URL or a data:image/... string when the logo is ready.
 if (!defined('IQU_EMAIL_LOGO_SRC')) {
   $logo_path = WP_CONTENT_DIR . '/uploads/2024/11/Icon-Text.png';
@@ -94,6 +99,7 @@ require_once IQU_PLUGIN_DIR . 'includes/class-iqu-zeffy-sync.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-zeffy-webhook.php';
 require_once IQU_PLUGIN_DIR . 'public/class-iqu-form.php';
 require_once IQU_PLUGIN_DIR . 'public/class-iqu-summer-form.php';
+require_once IQU_PLUGIN_DIR . 'public/class-iqu-weekend-form.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-admin.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-zeffy-admin.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-coupon-admin.php';
@@ -135,6 +141,7 @@ add_action('plugins_loaded', function () {
 
   new IQU_Form();
   new IQU_Summer_Form();
+  new IQU_Weekend_Form();
 
   new IQU_Zeffy_Sync();
   new IQU_Zeffy_Webhook();

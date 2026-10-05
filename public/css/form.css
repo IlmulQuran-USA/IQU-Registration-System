@@ -438,6 +438,7 @@
   padding: 12px 14px;
   border-radius: 6px;
   margin-top: 14px;
+  margin-bottom: 18px;
   color: #000;
   font-size: 14px;
 }
@@ -2748,6 +2749,7 @@
   border: 1px solid #f3dfa6;
   border-left: 4px solid var(--iqu-accent);
   border-radius: 12px;
+  margin-bottom: 18px;
 }
 
 .iqu-zakat-callout-head {
@@ -3408,5 +3410,696 @@
     right: 18px;
     width: 58px;
     height: 58px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+ * 🗓️ WEEKEND ILM PROGRAM  (v3.0.0)
+ * শুধু এই প্রোগ্রামের জন্য। বাকি সব .iqu-* ক্লাস উপরের
+ * বিদ্যমান স্টাইল থেকেই আসে — কিছু ওভাররাইড করা হয়নি।
+ * ══════════════════════════════════════════════════════════ */
+
+:root {
+  --wk-deep: #123f63;
+  --wk-teal: #0e9490;
+  --wk-teal-dark: #0b6f6c;
+  --wk-orange: #f7941d;
+  --wk-cream: #fdf9ef;
+  --wk-sky: #e8f4f8;
+}
+
+/* ── HERO ───────────────────────────────────────────────── */
+.wk-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: var(--iqu-hero-min-h);
+  background:
+    radial-gradient(120% 90% at 88% 8%, #d9eef0 0%, rgba(217, 238, 240, 0) 58%),
+    linear-gradient(168deg, var(--wk-cream) 0%, #f4f8f6 55%, var(--wk-sky) 100%);
+  border-bottom: 1px solid #dcece9;
+  border-radius: 0 0 22px 22px;
+  margin-bottom: 8px;
+  display: grid; 
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  align-items: center;
+  gap: 16px;
+  padding: 44px 36px 48px;
+}
+
+.wk-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cpath d='M32 2 62 32 32 62 2 32Z' fill='none' stroke='%23123f63' stroke-width='.9'/%3E%3Cpath d='M32 16 48 32 32 48 16 32Z' fill='none' stroke='%230e9490' stroke-width='.7'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+.wk-hero-copy {
+  position: relative;
+  z-index: 2;
+}
+
+.wk-org {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 15px 7px 11px;
+  background: #fff;
+  border: 1px solid #d7e6ea;
+  border-radius: 40px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  color: var(--wk-deep);
+  box-shadow: 0 2px 8px rgba(18, 63, 99, 0.06);
+}
+
+.wk-title {
+  margin: 20px 0 0;
+  font-size: 44px;
+  line-height: 1.04;
+  font-weight: 800;
+  letter-spacing: -1.1px;
+  color: var(--wk-deep);
+}
+
+.wk-title span {
+  display: block;
+  color: var(--wk-teal);
+  font-size: 27px;
+  letter-spacing: -0.4px;
+  margin-top: 8px;
+}
+
+.wk-lede {
+  margin: 16px 0 0;
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.62;
+  color: #3c5a6e;
+}
+
+.wk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.wk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #d9e8ea;
+  border-radius: 12px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wk-deep);
+  box-shadow: 0 1px 3px rgba(18, 63, 99, 0.05);
+}
+
+.wk-chip svg {
+  flex: none;
+}
+
+/* ── 🎁 FULLY FREE — হিরোর প্রধান হাইলাইট ───────────────── */
+.wk-free-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 24px;
+  padding: 16px 22px 16px 18px;
+  border-radius: 18px;
+  background: linear-gradient(118deg, #fff4dd 0%, #fffaf0 52%, #eefaf6 100%);
+  border: 2px solid var(--wk-orange);
+  box-shadow:
+    0 10px 28px rgba(247, 148, 29, 0.18),
+    inset 0 1px 0 #fff;
+  overflow: hidden;
+}
+
+.wk-free-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.62) 50%,
+    transparent 62%
+  );
+  transform: translateX(-120%);
+  animation: wkShine 4.6s ease-in-out 1.2s infinite;
+  pointer-events: none;
+}
+
+@keyframes wkShine {
+  0% {
+    transform: translateX(-120%);
+  }
+  38%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wk-free-banner::after {
+    animation: none;
+  }
+}
+
+.wk-free-banner-badge {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  line-height: 1;
+  background: #fff;
+  border: 1.5px solid #f6ddb2;
+  box-shadow: 0 3px 10px rgba(247, 148, 29, 0.16);
+}
+
+.wk-free-banner-copy {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #7a4f10;
+}
+
+.wk-free-banner-copy strong {
+  display: block;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.1;
+  margin-bottom: 3px;
+  color: #b45f04;
+  text-transform: uppercase;
+}
+
+/* ফর্মের ভেতরের $0 কার্ড */
+.wk-price-free {
+  background: linear-gradient(135deg, #fff7e8 0%, #f2fbf7 100%) !important;
+  border-color: #f0d9ac !important;
+}
+
+.wk-price-free .iqu-price-amount {
+  color: #b45f04 !important;
+}
+
+.wk-hero-art {
+  position: relative;
+  z-index: 2; 
+  max-width: none;
+  margin: 0 -16px 0 -28px;
+}
+
+.wk-hero-art img {
+  width: 100%;
+  height: auto;
+  display: block;
+ 
+  aspect-ratio: 1672 / 941;
+
+  /* PNG-র স্বচ্ছ প্রান্ত ধরে ছায়া পড়ে — box-shadow নয়, drop-shadow */
+  filter: drop-shadow(0 14px 30px rgba(18, 63, 99, 0.14));
+}
+
+.iqu-split-layout--weekend {
+  padding: 32px 20px 0;
+}
+
+/* ── LEFT COLUMN CARDS ──────────────────────────────────── */
+.wk-card {
+  background: #fff;
+  border: 1px solid #dfeaee;
+  border-radius: 16px;
+  padding: 22px;
+  margin-bottom: 18px;
+  box-shadow: 0 3px 16px rgba(18, 63, 99, 0.05);
+}
+
+.wk-card-title {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--wk-deep);
+  letter-spacing: -0.2px;
+}
+
+.wk-card-sub {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #5c7688;
+}
+
+.wk-meta {
+  display: grid;
+  gap: 1px;
+  background: #e6eff2;
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+.wk-meta-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fbfdfe;
+  padding: 12px 14px;
+}
+
+.wk-meta-ico {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: #e6f4f4;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.wk-meta-k {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6d8898;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.wk-meta-v {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--wk-deep);
+  line-height: 1.45;
+}
+
+.wk-subject {
+  border: 1px solid #e3edf0;
+  border-radius: 13px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.wk-subject-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.2px;
+}
+
+.wk-subject-emo {
+  flex: none;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.wk-subject-head em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 11.5px;
+  opacity: 0.92;
+}
+
+.wk-subject--teal .wk-subject-head {
+  background: var(--wk-teal);
+}
+
+.wk-subject--navy .wk-subject-head {
+  background: var(--wk-deep);
+}
+
+.wk-subject--orange .wk-subject-head {
+  background: var(--wk-orange);
+}
+
+.wk-subject ul {
+  margin: 0;
+  padding: 11px 16px 13px 30px;
+  background: #fff;
+}
+
+.wk-subject li {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #3d5a6d;
+  margin-bottom: 4px;
+}
+
+.wk-subject li::marker {
+  color: var(--wk-teal);
+}
+
+.wk-teachers {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  background: #f3f9fa;
+  border: 1px solid #dcebee;
+  border-radius: 13px;
+  padding: 13px 15px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #3d5a6d;
+}
+
+.wk-teachers-emo {
+  flex: none;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.wk-note {
+  background: #fff8e8;
+  border: 1px solid #f2e2bf;
+  border-left: 4px solid var(--iqu-accent);
+  border-radius: 10px;
+  padding: 13px 15px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #6b5423;
+  margin-bottom: 18px;
+}
+
+.wk-note strong {
+  color: #8a5200;
+}
+
+/* ── FORM HEAD & CONSENT (form.css-এ আগে ছিল না) ─────────── */
+.iqu-form-head {
+  padding-bottom: 14px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--iqu-border);
+}
+
+.iqu-form-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--iqu-primary);
+  letter-spacing: -0.3px;
+}
+
+.iqu-form-head p {
+  margin: 7px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #5c7688;
+}
+
+.iqu-consent {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--iqu-surface);
+  border: 1px solid var(--iqu-border);
+  border-radius: 12px;
+  padding: 13px 15px;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 500 !important;
+  color: #3d5a6d;
+  cursor: pointer;
+}
+
+.iqu-consent input {
+  flex: none;
+  margin-top: 2px;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--iqu-primary);
+}
+ 
+.wk-select-native {
+  display: block;
+  width: 100%;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wk-select {
+  position: relative;
+}
+
+.wk-select-btn {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #cfdae5;
+  border-bottom: 3px solid #cfdae5;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  color: #000;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 1px 2px rgba(16, 42, 66, 0.04);
+  transition: border-color 0.15s;
+}
+
+.wk-select-btn:hover,
+.wk-select-btn[aria-expanded="true"] {
+  border-color: var(--iqu-primary);
+  border-bottom-color: var(--iqu-primary);
+}
+ 
+.wk-select-btn:focus,
+.wk-select-btn:focus-visible {
+  outline: none;
+}
+
+.wk-select-btn.is-placeholder .wk-select-value {
+  opacity: 0.55;
+}
+
+/* এরর অবস্থা — নেটিভ .iqu-invalid থেকেই নেওয়া */
+.wk-select-native.iqu-invalid + .wk-select .wk-select-btn {
+  border-color: #e74c3c;
+  border-bottom-color: #e74c3c;
+  background: #fff8f8;
+}
+
+.wk-select-caret {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--iqu-primary);
+  border-bottom: 2px solid var(--iqu-primary);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.18s;
+}
+
+.wk-select-btn[aria-expanded="true"] .wk-select-caret {
+  transform: rotate(-135deg) translate(-3px, -3px);
+}
+
+.wk-select-list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #cfdae5;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(18, 63, 99, 0.14);
+
+  /* 👇 ঠিক ৫টি সারি — বাকিটা স্ক্রলবারে */
+  max-height: 215px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.wk-select-list li {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #000;
+  cursor: pointer;
+  line-height: 1.3;
+}
+
+.wk-select-list li:hover {
+  background: var(--iqu-surface);
+}
+
+.wk-select-list li[aria-selected="true"] {
+  background: var(--iqu-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.wk-select-list li.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.wk-select-list::-webkit-scrollbar {
+  width: 7px;
+}
+
+.wk-select-list::-webkit-scrollbar-thumb {
+  background: #cfdde5;
+  border-radius: 6px;
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+/* 🖥️ বড় ডেস্কটপে ছবিটা আরও একটু বাইরে ছড়ায় */
+@media (min-width: 1400px) {
+  .wk-hero {
+    padding: 52px;
+  }
+
+  .wk-hero-art {
+    margin: 0 -22px 0 -36px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .wk-hero {
+    grid-template-columns: 1fr;
+    padding: 30px 22px 34px;
+    text-align: left;
+  }
+
+  /* এক কলাম হলে ছবিটা মাঝে, আর লেখার নিচে */
+  .wk-hero-art {
+    max-width: 560px;
+    margin: 10px auto 0;
+  }
+
+  .iqu-split-layout--weekend {
+    padding: 24px 14px 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .wk-title {
+    font-size: 32px;
+  }
+
+  .wk-title span {
+    font-size: 21px;
+  }
+
+  /* ছোট ফোনে ছবিটা পুরো প্রস্থ নেবে, ছায়া হালকা */
+  .wk-hero-art {
+    max-width: 100%;
+  }
+
+  .wk-hero-art img {
+    filter: drop-shadow(0 8px 18px rgba(18, 63, 99, 0.12));
+  }
+}
+
+@media (max-width: 620px) {
+  .wk-title {
+    font-size: 32px;
+  }
+
+  .wk-title span {
+    font-size: 21px;
+  }
+}
+
+/* স্ট্যাটাস ড্রপডাউন — অর্ধেক কলামে বসে */
+#wk-status-question {
+  min-width: 0;
+}
+
+.iqu-form input[type="text"]:focus,
+.iqu-form input[type="email"]:focus,
+.iqu-form input[type="number"]:focus,
+.iqu-form input[type="tel"]:focus,
+.iqu-form input[type="time"]:focus,
+.iqu-form select:focus,
+.iqu-form textarea:focus,
+.iqu-modal input[type="text"]:focus,
+.iqu-form input.iqu-time-picker.active {
+  outline: none;
+  border-color: var(--iqu-primary);
+  border-bottom-color: var(--iqu-primary);
+  box-shadow: inset 0 1px 2px rgba(16, 42, 66, 0.04);
+}
+
+@media (max-width: 1023px) {
+  .iqu-split-main .iqu-form {
+    background: #fff;
+    border: 1px solid var(--iqu-border);
+    border-radius: 16px;
+    padding: 22px 18px;
+    box-shadow: 0 4px 24px rgba(18, 53, 77, 0.06);
+  }
+
+  .iqu-split-main .iqu-question {
+    background: transparent;
+    border: none;
+    border-top: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 20px;
+  }
+
+  .iqu-split-main .iqu-question.iqu-tuition-block {
+    background: linear-gradient(180deg, #ffffff 0%, #f9fcff 100%);
+    border: 2px solid var(--iqu-primary) !important;
+    border-radius: 14px;
+    padding: 20px 16px;
+    margin-top: 24px;
+  }
+
+  .iqu-split-layout--summer .iqu-split-main .iqu-form {
+    border-color: #d6ece2;
+    box-shadow: 0 4px 24px rgba(26, 138, 69, 0.07);
+  }
+ 
+  .iqu-split-main .iqu-form {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+}
+
+@media (max-width: 460px) {
+  .iqu-split-main .iqu-form {
+    border-radius: 12px;
+    padding: 18px 14px !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .iqu-split-layout:not(.iqu-split-layout--weekend) .iqu-split-main {
+    padding-left: 14px;
+    padding-right: 14px;
   }
 }

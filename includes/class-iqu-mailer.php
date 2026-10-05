@@ -42,9 +42,15 @@ class IQU_Mailer
     if (empty($data['email']) || !is_email($data['email']))
       return;
 
-    $subject = (($data['form_type'] ?? '') === IQU_Database::FORM_FREE)
-      ? 'Registration Confirmed — Ilm-ul-Quran USA'
-      : 'Summer Program Enrollment Confirmed — Ilm-ul-Quran USA';
+    $ft = (string) ($data['form_type'] ?? '');
+
+    if ($ft === IQU_Database::FORM_FREE) {
+      $subject = 'Registration Confirmed — Ilm-ul-Quran USA';
+    } elseif (in_array($ft, IQU_Database::weekend_types(), true)) {
+      $subject = 'Weekend Ilm Program Enrollment Confirmed — Ilm-ul-Quran USA';
+    } else {
+      $subject = 'Summer Program Enrollment Confirmed — Ilm-ul-Quran USA';
+    }
 
     $body = self::student_email_body($data);
 
@@ -68,6 +74,10 @@ class IQU_Mailer
         return 'Summer Program — Level 1';
       case IQU_Database::FORM_SUMMER_LEVEL2:
         return 'Summer Program — Level 2';
+      case IQU_Database::FORM_WEEKEND_EXISTING:
+        return 'Weekend Ilm Program — Existing Student';
+      case IQU_Database::FORM_WEEKEND_NEW:
+        return 'Weekend Ilm Program — New Student';
       case IQU_Database::FORM_FREE:
       default:
         return 'Free Enrollment';
@@ -162,9 +172,14 @@ class IQU_Mailer
 
   private static function student_email_body(array $data): string
   {
-    $form_type = $data['form_type'] ?? '';
-    $is_summer = in_array($form_type, [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true);
-    $salutation = $is_summer ? ($data['guardian_name'] ?? $data['first_name'] ?? '') : ($data['first_name'] ?? '');
+    $form_type  = $data['form_type'] ?? '';
+    $is_summer  = in_array($form_type, [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true);
+    $is_weekend = in_array($form_type, IQU_Database::weekend_types(), true);
+
+    // Weekend-এও অভিভাবককেই সম্বোধন, কিন্তু নম্বরটা `whatsapp` কলামে
+    $salutation = ($is_summer || $is_weekend)
+      ? ($data['guardian_name'] ?? $data['first_name'] ?? '')
+      : ($data['first_name'] ?? '');
     $contact_wa = $is_summer ? ($data['guardian_whatsapp'] ?? '') : ($data['whatsapp'] ?? '');
 
     // Build clickable WhatsApp link
@@ -173,7 +188,15 @@ class IQU_Mailer
 
     // Summary rows
     $summary = [];
-    if ($is_summer) {
+    if ($is_weekend) {
+      $summary[] = ['Participant', trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''))];
+      $summary[] = ['Program', 'Weekend Ilm Program'];
+      $summary[] = ['Age', (int) ($data['age'] ?? 0)];
+      $summary[] = ['Guardian', $data['guardian_name'] ?? ''];
+      $summary[] = ['Country', $data['country_res'] ?? ''];
+      $summary[] = ['Class Days', 'Every Saturday & Sunday, 10:00–11:00 AM (CST)'];
+      $summary[] = ['Tuition', 'Fully free — nothing to pay'];
+    } elseif ($is_summer) {
       $summary[] = ['Participant', ($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')];
       $summary[] = ['Enrollment Level', strtoupper($data['enrollment_level'] ?? '')];
       $summary[] = ['Age', (int) ($data['age'] ?? 0)];

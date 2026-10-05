@@ -10,6 +10,63 @@
 
     var $weekCanvas = $("#iqu-week-chart");
     var $revenueCanvas = $("#iqu-revenue-chart");
+    var $breakdownCanvas = $("#iqu-breakdown-chart");
+
+    // ── 📊 Enrollment breakdown — ভার্টিকেল বার ──────────
+    if (
+      $breakdownCanvas.length &&
+      IQU_Admin.chart_data &&
+      IQU_Admin.chart_data.breakdown
+    ) {
+      var bd = IQU_Admin.chart_data.breakdown;
+
+      new Chart($breakdownCanvas[0].getContext("2d"), {
+        type: "bar",
+        data: {
+          labels: bd.labels,
+          datasets: [
+            {
+              label: "Students",
+              data: bd.data,
+              backgroundColor: bd.colors,
+              borderRadius: 6,
+              borderSkipped: false,
+              maxBarThickness: 48,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) {
+                  return (
+                    " " +
+                    ctx.parsed.y +
+                    " student" +
+                    (ctx.parsed.y !== 1 ? "s" : "")
+                  );
+                },
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, font: { size: 11 }, color: "#6b7280" },
+              grid: { color: "rgba(0,0,0,0.04)" },
+            },
+            x: {
+              ticks: { font: { size: 10.5 }, color: "#6b7280" },
+              grid: { display: false },
+            },
+          },
+        },
+      });
+    }
 
     if ($weekCanvas.length && IQU_Admin.chart_data) {
       var cd = IQU_Admin.chart_data;

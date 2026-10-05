@@ -1700,3 +1700,63 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── 🗓️ Weekend Ilm Program (v3.0.0) ───────────────────── */
+
+/* ৬টা মেট্রিক কার্ড এক সারিতে, সমান সাইজে */
+@media (min-width: 1200px) {
+  .iqu-metrics {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.iqu-metric-accent--weekend {
+  background: linear-gradient(90deg, #0e9490, #f7941d);
+}
+
+/* লিস্ট টেবিলের টাইপ chip */
+.iqu-chip-weekend_existing {
+  background: #e2f5f4;
+  color: #0b6f6c;
+}
+
+.iqu-chip-weekend_new {
+  background: #fff1de;
+  color: #9a5b06;
+}
+
+/* মোবাইলে ৮টা ট্যাব — এক লাইনে সোয়াইপ করে সুইচ করা যাবে */
+@media (max-width: 782px) {
+  .iqu-top-bar-right {
+    width: 100%;
+  }
+  .iqu-tabs {
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+  .iqu-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .iqu-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+}
+
+/* Enrollment breakdown-এর ভার্টিকেল বার চার্ট */
+.iqu-breakdown-chart {
+  position: relative;
+  height: 190px;
+  margin: 14px 16px 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--iqu-bdr);
+}
+
+.iqu-breakdown-chart canvas {
+  width: 100% !important;
+  height: 100% !important;
+}

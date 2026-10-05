@@ -42,6 +42,10 @@ class IQU_Reg_Fields
             return array_merge($rows, self::free_rows($data));
         }
 
+        if (in_array($form_type, IQU_Database::weekend_types(), true)) {
+            return array_merge($rows, self::weekend_rows($data));
+        }
+
         return array_merge($rows, self::summer_rows($data));
     }
 
@@ -162,6 +166,27 @@ class IQU_Reg_Fields
                 ? '$' . number_format($final, 2)
                 : '$0.00 — full Zakat scholarship',
         ];
+
+        return $rows;
+    }
+
+    // ════════════════════════════════════════════════════
+    // WEEKEND ILM PROGRAM
+    // ════════════════════════════════════════════════════
+
+    private static function weekend_rows(array $data): array
+    {
+        $is_new = ($data['form_type'] ?? '') === IQU_Database::FORM_WEEKEND_NEW;
+
+        $rows = [];
+        $rows[] = ['Student Status', $is_new ? '🆕 New student' : '✅ Existing student'];
+        $rows[] = ['Age', (string) (int) ($data['age'] ?? 0)];
+        $rows[] = ['Guardian', (string) ($data['guardian_name'] ?? '')];
+        $rows[] = ['WhatsApp', (string) ($data['whatsapp'] ?? '')];
+        $rows[] = ['Country of Origin', (string) ($data['country_origin'] ?? '')];
+        $rows[] = ['Country of Residence', (string) ($data['country_res'] ?? '')];
+        $rows[] = ['Heard About Us Via', self::title_case((string) ($data['referral'] ?? ''))];
+        $rows[] = ['Tuition', 'Fully free — nothing to pay'];
 
         return $rows;
     }

@@ -157,9 +157,11 @@ class IQU_Pixel
         $form_type = $clean['form_type'] ?? 'unknown';
 
         $labels = [
-            'free'          => 'Free Enrollment',
-            'summer_level1' => 'Summer Program Level 1',
-            'summer_level2' => 'Summer Program Level 2',
+            'free'             => 'Free Enrollment',
+            'summer_level1'    => 'Summer Program Level 1',
+            'summer_level2'    => 'Summer Program Level 2',
+            'weekend_existing' => 'Weekend Ilm Program (Existing)',
+            'weekend_new'      => 'Weekend Ilm Program (New)',
         ];
 
         $cd = [

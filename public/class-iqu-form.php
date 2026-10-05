@@ -34,9 +34,10 @@ class IQU_Form
     public function enqueue_assets(): void
     {
         global $post;
-        $has_free   = is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'iqu_registration_form');
-        $has_summer = is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'iqu_summer_form');
-        if (!$has_free && !$has_summer) return;
+        $has_free    = is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'iqu_registration_form');
+        $has_summer  = is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'iqu_summer_form');
+        $has_weekend = is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'iqu_weekend_form');
+        if (!$has_free && !$has_summer && !$has_weekend) return;
 
         wp_enqueue_style(
             'iqu-intl-tel-input-style',
@@ -380,6 +381,33 @@ class IQU_Form
         <aside class="iqu-split-side">
             <div class="iqu-split-side-inner">
 
+                <!-- ═══ ZAKAT SCHOLARSHIP CALLOUT ═══ -->
+                <section class="iqu-zakat-callout">
+                    <div class="iqu-zakat-callout-head">
+                        <span class="iqu-zakat-icon" aria-hidden="true">🤲</span>
+                        <h3>Unable to Afford the Tuition?</h3>
+                    </div>
+                    <p>
+                        <strong>No sincere seeker of the Qur'an should be turned away because of financial
+                            hardship.</strong>
+                        If you are unable to afford the tuition and are Zakat-eligible, your fees may be
+                        covered partially or fully through our <em>Zakat Fund</em>, bi-idhnillah.
+                    </p>
+                    <p>
+                        <strong>How to Apply for a Scholarship:</strong><br>
+                        📩 Message us on the
+                        <a href="<?php echo esc_url(IQU_MESSENGER_URL); ?>" target="_blank" rel="noopener noreferrer"
+                            class="iqu-zakat-link">
+                            Ilm-ul-Quran USA Facebook page
+                        </a>
+                        and briefly share your situation. Our team will review your request and, if approved,
+                        provide a <strong>coupon code</strong> for the enrollment form.
+                    </p>
+                    <p class="iqu-zakat-note">
+                        🔒 All conversations are kept strictly confidential.
+                    </p>
+                </section>
+
                 <!-- ═══ INTRO CARD ═══ -->
                 <section class="iqu-intro-card">
                     <p>JazakAllahu Khairan for your noble intention to learn the Qur'an and deepen your connection with
@@ -441,34 +469,6 @@ class IQU_Form
                     </div>
                     <p class="iqu-closing">We look forward to welcoming you! 🤲</p>
                 </section>
-
-                <!-- ═══ ZAKAT SCHOLARSHIP CALLOUT ═══ -->
-                <section class="iqu-zakat-callout">
-                    <div class="iqu-zakat-callout-head">
-                        <span class="iqu-zakat-icon" aria-hidden="true">🤲</span>
-                        <h3>Unable to Afford the Tuition?</h3>
-                    </div>
-                    <p>
-                        <strong>No sincere seeker of the Qur'an should be turned away because of financial
-                            hardship.</strong>
-                        If you are unable to afford the tuition and are Zakat-eligible, your fees may be
-                        covered partially or fully through our <em>Zakat Fund</em>, bi-idhnillah.
-                    </p>
-                    <p>
-                        <strong>How to Apply for a Scholarship:</strong><br>
-                        📩 Message us on the
-                        <a href="<?php echo esc_url(IQU_MESSENGER_URL); ?>" target="_blank" rel="noopener noreferrer"
-                            class="iqu-zakat-link">
-                            Ilm-ul-Quran USA Facebook page
-                        </a>
-                        and briefly share your situation. Our team will review your request and, if approved,
-                        provide a <strong>coupon code</strong> for the enrollment form.
-                    </p>
-                    <p class="iqu-zakat-note">
-                        🔒 All conversations are kept strictly confidential.
-                    </p>
-                </section>
-
             </div>
         </aside>
 
@@ -853,9 +853,8 @@ class IQU_Form
                         <span class="btn-loading" style="display:none">Submitting…</span>
                     </button>
                     <p class="iqu-privacy-note">
-                        🔒 Your information is kept private and will only be used to arrange your classes. This site is
-                        protected by
-                        reCAPTCHA v3.
+                        🔒 Your information is kept private and used only to arrange your child's classes.<br />
+                        This site is protected by reCAPTCHA v3.
                     </p>
                 </div>
             </form>

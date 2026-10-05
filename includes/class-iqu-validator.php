@@ -39,6 +39,9 @@ class IQU_Validator
     private const ALLOWED_ADM_FEE = ['50', '30', 'flexible', 'complimentary'];
     private const ALLOWED_PAYMENT = ['zelle', 'zeffy', ''];
 
+    // 🆕 Weekend Ilm Program — প্রোগ্রামটি সম্পূর্ণ ফ্রি, তাই কোনো ফি কনস্ট্যান্ট নেই
+    private const ALLOWED_WEEKEND_STATUS = ['existing', 'new'];
+
     // ────────────────────────────────────────────────────
     // Free registration
     // ────────────────────────────────────────────────────
@@ -328,6 +331,62 @@ class IQU_Validator
                 $this->clean['payment_status'] = 'pending';
             }
         }
+
+        $this->add_meta();
+
+        return empty($this->errors);
+    }
+
+    // ────────────────────────────────────────────────────
+    // Weekend Ilm Program
+    // ────────────────────────────────────────────────────
+    public function validate_weekend(array $post): bool
+    {
+        $this->errors = [];
+        $this->clean  = [];
+
+        // ── ছাত্রের অবস্থা → শুধু form_type নির্ধারণ করে (ফি নেই) ──
+        $status = strtolower(sanitize_text_field($post['student_status'] ?? ''));
+        if (!in_array($status, self::ALLOWED_WEEKEND_STATUS, true)) {
+            $this->errors['student_status'] =
+                'Please tell us whether your child already studies with Ilm-ul-Quran USA.';
+            $status = '';
+        }
+        $is_new = ($status === 'new');
+
+        $this->clean['form_type'] = $is_new
+            ? IQU_Database::FORM_WEEKEND_NEW
+            : IQU_Database::FORM_WEEKEND_EXISTING;
+
+        // রিপোর্টে চেনার জন্য
+        $this->clean['enrollment_level'] = 'weekend';
+
+        // ── ব্যক্তিগত তথ্য ──
+        $this->v_name($post, 'first_name', 'Participant\'s First Name');
+        $this->v_name($post, 'last_name', 'Participant\'s Last Name');
+        $this->v_email($post, 'email', 'Participant\'s Email');
+        $this->v_age($post, 'age', 5, 15);
+        $this->v_text($post, 'guardian_name', 'Guardian\'s Full Name', 150);
+        $this->v_text($post, 'country_origin', 'Country of Origin', 100);
+        $this->v_text($post, 'country_res', 'Country of Residence', 100);
+        $this->v_whatsapp($post, 'whatsapp', 'WhatsApp Number', 'whatsapp');
+
+        // ── রেফারেল ──
+        $ref = strtolower(sanitize_text_field($post['referral'] ?? ''));
+        if (!in_array($ref, self::ALLOWED_REFERRALS, true)) {
+            $this->errors['referral'] = 'Please select how you heard about Ilm-ul-Quran USA.';
+        }
+        $this->clean['referral']       = $ref;
+        $this->clean['referral_other'] = '';
+
+        // ── 🎁 সম্পূর্ণ ফ্রি — নতুন হোক বা পুরনো, কোনো ফি নেই ──
+        //    ক্লায়েন্ট থেকে payment_* কিছু এলেও তা উপেক্ষা করা হয়।
+        $this->clean['admission_fee']     = 'free';
+        $this->clean['payment_amount']    = 0.00;
+        $this->clean['payment_method']    = '';
+        $this->clean['transaction_id']    = '';
+        $this->clean['payment_status']    = 'not_required';
+        $this->clean['flexible_fee_note'] = '';
 
         $this->add_meta();
 

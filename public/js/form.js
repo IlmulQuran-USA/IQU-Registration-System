@@ -48,6 +48,11 @@
       wireSummerForm($summerForm);
     }
 
+    const $weekendForm = $("#iqu-weekend-reg-form");
+    if ($weekendForm.length) {
+      wireWeekendForm($weekendForm);
+    }
+
     $(document).on(
       "input change",
       ".iqu-form input, .iqu-form select, .iqu-form textarea",
@@ -135,6 +140,7 @@
 
       enhanceFreeFormUI($form);
       initInternationalPhoneInputs($form);
+      enhanceCustomSelects($form);
 
       $form.on("submit", function (e) {
         e.preventDefault();
@@ -358,6 +364,7 @@
         const cur = parseInt($daysInput.val(), 10);
         if (Number.isInteger(cur) && cur < minDays) {
           $daysInput.val("");
+          $daysInput.trigger("wk:sync"); // কাস্টম ড্রপডাউনের লেখা রিফ্রেশ
           syncPreferredDayLimit();
         }
 
@@ -679,6 +686,7 @@
 
       enhanceSummerFormUI($form);
       initInternationalPhoneInputs($form);
+      enhanceCustomSelects($form);
 
       const summerFormEl = $form.get(0);
       const admissionInputs = summerFormEl.querySelectorAll(
@@ -1221,8 +1229,30 @@
           helpText = "Level 2 is for students ages 11 to 15.";
         }
 
+        // basicValidate-এর পুরনো min/max চেকটা এখনও এগুলোই পড়ে
         $ageInput.attr("min", minAge).attr("max", maxAge);
         $ageHelp.text(helpText);
+
+        // 🎂 বয়সের অপশনগুলো লেভেল অনুযায়ী নতুন করে বানাও
+        const prev = $ageInput.val();
+        const placeholder = $ageInput.find("option").first().text();
+
+        $ageInput.empty();
+        $("<option></option>").val("").text(placeholder).appendTo($ageInput);
+
+        for (let a = minAge; a <= maxAge; a++) {
+          $("<option></option>")
+            .val(a)
+            .text(a + " years")
+            .appendTo($ageInput);
+        }
+
+        // আগের বয়স নতুন পরিসরে থাকলে রেখে দাও, নইলে খালি
+        const keep = Number(prev);
+        $ageInput.val(keep >= minAge && keep <= maxAge ? String(keep) : "");
+
+        // কাস্টম ড্রপডাউনের লেখা রিফ্রেশ
+        $ageInput.trigger("wk:sync");
       }
 
       function toggleOtherField($select, $wrap, $input, errorFieldName) {
@@ -1279,6 +1309,209 @@
         $referralOtherInput,
         "referral_other",
       );
+    }
+
+    // ══════════════════════════════════════════════════
+    // 🗓️ WEEKEND ILM PROGRAM  (সম্পূর্ণ ফ্রি — কোনো পেমেন্ট ধাপ নেই)
+    // ══════════════════════════════════════════════════
+    function wireWeekendForm($form) {
+      const $btn = $("#wk-submit-btn");
+      const $btnTxt = $btn.find(".btn-text");
+      const $btnLoad = $btn.find(".btn-loading");
+      const $srvErr = $("#wk-server-error");
+
+      initInternationalPhoneInputs($form);
+      enhanceCustomSelects($form);
+
+      $form.on("submit", function (e) {
+        e.preventDefault();
+        clearErrors($form);
+        $srvErr.hide().text("");
+
+        if (!basicValidate($form)) {
+          scrollToFirstError($form);
+          return;
+        }
+
+        const status = $("#wk_student_status").val();
+
+        if (!status) {
+          showFieldError(
+            $form,
+            "student_status",
+            "Please tell us whether your child already studies with Ilm-ul-Quran USA.",
+          );
+          scrollToFirstError($form);
+          return;
+        }
+
+        if (!$("#wk_consent").is(":checked")) {
+          showFieldError(
+            $form,
+            "wk_consent",
+            "Please confirm the class timing before submitting.",
+          );
+          scrollToFirstError($form);
+          return;
+        }
+
+        setLoading($btn, $btnTxt, $btnLoad, true);
+
+        getRecaptchaToken("iqu_weekend_form")
+          .then(function (token) {
+            $("#iqu_weekend_recaptcha_token").val(token);
+            return buildSerializedData($form);
+          })
+          .then(function (serializedData) {
+            submitForm(
+              $form,
+              "iqu_weekend_submit",
+              serializedData,
+              handleWeekendSuccess,
+              $srvErr,
+              $btn,
+              $btnTxt,
+              $btnLoad,
+            );
+          })
+          .catch(function (error) {
+            setLoading($btn, $btnTxt, $btnLoad, false);
+            if (error && error.validation) {
+              scrollToFirstError($form);
+              return;
+            }
+            $srvErr
+              .text("Verification unavailable. Please reload and try again.")
+              .addClass("iqu-alert iqu-alert-error")
+              .show();
+          });
+      });
+
+      function handleWeekendSuccess() {
+        const url = new URL(window.location.href);
+        url.searchParams.set("iqu_submitted", "weekend");
+        window.location.href = url.toString();
+      }
+    }
+
+    /**
+     * 🎨 কাস্টম ড্রপডাউন — তিনটি ফর্মের সব <select>-এ একই চেহারা।
+     *
+     * নেটিভ <select>-টা ফর্মেই থেকে যায় (serializeArray, basicValidate,
+     * showFieldErrors — সবই ওটার উপর নির্ভরশীল), শুধু চোখের আড়ালে যায়।
+     * তার পাশে একটা লিস্টবক্স আঁকা হয় যেটা max-height দিয়ে ৫ সারিতে
+     * আটকানো — নেটিভ popup-এর উচ্চতা ব্রাউজার ঠিক করে, CSS দিয়ে বাঁধা যায় না।
+     *
+     * লিস্টটা প্রতিবার খোলার সময় নতুন করে তৈরি হয়, তাই কোর্স বদলালে
+     * যে option গুলো disabled হয় (হেফজে ৩ দিনের নিচে) সেটাও ঠিক দেখায়।
+     */
+    function enhanceCustomSelects($form) {
+      $form.find("select").each(function () {
+        buildCustomSelect(this);
+      });
+    }
+
+    function buildCustomSelect(select) {
+      if (!select || select.multiple) return;
+      if (select.dataset.wkReady === "1") return;
+      if ($(select).closest(".iti").length) return; // ফোন ফিল্ডের নিজস্ব UI
+      select.dataset.wkReady = "1";
+
+      const $select = $(select);
+      const $wrap = $('<div class="wk-select"></div>');
+      const $btn = $(
+        '<button type="button" class="wk-select-btn" aria-haspopup="listbox" aria-expanded="false">' +
+          '<span class="wk-select-value"></span>' +
+          '<span class="wk-select-caret" aria-hidden="true"></span>' +
+          "</button>",
+      );
+      const $list = $('<ul class="wk-select-list" role="listbox" hidden></ul>');
+
+      $select.addClass("wk-select-native").after($wrap);
+      $wrap.append($btn).append($list);
+
+      function placeholderText() {
+        const $first = $select.find("option").first();
+        return $first.val() === "" ? $first.text() : "";
+      }
+
+      function buildList() {
+        $list.empty();
+        $select.find("option").each(function () {
+          const $opt = $(this);
+          if ($opt.val() === "") return; // প্লেসহোল্ডার লিস্টে দেখাবে না
+          const disabled = $opt.prop("disabled");
+          $("<li></li>")
+            .attr({
+              role: "option",
+              "data-value": $opt.val(),
+              "aria-disabled": disabled ? "true" : "false",
+            })
+            .toggleClass("is-disabled", disabled)
+            .text($opt.text())
+            .appendTo($list);
+        });
+        markSelected();
+      }
+
+      function markSelected() {
+        const val = String($select.val() || "");
+        $list.find("li").each(function () {
+          $(this).attr("aria-selected", String($(this).data("value")) === val);
+        });
+      }
+
+      function paint() {
+        const val = $select.val();
+        const label = val ? $select.find("option:selected").text() : placeholderText();
+        $btn.find(".wk-select-value").text(label);
+        $btn.toggleClass("is-placeholder", !val);
+        markSelected();
+      }
+
+      function open() {
+        if (select.disabled) return;
+        buildList();
+        $list.prop("hidden", false);
+        $btn.attr("aria-expanded", "true");
+      }
+
+      function close() {
+        $list.prop("hidden", true);
+        $btn.attr("aria-expanded", "false");
+      }
+
+      $btn.on("click", function (e) {
+        e.preventDefault();
+        $list.prop("hidden") ? open() : close();
+      });
+
+      $list.on("click", "li", function () {
+        if ($(this).hasClass("is-disabled")) return;
+        $select.val($(this).data("value")); 
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+
+        paint();
+        close();
+        $btn.focus();
+      });
+
+      // change — ইউজারের ক্লিকে; wk:sync — কোড থেকে .val() বদলালে
+      $select.on("change wk:sync", paint);
+
+      $(document).on("click", function (e) {
+        if (!$wrap.get(0).contains(e.target)) close();
+      });
+
+      $btn.on("keydown", function (e) {
+        if (e.key === "Escape") close();
+        if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open();
+        }
+      });
+
+      paint();
     }
 
     function iquGetFbclid() {

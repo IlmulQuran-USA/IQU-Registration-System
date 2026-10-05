@@ -244,6 +244,16 @@ class IQU_Summer_Form
         <aside class="iqu-split-side">
             <div class="iqu-split-side-inner">
 
+                <!-- Important Note — 13px 400 -->
+                <div class="sc-note">
+                    <strong>Important Note:</strong> Please submit a separate form for each student. Do not include
+                    multiple
+                    students'
+                    information in a single submission. This helps us maintain accurate records for each
+                    participant.
+                    <em>JazakAllahu Khairan!</em>
+                </div>
+
                 <!-- ===== INTRO CARD SECTION ===== -->
                 <section class="sc-body">
                     <div class="sc-intro">
@@ -346,16 +356,6 @@ class IQU_Summer_Form
                         <div class="sc-feat sc-feat-1">Awards for Students</div>
                         <div class="sc-feat sc-feat-2">Website Recognition</div>
                     </div>
-
-                    <!-- Important Note — 13px 400 -->
-                    <div class="sc-note">
-                        <strong>Important Note:</strong> Please submit a separate form for each student. Do not include
-                        multiple
-                        students'
-                        information in a single submission. This helps us maintain accurate records for each
-                        participant.
-                        <em>JazakAllahu Khairan!</em>
-                    </div>
                 </section>
                 <!-- ===== END OF SECTION ===== -->
 
@@ -377,15 +377,6 @@ class IQU_Summer_Form
                 </div>
 
                 <p class="iqu-required-note"><span class="req">*</span> Indicates required question</p>
-
-                <!-- Email -->
-                <div class="iqu-question">
-                    <label for="summer_email">Email <span class="req">*</span></label>
-                    <input type="email" id="summer_email" name="email"
-                        placeholder="Which email should we send updates to?" maxlength="191" autocomplete="email"
-                        required>
-                    <span class="iqu-error" data-field="email"></span>
-                </div>
 
                 <div class="form-display-flex">
                     <!-- First Name -->
@@ -419,22 +410,34 @@ class IQU_Summer_Form
                         <span class="iqu-error" data-field="enrollment_level"></span>
                     </div>
 
-                    <!-- Age -->
+                    <!-- Age — লেভেল অনুযায়ী অপশন JS ভরে দেয় -->
                     <div class="iqu-question">
                         <label for="summer_age">Participant's Age <span class="req">*</span></label>
                         <p class="iqu-help" id="iqu-summer-age-help">Enter the student's current age.</p>
-                        <input type="number" id="summer_age" name="age" placeholder="How old is the participant?"
-                            min="5" max="15" required>
+                        <select id="summer_age" name="age" data-min-age="5" data-max-age="15" required>
+                            <option value="">-- Select age --</option>
+                        </select>
                         <span class="iqu-error" data-field="age"></span>
                     </div>
                 </div>
 
-                <!-- Guardian Name -->
-                <div class="iqu-question">
-                    <label for="guardian_name">Guardian's Full Name <span class="req">*</span></label>
-                    <input type="text" id="guardian_name" name="guardian_name"
-                        placeholder="What is the guardian's full name?" maxlength="150" required>
-                    <span class="iqu-error" data-field="guardian_name"></span>
+                <div class="form-display-flex">
+                    <!-- Guardian Name -->
+                    <div class="iqu-question">
+                        <label for="guardian_name">Guardian's Full Name <span class="req">*</span></label>
+                        <input type="text" id="guardian_name" name="guardian_name"
+                            placeholder="What is the guardian's full name?" maxlength="150" required>
+                        <span class="iqu-error" data-field="guardian_name"></span>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="iqu-question">
+                        <label for="summer_email">Email <span class="req">*</span></label>
+                        <input type="email" id="summer_email" name="email"
+                            placeholder="Which email should we send updates to?" maxlength="191" autocomplete="email"
+                            required>
+                        <span class="iqu-error" data-field="email"></span>
+                    </div>
                 </div>
 
                 <div class="form-display-flex">
@@ -631,7 +634,8 @@ class IQU_Summer_Form
                         <span class="btn-loading" style="display:none">Submitting…</span>
                     </button>
                     <p class="iqu-privacy-note">
-                        🔒 Your information is kept private. This site is protected by reCAPTCHA v3.
+                        🔒 Your information is kept private and used only to arrange your child's classes.<br />
+                        This site is protected by reCAPTCHA v3.
                     </p>
                 </div>
             </form>
@@ -754,7 +758,7 @@ class IQU_Summer_Form
         // Emails
         IQU_Mailer::send_admin_notification($clean, $reg_id);
         IQU_Mailer::send_student_confirmation($clean);
-         do_action('iqu_registration_created', $clean, (int) $reg_id);
+        do_action('iqu_registration_created', $clean, (int) $reg_id);
 
         // payment_amount — validator miss করলেও directly $_POST থেকে নাও
         $payment_method = !empty($clean['payment_method'])
