@@ -92,9 +92,8 @@ class IQU_Billing_Send
         $notice  = get_transient(self::TX . get_current_user_id());
         if ($notice) delete_transient(self::TX . get_current_user_id());
 
-        echo '<div class="wrap"><h1>Billing</h1>';
+        echo '<div class="wrap iqu-admin-wrap iqu-billing">';
         IQU_Billing_Page::tabs('students');
-        echo '<h2>Check and send</h2>';
         if ($notice) self::print_notice($notice);
 
         if (!IQU_Stripe::is_ready()) {
@@ -102,12 +101,12 @@ class IQU_Billing_Send
             return;
         }
         if (!$ids) {
-            echo '<p>No student selected. Use the buttons on the Enroll for Free list.</p></div>';
+            echo '<div class="iqu-card"><div class="iqu-empty-state">No student selected. Use the buttons on the Enroll for Free list.</div></div></div>';
             return;
         }
 
         $main = IQU_Database::get_registration($ids[0]);
-        if (!$main) { echo '<p>Student not found.</p></div>'; return; }
+        if (!$main) { echo '<div class="iqu-card"><div class="iqu-empty-state">Student not found.</div></div></div>'; return; }
 
         // Siblings: other monthly students with the same email and no billing yet.
         global $wpdb;
@@ -134,107 +133,122 @@ class IQU_Billing_Send
         $suggest = ($type === 'new' && count($ids) === 1) ? IQU_Billing_Service::suggested_first_charge($main) : '';
         $base = admin_url('admin.php');
         ?>
-        <p>Everything here is worked out on the server from the pricing rules. Nothing is charged today.</p>
+        <!-- ── Check ──────────────────────────────────────── -->
+        <div class="iqu-card">
+            <div class="iqu-card-head">
+                <span class="iqu-card-head-title">Check and send</span>
+            </div>
+            <div class="iqu-billing-body">
+                <p class="iqu-billing-intro">Everything here is worked out on the server from the pricing rules. Nothing is charged today.</p>
+            </div>
 
-        <form method="get" action="<?php echo esc_url($base); ?>">
-            <input type="hidden" name="page" value="<?php echo esc_attr(self::SEND_SLUG); ?>">
-            <input type="hidden" name="then" value="<?php echo esc_attr($then); ?>">
+            <form method="get" action="<?php echo esc_url($base); ?>">
+                <input type="hidden" name="page" value="<?php echo esc_attr(self::SEND_SLUG); ?>">
+                <input type="hidden" name="then" value="<?php echo esc_attr($then); ?>">
 
-            <table class="widefat striped" style="max-width:980px">
-                <thead><tr><th>Student</th><th>Course</th><th>Standard</th><th>Discount</th><th>Monthly</th><th></th></tr></thead>
-                <tbody>
-                <?php foreach ($rows as $r): $reg = $r['reg']; $p = $r['p']; $id = (int) $reg['id']; ?>
-                    <tr>
-                        <td><strong><?php echo esc_html($reg['first_name'] . ' ' . $reg['last_name']); ?></strong><br><span class="description">IQU-<?php echo $id; ?> · <?php echo esc_html(IQU_Billing_Service::student_type($reg) === 'new' ? 'new student' : 'current student'); ?></span>
-                            <input type="hidden" name="ids[]" value="<?php echo $id; ?>"></td>
-                        <td>
-                            <?php if ($p['needs_input'] || ($reg['course_type'] ?? '') === ''): ?>
-                                <label class="screen-reader-text" for="c<?php echo $id; ?>">Course</label>
-                                <select id="c<?php echo $id; ?>" name="course[<?php echo $id; ?>]">
-                                    <option value="">Choose course…</option>
-                                    <?php foreach (IQU_Pricing::course_keys() as $k): ?>
-                                        <option value="<?php echo esc_attr($k); ?>" <?php selected($courses[$id] ?? '', $k); ?>><?php echo esc_html(IQU_Pricing::label($k)); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <?php if ((int) $reg['days_per_week'] <= 0): ?>
-                                    <label class="screen-reader-text" for="d<?php echo $id; ?>">Days per week</label>
-                                    <select id="d<?php echo $id; ?>" name="days[<?php echo $id; ?>]">
-                                        <option value="">Days…</option>
-                                        <?php for ($i = 1; $i <= 7; $i++): ?><option value="<?php echo $i; ?>" <?php selected($days[$id] ?? 0, $i); ?>><?php echo $i; ?></option><?php endfor; ?>
+                <div class="iqu-table-wrap">
+                <table class="iqu-tbl iqu-billing-tbl">
+                    <thead><tr><th>Student</th><th>Course</th><th>Standard</th><th>Discount</th><th>Monthly</th><th></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($rows as $r): $reg = $r['reg']; $p = $r['p']; $id = (int) $reg['id']; ?>
+                        <tr>
+                            <td class="iqu-td-name"><strong><?php echo esc_html($reg['first_name'] . ' ' . $reg['last_name']); ?></strong><br><span class="iqu-billing-sub">IQU-<?php echo $id; ?> · <?php echo esc_html(IQU_Billing_Service::student_type($reg) === 'new' ? 'new student' : 'current student'); ?></span>
+                                <input type="hidden" name="ids[]" value="<?php echo $id; ?>"></td>
+                            <td>
+                                <?php if ($p['needs_input'] || ($reg['course_type'] ?? '') === ''): ?>
+                                    <label class="screen-reader-text" for="c<?php echo $id; ?>">Course</label>
+                                    <select id="c<?php echo $id; ?>" name="course[<?php echo $id; ?>]">
+                                        <option value="">Choose course…</option>
+                                        <?php foreach (IQU_Pricing::course_keys() as $k): ?>
+                                            <option value="<?php echo esc_attr($k); ?>" <?php selected($courses[$id] ?? '', $k); ?>><?php echo esc_html(IQU_Pricing::label($k)); ?></option>
+                                        <?php endforeach; ?>
                                     </select>
+                                    <?php if ((int) $reg['days_per_week'] <= 0): ?>
+                                        <label class="screen-reader-text" for="d<?php echo $id; ?>">Days per week</label>
+                                        <select id="d<?php echo $id; ?>" name="days[<?php echo $id; ?>]">
+                                            <option value="">Days…</option>
+                                            <?php for ($i = 1; $i <= 7; $i++): ?><option value="<?php echo $i; ?>" <?php selected($days[$id] ?? 0, $i); ?>><?php echo $i; ?></option><?php endfor; ?>
+                                        </select>
+                                    <?php else: ?>
+                                        <br><span class="iqu-billing-sub"><?php echo (int) $reg['days_per_week']; ?> days/week (from the record)</span>
+                                    <?php endif; ?>
                                 <?php else: ?>
-                                    <br><span class="description"><?php echo (int) $reg['days_per_week']; ?> days/week (from the record)</span>
+                                    <?php echo esc_html($p['course_label']); ?><br><span class="iqu-billing-sub"><?php echo (int) $p['days_per_week']; ?> days/week · <?php echo (int) $p['classes_per_month']; ?> classes × <?php echo esc_html(IQU_Pricing::format($p['per_class_rate'])); ?></span>
                                 <?php endif; ?>
-                            <?php else: ?>
-                                <?php echo esc_html($p['course_label']); ?><br><span class="description"><?php echo (int) $p['days_per_week']; ?> days/week · <?php echo (int) $p['classes_per_month']; ?> classes × <?php echo esc_html(IQU_Pricing::format($p['per_class_rate'])); ?></span>
-                            <?php endif; ?>
-                        </td>
-                        <td><?php echo $p['gross'] > 0 ? esc_html(IQU_Pricing::format($p['gross'])) : '—'; ?></td>
-                        <td><?php echo $p['discount'] > 0 ? esc_html('−' . IQU_Pricing::format($p['discount']) . ' ' . $p['discount_label']) : '—'; ?></td>
-                        <td><strong><?php echo $p['billable'] ? esc_html(IQU_Pricing::format($p['net'])) : '—'; ?></strong></td>
-                        <td>
-                            <?php if ($r['existing']): ?><span style="color:#8a2424">Already has billing.</span>
-                            <?php elseif ($p['needs_input']): ?><span style="color:#8a5a00"><?php echo esc_html($p['reason']); ?></span>
-                            <?php elseif (!$p['billable']): ?><span><?php echo esc_html($p['reason']); ?></span><?php endif; ?>
-                            <?php foreach ($p['warnings'] as $w): ?><br><span class="description" style="color:#8a5a00"><?php echo esc_html($w); ?></span><?php endforeach; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-                <tfoot><tr><th colspan="4" style="text-align:right">Charged every month</th><th colspan="2"><strong><?php echo esc_html(IQU_Pricing::format($total)); ?></strong></th></tr></tfoot>
-            </table>
+                            </td>
+                            <td><?php echo $p['gross'] > 0 ? esc_html(IQU_Pricing::format($p['gross'])) : '—'; ?></td>
+                            <td><?php echo $p['discount'] > 0 ? esc_html('−' . IQU_Pricing::format($p['discount']) . ' ' . $p['discount_label']) : '—'; ?></td>
+                            <td><strong><?php echo $p['billable'] ? esc_html(IQU_Pricing::format($p['net'])) : '—'; ?></strong></td>
+                            <td class="iqu-billing-wrap">
+                                <?php if ($r['existing']): ?><span class="iqu-billing-error">Already has billing.</span>
+                                <?php elseif ($p['needs_input']): ?><span class="iqu-billing-warn"><?php echo esc_html($p['reason']); ?></span>
+                                <?php elseif (!$p['billable']): ?><span><?php echo esc_html($p['reason']); ?></span><?php endif; ?>
+                                <?php foreach ($p['warnings'] as $w): ?><br><span class="iqu-billing-sub iqu-billing-warn"><?php echo esc_html($w); ?></span><?php endforeach; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                    <tfoot><tr><th colspan="4" class="iqu-billing-total-label">Charged every month</th><th colspan="2"><strong><?php echo esc_html(IQU_Pricing::format($total)); ?></strong></th></tr></tfoot>
+                </table>
+                </div>
 
-            <?php if ($siblings): ?>
-                <h2 style="margin-top:22px">Same family?</h2>
-                <p>These students use the same email. Tick to bill them together: one charge a month for the whole family.</p>
-                <?php foreach ($siblings as $s): $sid = (int) $s['id']; ?>
-                    <label style="display:block;margin:4px 0"><input type="checkbox" name="ids[]" value="<?php echo $sid; ?>" <?php checked(in_array($sid, $ids, true)); ?>>
-                        <?php echo esc_html($s['first_name'] . ' ' . $s['last_name']); ?> (IQU-<?php echo $sid; ?>)</label>
-                <?php endforeach; ?>
-            <?php endif; ?>
+                <?php if ($siblings): ?>
+                    <div class="iqu-billing-section">
+                        <div class="iqu-section-title">Same family?</div>
+                        <p>These students use the same email. Tick to bill them together: one charge a month for the whole family.</p>
+                        <?php foreach ($siblings as $s): $sid = (int) $s['id']; ?>
+                            <label class="iqu-billing-check-label"><input type="checkbox" name="ids[]" value="<?php echo $sid; ?>" <?php checked(in_array($sid, $ids, true)); ?>>
+                                <?php echo esc_html($s['first_name'] . ' ' . $s['last_name']); ?> (IQU-<?php echo $sid; ?>)</label>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
 
-            <p><?php submit_button('Recalculate', 'secondary', '', false); ?></p>
-        </form>
+                <div class="iqu-cpn-actions"><?php submit_button('Recalculate', 'secondary', '', false); ?></div>
+            </form>
+        </div>
 
-        <hr style="margin:22px 0">
+        <!-- ── Create ─────────────────────────────────────── -->
+        <div class="iqu-card">
+            <div class="iqu-card-head">
+                <span class="iqu-card-head-title">Create billing</span>
+                <span class="iqu-card-head-badge"><?php echo $type === 'new' ? 'New student' : 'Current student'; ?></span>
+            </div>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-form">
+                <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CREATE); ?>">
+                <?php wp_nonce_field(self::A_CREATE); ?>
+                <?php foreach ($ids as $id): ?><input type="hidden" name="ids[]" value="<?php echo (int) $id; ?>"><?php endforeach; ?>
+                <?php foreach ($courses as $id => $c): ?><input type="hidden" name="course[<?php echo (int) $id; ?>]" value="<?php echo esc_attr($c); ?>"><?php endforeach; ?>
+                <?php foreach ($days as $id => $d): ?><input type="hidden" name="days[<?php echo (int) $id; ?>]" value="<?php echo (int) $d; ?>"><?php endforeach; ?>
 
-        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="max-width:720px">
-            <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CREATE); ?>">
-            <?php wp_nonce_field(self::A_CREATE); ?>
-            <?php foreach ($ids as $id): ?><input type="hidden" name="ids[]" value="<?php echo (int) $id; ?>"><?php endforeach; ?>
-            <?php foreach ($courses as $id => $c): ?><input type="hidden" name="course[<?php echo (int) $id; ?>]" value="<?php echo esc_attr($c); ?>"><?php endforeach; ?>
-            <?php foreach ($days as $id => $d): ?><input type="hidden" name="days[<?php echo (int) $id; ?>]" value="<?php echo (int) $d; ?>"><?php endforeach; ?>
-
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row"><label for="first_charge_date">First charge</label></th>
-                    <td>
+                <div class="iqu-fld-grid">
+                    <div class="iqu-fld">
+                        <label for="first_charge_date">First charge <em>*</em></label>
                         <input id="first_charge_date" type="date" name="first_charge_date" required value="<?php echo esc_attr((string) $suggest); ?>" min="<?php echo esc_attr(gmdate('Y-m-d')); ?>" max="<?php echo esc_attr(gmdate('Y-m-d', time() + 45 * DAY_IN_SECONDS)); ?>">
-                        <p class="description">
+                        <p class="iqu-fld-hint">
                             <?php if ($type === 'new'): ?>
                                 New student: filled in as the day the free first month ends.
                             <?php else: ?>
                                 Current student: their usual due date this month. If it has already passed, choose today — they are charged when they add the bank or card.
                             <?php endif; ?>
                         </p>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">Sent to</th>
-                    <td><?php echo esc_html($main['email']); ?><?php if ($main['guardian_name']): ?> — <?php echo esc_html($main['guardian_name']); ?><?php endif; ?>
-                        <p class="description">To change the email, edit the enrollment record first.</p></td>
-                </tr>
-            </table>
+                    </div>
+                    <div class="iqu-fld">
+                        <span class="iqu-fld-label">Sent to</span>
+                        <div class="iqu-fld-value"><?php echo esc_html($main['email']); ?><?php if ($main['guardian_name']): ?> — <?php echo esc_html($main['guardian_name']); ?><?php endif; ?></div>
+                        <p class="iqu-fld-hint">To change the email, edit the enrollment record first.</p>
+                    </div>
+                </div>
 
-            <?php if ($ready): ?>
-                <p style="display:flex;gap:8px;flex-wrap:wrap">
-                    <button type="submit" name="then" value="email" class="button button-primary">Create billing and send email</button>
-                    <button type="submit" name="then" value="copy" class="button">Create billing and copy message</button>
-                </p>
-            <?php else: ?>
-                <p><strong>Fix the rows above first</strong> (choose the course and press Recalculate), then the send buttons appear.</p>
-            <?php endif; ?>
-        </form>
+                <div class="iqu-cpn-actions">
+                    <?php if ($ready): ?>
+                        <button type="submit" name="then" value="email" class="iqu-btn-primary">Create billing and send email</button>
+                        <button type="submit" name="then" value="copy" class="iqu-btn-ghost">Create billing and copy message</button>
+                    <?php else: ?>
+                        <p><strong>Fix the rows above first</strong> (choose the course and press Recalculate), then the send buttons appear.</p>
+                    <?php endif; ?>
+                </div>
+            </form>
+        </div>
         </div>
         <?php
     }
@@ -280,11 +294,10 @@ class IQU_Billing_Send
         $notice = get_transient(self::TX . get_current_user_id());
         if ($notice) delete_transient(self::TX . get_current_user_id());
 
-        echo '<div class="wrap"><h1>Billing</h1>';
+        echo '<div class="wrap iqu-admin-wrap iqu-billing">';
         IQU_Billing_Page::tabs('students');
-        echo '<h2>Payment link message</h2>';
         if ($notice) self::print_notice($notice);
-        if (!$acc) { echo '<p>Billing record not found.</p></div>'; return; }
+        if (!$acc) { echo '<div class="iqu-card"><div class="iqu-empty-state">Billing record not found.</div></div></div>'; return; }
 
         $students = self::students($acc);
         $text     = self::message_text($acc);
@@ -292,50 +305,82 @@ class IQU_Billing_Send
         $wa_url   = $wa !== '' ? 'https://wa.me/' . $wa . '?text=' . rawurlencode($text) : '';
         $post     = esc_url(admin_url('admin-post.php'));
         ?>
-        <table class="form-table" role="presentation" style="max-width:820px">
-            <tr><th scope="row">Family</th><td><?php echo esc_html($acc['guardian_name'] ?: '—'); ?> · <?php echo esc_html($acc['contact_email']); ?> · <?php echo esc_html($acc['contact_whatsapp'] ?: 'no WhatsApp'); ?></td></tr>
-            <tr><th scope="row">Students</th><td><?php echo esc_html(implode(', ', $students)); ?></td></tr>
-            <tr><th scope="row">Monthly</th><td><strong><?php echo esc_html(IQU_Pricing::format((float) $acc['net_amount'])); ?></strong> · first charge <?php echo esc_html(self::nice_date($acc['first_charge_date'])); ?></td></tr>
-            <tr><th scope="row">Status</th><td><?php echo esc_html(self::status_label($acc['status'])); ?>
-                <br><span class="description">Email: <?php echo $acc['email_sent_at'] ? esc_html(self::nice_time($acc['email_sent_at'])) : 'not sent'; ?> · WhatsApp: <?php echo $acc['whatsapp_sent_at'] ? esc_html(self::nice_time($acc['whatsapp_sent_at'])) : 'not marked as sent'; ?></span></td></tr>
-        </table>
-
-        <h2>Message</h2>
-        <label for="iqu-msg" class="screen-reader-text">Message</label>
-        <textarea id="iqu-msg" readonly rows="16" class="large-text" style="max-width:820px;font-size:14px;line-height:1.5"><?php echo esc_textarea($text); ?></textarea>
-
-        <p style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <button type="button" class="button button-primary" id="iqu-copy">Copy message</button>
-            <?php if ($wa_url): ?><a class="button" href="<?php echo esc_url($wa_url); ?>" target="_blank" rel="noopener noreferrer">Open in WhatsApp</a><?php endif; ?>
-            <span id="iqu-copied" style="display:none;color:#1d6b3a">Copied. Paste it into WhatsApp, SMS or Messenger.</span>
-        </p>
-        <?php if ($wa !== '' && strlen($wa) === 10): ?>
-            <p class="description" style="color:#8a5a00">This number has no country code. For a US number add 1 in front in the enrollment record, or Open in WhatsApp may not find the chat.</p>
-        <?php endif; ?>
-
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-            <form method="post" action="<?php echo $post; ?>">
-                <input type="hidden" name="action" value="<?php echo esc_attr(self::A_WA); ?>"><input type="hidden" name="account" value="<?php echo (int) $acc['id']; ?>">
-                <?php wp_nonce_field(self::A_WA . '_' . $acc['id']); ?>
-                <button class="button">Mark as sent on WhatsApp</button>
-            </form>
-            <form method="post" action="<?php echo $post; ?>">
-                <input type="hidden" name="action" value="<?php echo esc_attr(self::A_EMAIL); ?>"><input type="hidden" name="account" value="<?php echo (int) $acc['id']; ?>">
-                <?php wp_nonce_field(self::A_EMAIL . '_' . $acc['id']); ?>
-                <button class="button"><?php echo $acc['email_sent_at'] ? 'Resend email' : 'Send email'; ?></button>
-            </form>
-            <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('The old link will stop working at once. Continue?');">
-                <input type="hidden" name="action" value="<?php echo esc_attr(self::A_RESET); ?>"><input type="hidden" name="account" value="<?php echo (int) $acc['id']; ?>">
-                <?php wp_nonce_field(self::A_RESET . '_' . $acc['id']); ?>
-                <button class="button">Reset link</button>
-            </form>
-            <form method="post" action="<?php echo $post; ?>">
-                <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SYNC); ?>"><input type="hidden" name="account" value="<?php echo (int) $acc['id']; ?>">
-                <?php wp_nonce_field(self::A_SYNC . '_' . $acc['id']); ?>
-                <button class="button">Sync from Stripe</button>
-            </form>
+        <!-- ── Family ─────────────────────────────────────── -->
+        <div class="iqu-card">
+            <div class="iqu-card-head">
+                <span class="iqu-card-head-title">Payment link message</span>
+                <span class="iqu-chip iqu-chip--<?php echo IQU_Billing_Page::status_tone($acc['status']); ?>"><?php echo esc_html(self::status_label($acc['status'])); ?></span>
+            </div>
+            <div class="iqu-billing-body">
+                <div class="iqu-detail-data">
+                    <div class="iqu-detail-item iqu-detail-full">
+                        <div class="iqu-detail-lbl">Family</div>
+                        <div class="iqu-detail-val"><?php echo esc_html($acc['guardian_name'] ?: '—'); ?> · <?php echo esc_html($acc['contact_email']); ?> · <?php echo esc_html($acc['contact_whatsapp'] ?: 'no WhatsApp'); ?></div>
+                    </div>
+                    <div class="iqu-detail-item iqu-detail-full">
+                        <div class="iqu-detail-lbl">Students</div>
+                        <div class="iqu-detail-val"><?php echo esc_html(implode(', ', $students)); ?></div>
+                    </div>
+                    <div class="iqu-detail-item">
+                        <div class="iqu-detail-lbl">Monthly</div>
+                        <div class="iqu-detail-val"><strong><?php echo esc_html(IQU_Pricing::format((float) $acc['net_amount'])); ?></strong> · first charge <?php echo esc_html(self::nice_date($acc['first_charge_date'])); ?></div>
+                    </div>
+                    <div class="iqu-detail-item">
+                        <div class="iqu-detail-lbl">Sent</div>
+                        <div class="iqu-detail-val">Email: <?php echo $acc['email_sent_at'] ? esc_html(self::nice_time($acc['email_sent_at'])) : 'not sent'; ?> · WhatsApp: <?php echo $acc['whatsapp_sent_at'] ? esc_html(self::nice_time($acc['whatsapp_sent_at'])) : 'not marked as sent'; ?></div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <p class="description" style="max-width:820px">The link in this message is private to this family. Reset it only if it was shared with the wrong person; then send the new message.</p>
+
+        <!-- ── Message ────────────────────────────────────── -->
+        <div class="iqu-card">
+            <div class="iqu-card-head">
+                <span class="iqu-card-head-title">Message</span>
+                <span class="iqu-card-head-badge">WhatsApp, SMS or Messenger</span>
+            </div>
+            <div class="iqu-billing-body">
+                <div class="iqu-fld iqu-billing-msg">
+                    <label for="iqu-msg" class="screen-reader-text">Message</label>
+                    <textarea id="iqu-msg" readonly rows="16"><?php echo esc_textarea($text); ?></textarea>
+                </div>
+
+                <div class="iqu-billing-msg-tools">
+                    <button type="button" class="iqu-btn-primary" id="iqu-copy">Copy message</button>
+                    <?php if ($wa_url): ?><a class="iqu-btn-ghost" href="<?php echo esc_url($wa_url); ?>" target="_blank" rel="noopener noreferrer">Open in WhatsApp</a><?php endif; ?>
+                    <span id="iqu-copied" class="iqu-billing-copied">Copied. Paste it into WhatsApp, SMS or Messenger.</span>
+                </div>
+                <?php if ($wa !== '' && strlen($wa) === 10): ?>
+                    <p class="iqu-fld-hint iqu-billing-warn">This number has no country code. For a US number add 1 in front in the enrollment record, or Open in WhatsApp may not find the chat.</p>
+                <?php endif; ?>
+            </div>
+
+            <div class="iqu-cpn-actions">
+                <form method="post" action="<?php echo $post; ?>">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_WA); ?>"><input type="hidden" name="account" value="<?php echo (int) $acc['id']; ?>">
+                    <?php wp_nonce_field(self::A_WA . '_' . $acc['id']); ?>
+                    <button class="iqu-btn-ghost">Mark as sent on WhatsApp</button>
+                </form>
+                <form method="post" action="<?php echo $post; ?>">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_EMAIL); ?>"><input type="hidden" name="account" value="<?php echo (int) $acc['id']; ?>">
+                    <?php wp_nonce_field(self::A_EMAIL . '_' . $acc['id']); ?>
+                    <button class="iqu-btn-ghost"><?php echo $acc['email_sent_at'] ? 'Resend email' : 'Send email'; ?></button>
+                </form>
+                <form method="post" action="<?php echo $post; ?>" onsubmit="return confirm('The old link will stop working at once. Continue?');">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_RESET); ?>"><input type="hidden" name="account" value="<?php echo (int) $acc['id']; ?>">
+                    <?php wp_nonce_field(self::A_RESET . '_' . $acc['id']); ?>
+                    <button class="iqu-btn-ghost">Reset link</button>
+                </form>
+                <form method="post" action="<?php echo $post; ?>">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SYNC); ?>"><input type="hidden" name="account" value="<?php echo (int) $acc['id']; ?>">
+                    <?php wp_nonce_field(self::A_SYNC . '_' . $acc['id']); ?>
+                    <button class="iqu-btn-ghost">Sync from Stripe</button>
+                </form>
+            </div>
+            <div class="iqu-billing-body">
+                <p class="iqu-fld-hint">The link in this message is private to this family. Reset it only if it was shared with the wrong person; then send the new message.</p>
+            </div>
+        </div>
         </div>
         <script>
         (function () {

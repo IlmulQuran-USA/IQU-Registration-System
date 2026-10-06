@@ -251,14 +251,11 @@ class IQU_Billing_Add_Student
             }
         }
         ?>
-        <div class="wrap">
-            <h1>Billing</h1>
+        <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('add'); ?>
-            <h2>Add existing student</h2>
-            <p>For students who joined before the website form existed. They are added to the enrollment records like any other student, and always billed as current students (no free month).</p>
 
             <?php if (!empty($flash['errors'])): ?>
-                <div class="notice notice-error"><ul style="margin:8px 0 8px 18px;list-style:disc">
+                <div class="notice notice-error"><ul class="iqu-billing-notice-list">
                     <?php foreach ($flash['errors'] as $msg): ?><li><?php echo esc_html($msg); ?></li><?php endforeach; ?>
                 </ul></div>
             <?php endif; ?>
@@ -271,52 +268,87 @@ class IQU_Billing_Add_Student
                 </p></div>
             <?php endif; ?>
 
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="max-width:720px">
-                <input type="hidden" name="action" value="<?php echo esc_attr(self::ACTION); ?>">
-                <?php wp_nonce_field(self::ACTION); ?>
+            <div class="iqu-card">
+                <div class="iqu-card-head">
+                    <span class="iqu-card-head-title">Add existing student</span>
+                    <span class="iqu-card-head-badge">Billed as a current student</span>
+                </div>
+                <div class="iqu-billing-body">
+                    <p class="iqu-billing-intro">For students who joined before the website form existed. They are added to the enrollment records like any other student, and always billed as current students (no free month).</p>
+                </div>
 
-                <table class="form-table" role="presentation">
-                    <tr><th scope="row"><label for="first_name">Student first name</label></th>
-                        <td><input id="first_name" name="first_name" type="text" class="regular-text" required value="<?php echo $v('first_name'); ?>"></td></tr>
-                    <tr><th scope="row"><label for="last_name">Student last name</label></th>
-                        <td><input id="last_name" name="last_name" type="text" class="regular-text" required value="<?php echo $v('last_name'); ?>"></td></tr>
-                    <tr><th scope="row"><label for="guardian_name">Guardian name</label></th>
-                        <td><input id="guardian_name" name="guardian_name" type="text" class="regular-text" value="<?php echo $v('guardian_name'); ?>">
-                            <p class="description">Leave empty for adult students.</p></td></tr>
-                    <tr><th scope="row"><label for="email">Billing email</label></th>
-                        <td><input id="email" name="email" type="email" class="regular-text" required value="<?php echo $v('email'); ?>">
-                            <p class="description">Payment link and every receipt go here. Siblings can share one email.</p></td></tr>
-                    <tr><th scope="row"><label for="whatsapp">WhatsApp</label></th>
-                        <td><input id="whatsapp" name="whatsapp" type="text" class="regular-text" required placeholder="+1 214 555 0148" value="<?php echo $v('whatsapp'); ?>"></td></tr>
-                    <tr><th scope="row"><label for="course">Course</label></th>
-                        <td><select id="course" name="course" required>
-                            <option value="">Choose…</option>
-                            <?php foreach ($rates as $key => $r): ?>
-                                <option value="<?php echo esc_attr($key); ?>" <?php selected($old['course'] ?? '', $key); ?>><?php echo esc_html($r['label']); ?></option>
-                            <?php endforeach; ?>
-                        </select></td></tr>
-                    <tr><th scope="row"><label for="days">Classes per week</label></th>
-                        <td><select id="days" name="days" required>
-                            <option value="">Choose…</option>
-                            <?php for ($d = 1; $d <= 7; $d++): ?>
-                                <option value="<?php echo $d; ?>" <?php selected((int) ($old['days'] ?? 0), $d); ?>><?php echo $d; ?></option>
-                            <?php endfor; ?>
-                        </select></td></tr>
-                    <tr><th scope="row">Standard monthly fee</th>
-                        <td><strong id="iqu-std-fee">—</strong>
-                            <p class="description">Worked out from the pricing rules. Shown here for checking; the server calculates it again when you save.</p></td></tr>
-                    <tr><th scope="row">Agreed reduced fee</th>
-                        <td><label><input type="checkbox" name="use_agreed" value="1" <?php checked(!empty($old['use_agreed'])); ?>> This family pays a lower fee agreed with us</label><br>
-                            <label for="agreed_fee" style="display:inline-block;margin-top:6px">Agreed monthly fee ($)</label>
-                            <input id="agreed_fee" name="agreed_fee" type="number" min="0" step="0.01" style="width:120px" value="<?php echo $v('agreed_fee'); ?>">
-                            <p class="description">Can only be lower than the standard fee. Enter 0 for a full scholarship (they will not be billed).</p></td></tr>
-                    <tr><th scope="row">Zakat support</th>
-                        <td><label><input type="checkbox" name="zakat" value="1" <?php checked(!empty($old['zakat'])); ?>> The reduction is paid by the Zakat Fund</label></td></tr>
-                    <tr><th scope="row"><label for="note">Note</label></th>
-                        <td><textarea id="note" name="note" rows="3" class="large-text"><?php echo esc_textarea((string) ($old['note'] ?? '')); ?></textarea></td></tr>
-                </table>
-                <?php submit_button('Add student'); ?>
-            </form>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-form">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::ACTION); ?>">
+                    <?php wp_nonce_field(self::ACTION); ?>
+
+                    <div class="iqu-fld-grid">
+                        <div class="iqu-fld">
+                            <label for="first_name">Student first name <em>*</em></label>
+                            <input id="first_name" name="first_name" type="text" required value="<?php echo $v('first_name'); ?>">
+                        </div>
+                        <div class="iqu-fld">
+                            <label for="last_name">Student last name <em>*</em></label>
+                            <input id="last_name" name="last_name" type="text" required value="<?php echo $v('last_name'); ?>">
+                        </div>
+                        <div class="iqu-fld">
+                            <label for="guardian_name">Guardian name</label>
+                            <input id="guardian_name" name="guardian_name" type="text" value="<?php echo $v('guardian_name'); ?>">
+                            <p class="iqu-fld-hint">Leave empty for adult students.</p>
+                        </div>
+                        <div class="iqu-fld">
+                            <label for="email">Billing email <em>*</em></label>
+                            <input id="email" name="email" type="email" required value="<?php echo $v('email'); ?>">
+                            <p class="iqu-fld-hint">Payment link and every receipt go here. Siblings can share one email.</p>
+                        </div>
+                        <div class="iqu-fld">
+                            <label for="whatsapp">WhatsApp <em>*</em></label>
+                            <input id="whatsapp" name="whatsapp" type="text" required placeholder="+1 214 555 0148" value="<?php echo $v('whatsapp'); ?>">
+                        </div>
+                        <div class="iqu-fld">
+                            <label for="course">Course <em>*</em></label>
+                            <select id="course" name="course" required>
+                                <option value="">Choose…</option>
+                                <?php foreach ($rates as $key => $r): ?>
+                                    <option value="<?php echo esc_attr($key); ?>" <?php selected($old['course'] ?? '', $key); ?>><?php echo esc_html($r['label']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="iqu-fld">
+                            <label for="days">Classes per week <em>*</em></label>
+                            <select id="days" name="days" required>
+                                <option value="">Choose…</option>
+                                <?php for ($d = 1; $d <= 7; $d++): ?>
+                                    <option value="<?php echo $d; ?>" <?php selected((int) ($old['days'] ?? 0), $d); ?>><?php echo $d; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div class="iqu-fld">
+                            <span class="iqu-fld-label">Standard monthly fee</span>
+                            <div class="iqu-fld-value"><strong id="iqu-std-fee">—</strong></div>
+                            <p class="iqu-fld-hint">Worked out from the pricing rules. Shown here for checking; the server calculates it again when you save.</p>
+                        </div>
+                        <div class="iqu-fld iqu-fld--full">
+                            <span class="iqu-fld-label">Agreed reduced fee</span>
+                            <label class="iqu-billing-check-label"><input type="checkbox" name="use_agreed" value="1" <?php checked(!empty($old['use_agreed'])); ?>> This family pays a lower fee agreed with us</label>
+                            <label for="agreed_fee" class="iqu-billing-sublabel">Agreed monthly fee ($)</label>
+                            <input id="agreed_fee" name="agreed_fee" type="number" min="0" step="0.01" class="iqu-fld-narrow" value="<?php echo $v('agreed_fee'); ?>">
+                            <p class="iqu-fld-hint">Can only be lower than the standard fee. Enter 0 for a full scholarship (they will not be billed).</p>
+                        </div>
+                        <div class="iqu-fld iqu-fld--full">
+                            <span class="iqu-fld-label">Zakat support</span>
+                            <label class="iqu-billing-check-label"><input type="checkbox" name="zakat" value="1" <?php checked(!empty($old['zakat'])); ?>> The reduction is paid by the Zakat Fund</label>
+                        </div>
+                        <div class="iqu-fld iqu-fld--full">
+                            <label for="note">Note</label>
+                            <textarea id="note" name="note" rows="3"><?php echo esc_textarea((string) ($old['note'] ?? '')); ?></textarea>
+                        </div>
+                    </div>
+
+                    <div class="iqu-cpn-actions">
+                        <?php submit_button('Add student'); ?>
+                    </div>
+                </form>
+            </div>
         </div>
         <script>
         (function () {

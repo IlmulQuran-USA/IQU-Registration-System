@@ -124,39 +124,42 @@ class IQU_Billing_Settings
         $wh_set     = defined('IQU_STRIPE_WEBHOOK_SECRET') && IQU_STRIPE_WEBHOOK_SECRET;
         $wh_url     = rest_url('iqu/v1/stripe-webhook');
         ?>
-        <div class="wrap">
-            <h1>Billing</h1>
+        <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('settings'); ?>
-            <h2>Stripe connection</h2>
-            <p>Stripe connection for monthly tuition. Keys live in <code>wp-config.php</code> and are never shown in full.</p>
 
             <?php if ($notice): ?>
                 <div class="notice notice-<?php echo esc_attr($notice['type']); ?> is-dismissible"><p><?php echo esc_html($notice['text']); ?></p></div>
             <?php endif; ?>
 
-            <?php if ($ready): ?>
-                <div class="notice notice-success inline"><p><strong>Ready.</strong> Stripe is set up in <?php echo esc_html($site_mode); ?> mode.</p></div>
-            <?php else: ?>
-                <div class="notice notice-error inline"><p><strong>Not ready.</strong> <?php echo esc_html($reason); ?></p></div>
-            <?php endif; ?>
+            <!-- ── Stripe connection ──────────────────────────── -->
+            <div class="iqu-card">
+                <div class="iqu-card-head">
+                    <span class="iqu-card-head-title">Stripe connection</span>
+                    <span class="iqu-card-head-badge">Keys in wp-config.php</span>
+                </div>
+                <div class="iqu-billing-body">
+                    <p class="iqu-billing-intro">Stripe connection for monthly tuition. Keys live in <code>wp-config.php</code> and are never shown in full.</p>
+                    <?php if ($ready): ?>
+                        <div class="notice notice-success inline"><p><strong>Ready.</strong> Stripe is set up in <?php echo esc_html($site_mode); ?> mode.</p></div>
+                    <?php else: ?>
+                        <div class="notice notice-error inline"><p><strong>Not ready.</strong> <?php echo esc_html($reason); ?></p></div>
+                    <?php endif; ?>
+                </div>
 
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row">Site mode</th>
-                    <td>
-                        <strong><?php echo esc_html(ucfirst($site_mode)); ?></strong>
+                <div class="iqu-fld-grid">
+                    <div class="iqu-fld">
+                        <span class="iqu-fld-label">Site mode</span>
+                        <div class="iqu-fld-value"><strong><?php echo esc_html(ucfirst($site_mode)); ?></strong></div>
                         <?php if ($site_mode === 'test'): ?>
-                            <p class="description">No real money moves in test mode. Switching to live happens at go-live, after the security review.</p>
+                            <p class="iqu-fld-hint">No real money moves in test mode. Switching to live happens at go-live, after the security review.</p>
                         <?php endif; ?>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">Secret key</th>
-                    <td>
+                    </div>
+                    <div class="iqu-fld">
+                        <span class="iqu-fld-label">Secret key</span>
                         <?php if (IQU_Stripe::has_key()): ?>
-                            <code><?php echo esc_html(IQU_Stripe::masked_key()); ?></code>
-                            &nbsp;from <code>wp-config.php</code>
-                            <p class="description">
+                            <div class="iqu-fld-value"><code><?php echo esc_html(IQU_Stripe::masked_key()); ?></code>
+                                &nbsp;from <code>wp-config.php</code></div>
+                            <p class="iqu-fld-hint">
                                 Key type: <?php echo esc_html($key_mode); ?>,
                                 <?php echo $restricted ? 'restricted' : 'standard'; ?>.
                                 <?php if (!$restricted): ?>
@@ -164,48 +167,59 @@ class IQU_Billing_Settings
                                 <?php endif; ?>
                             </p>
                         <?php else: ?>
-                            <em>Not set.</em>
+                            <div class="iqu-fld-value"><em>Not set.</em></div>
                         <?php endif; ?>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">Webhook</th>
-                    <td>
-                        <?php echo $wh_set ? '<strong>Signing secret set.</strong>' : '<em>Not set yet.</em>'; ?>
-                        <p class="description">Endpoint to add in Stripe: <code><?php echo esc_html($wh_url); ?></code></p>
-                    </td>
-                </tr>
-            </table>
+                    </div>
+                    <div class="iqu-fld iqu-fld--full">
+                        <span class="iqu-fld-label">Webhook</span>
+                        <div class="iqu-fld-value"><?php echo $wh_set ? '<strong>Signing secret set.</strong>' : '<em>Not set yet.</em>'; ?></div>
+                        <p class="iqu-fld-hint">Endpoint to add in Stripe: <code><?php echo esc_html($wh_url); ?></code></p>
+                    </div>
+                </div>
 
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                <input type="hidden" name="action" value="<?php echo esc_attr(self::ACTION); ?>">
-                <?php wp_nonce_field(self::ACTION); ?>
-                <?php submit_button('Test connection', 'secondary', 'submit', false, $ready ? [] : ['disabled' => 'disabled']); ?>
-            </form>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-actions">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::ACTION); ?>">
+                    <?php wp_nonce_field(self::ACTION); ?>
+                    <?php submit_button('Test connection', 'secondary', 'submit', false, $ready ? [] : ['disabled' => 'disabled']); ?>
+                </form>
+            </div>
 
-            <h2 style="margin-top:30px">Messages to families</h2>
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SAVE); ?>">
-                <?php wp_nonce_field(self::A_SAVE); ?>
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row"><label for="zelle_end">Zelle end date</label></th>
-                        <td>
+            <!-- ── Messages to families ───────────────────────── -->
+            <div class="iqu-card">
+                <div class="iqu-card-head">
+                    <span class="iqu-card-head-title">Messages to families</span>
+                    <span class="iqu-card-head-badge">Payment link message and email</span>
+                </div>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-form">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SAVE); ?>">
+                    <?php wp_nonce_field(self::A_SAVE); ?>
+                    <div class="iqu-fld-grid">
+                        <div class="iqu-fld">
+                            <label for="zelle_end">Zelle end date</label>
                             <input id="zelle_end" type="date" name="zelle_end" value="<?php echo esc_attr((string) get_option(self::OPT_ZELLE, '')); ?>">
-                            <p class="description">When set, every payment link message and email adds: “From [this date], tuition can no longer be sent by Zelle.” Leave empty to leave the line out.</p>
-                        </td>
-                    </tr>
-                </table>
-                <?php submit_button('Save', 'primary', 'submit', false); ?>
-            </form>
+                            <p class="iqu-fld-hint">When set, every payment link message and email adds: “From [this date], tuition can no longer be sent by Zelle.” Leave empty to leave the line out.</p>
+                        </div>
+                    </div>
+                    <div class="iqu-cpn-actions">
+                        <?php submit_button('Save', 'primary', 'submit', false); ?>
+                    </div>
+                </form>
+            </div>
 
-            <h2 style="margin-top:30px">Sync with Stripe</h2>
-            <p>Stripe updates arrive by webhook within seconds. If one was missed, this reads every family's billing again from Stripe.</p>
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SYNC_ALL); ?>">
-                <?php wp_nonce_field(self::A_SYNC_ALL); ?>
-                <?php submit_button('Sync all families', 'secondary', 'submit', false, $ready ? [] : ['disabled' => 'disabled']); ?>
-            </form>
+            <!-- ── Sync with Stripe ───────────────────────────── -->
+            <div class="iqu-card">
+                <div class="iqu-card-head">
+                    <span class="iqu-card-head-title">Sync with Stripe</span>
+                </div>
+                <div class="iqu-billing-body">
+                    <p class="iqu-billing-intro">Stripe updates arrive by webhook within seconds. If one was missed, this reads every family's billing again from Stripe.</p>
+                </div>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-actions">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SYNC_ALL); ?>">
+                    <?php wp_nonce_field(self::A_SYNC_ALL); ?>
+                    <?php submit_button('Sync all families', 'secondary', 'submit', false, $ready ? [] : ['disabled' => 'disabled']); ?>
+                </form>
+            </div>
         </div>
         <?php
     }
