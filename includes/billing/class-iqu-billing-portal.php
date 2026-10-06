@@ -66,7 +66,7 @@ class IQU_Billing_Portal
         header('Referrer-Policy: no-referrer');
         header('X-Frame-Options: DENY');
         header('X-Content-Type-Options: nosniff');
-        header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https:; form-action 'self' https://checkout.stripe.com https://billing.stripe.com; frame-ancestors 'none'; base-uri 'none'");
+        header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; form-action 'self' https://checkout.stripe.com https://billing.stripe.com; frame-ancestors 'none'; base-uri 'none'");
     }
 
     // ------------------------------------------------------------
@@ -432,21 +432,33 @@ class IQU_Billing_Portal
 
     private static function css(): string
     {
-        return 'body{margin:0;background:#f7f5f0;color:#1c2b24;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}'
-            . '.wrap{max-width:680px;margin:0 auto;padding:0 20px}header{background:#fff;border-bottom:1px solid #dcd7cb;margin-bottom:28px}'
-            . '.head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px}.brand{font-weight:700;font-size:19px;color:#1e4d6b}'
-            . 'h1{font-size:27px;line-height:1.25;margin:4px 0 20px}h1 .for{display:block;font-size:17px;font-weight:400;color:#55615a;margin-top:4px}'
-            . '.muted{color:#55615a}.small{font-size:14px}.center{text-align:center}'
-            . '.card{background:#fff;border:1px solid #dcd7cb;border-radius:12px;padding:20px 22px;margin:0 0 18px}'
-            . '.label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#55615a;margin-bottom:8px}'
-            . '.row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #ece8de}.row:first-of-type{border-top:0}.row.sub{padding-top:0;border-top:0}'
-            . '.row.total{font-weight:700;font-size:18px;border-top:2px solid #dcd7cb;margin-top:6px;padding-top:12px}.amt{text-align:right;white-space:nowrap}.strike{text-decoration:line-through;color:#8a8f8a;font-weight:400}'
-            . '.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:14px 0}'
-            . '.box{border-radius:12px;padding:14px 18px;margin:0 0 18px}.box.good{background:#e3eee7;border:1px solid #c5dccd;color:#124d3b}.box.bad{background:#fbece6;border:1px solid #ebc9bb;color:#7a2e12}'
-            . '.pill{display:inline-block;padding:3px 12px;border-radius:999px;font-size:14px}.pill.good{background:#1d6b3a;color:#fff}.pill.bad{background:#8a2424;color:#fff}.pill.muted{background:#ecebe7;color:#3c434a}'
-            . '.btn{display:inline-block;background:#1e4d6b;color:#fff;border:0;border-radius:9px;padding:13px 22px;font:600 16px/1.2 inherit;cursor:pointer;text-decoration:none;min-height:46px}'
-            . '.btn.wide{width:100%;margin:4px 0 8px}.btn.ghost{background:#fff;color:#1e4d6b;border:1px solid #1e4d6b}.actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}'
-            . 'label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}input[type=email]{width:100%;box-sizing:border-box;height:48px;padding:0 14px;font-size:16px;border:1px solid #c9c4b6;border-radius:9px;margin-bottom:14px}'
-            . 'a{color:#1e4d6b}footer{padding:24px 20px 40px}@media (max-width:480px){h1{font-size:23px}.card{padding:16px}}';
+        // Poppins from the active theme (same origin, allowed by font-src 'self'); system fonts until it loads.
+        $fonts = get_stylesheet_directory_uri() . '/assets/fonts/poppins/';
+        $face  = '';
+        foreach ([400 => 'Regular', 500 => 'Medium', 600 => 'SemiBold'] as $weight => $file) {
+            $face .= '@font-face{font-family:"Poppins";font-style:normal;font-weight:' . $weight . ';font-display:swap;src:url("' . $fonts . 'Poppins-' . $file . '.ttf") format("truetype")}';
+        }
+
+        // Theme palette: deep blue #1E4D6B, dark navy #15303F, slate #414B58, light gray #F1F1F4,
+        // ice blue #EFF8FC, mint #EDFAEE, forest green #0A553A, pale gray #E5E7EB. Red only for payment problems.
+        return $face
+            . 'body{margin:0;background:#F1F1F4;color:#15303F;font:16px/1.55 "Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}'
+            . 'strong,b{font-weight:600}'
+            . '.wrap{max-width:680px;margin:0 auto;padding:0 20px}header{background:#fff;border-bottom:1px solid #E5E7EB;margin-bottom:28px}'
+            . '.head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px}.brand{font-weight:600;font-size:19px;color:#1E4D6B}'
+            . 'h1{font-size:27px;font-weight:600;line-height:1.25;margin:4px 0 20px;color:#15303F}h1 .for{display:block;font-size:17px;font-weight:400;color:#414B58;margin-top:4px}'
+            . '.muted{color:#414B58}.small{font-size:14px}.center{text-align:center}'
+            . '.card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:20px 22px;margin:0 0 18px}'
+            . '.label{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#414B58;margin-bottom:8px}'
+            . '.row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #E5E7EB}.row:first-of-type{border-top:0}.row.sub{padding-top:0;border-top:0}'
+            . '.row.total{font-weight:600;font-size:18px;color:#1E4D6B;border-top:2px solid #E5E7EB;margin-top:6px;padding-top:12px}.amt{text-align:right;white-space:nowrap}.strike{text-decoration:line-through;color:#414B58;font-weight:400}'
+            . '.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:14px 0;padding:14px 16px;background:#EFF8FC;border-radius:10px}'
+            . '.box{border-radius:12px;padding:14px 18px;margin:0 0 18px}.box.good{background:#EDFAEE;border:1px solid #EDFAEE;border-left:4px solid #0A553A;color:#0A553A}.box.bad{background:#fbece6;border:1px solid #ebc9bb;border-left:4px solid #8a2424;color:#7a2e12}'
+            . '.pill{display:inline-block;padding:3px 12px;border-radius:999px;font-size:14px;font-weight:500}.pill.good{background:#EDFAEE;color:#0A553A;border:1px solid #0A553A}.pill.bad{background:#8a2424;color:#fff}.pill.muted{background:#F1F1F4;color:#414B58;border:1px solid #E5E7EB}'
+            . '.btn{display:inline-block;background:#1E4D6B;color:#fff;border:1px solid #1E4D6B;border-radius:9px;padding:13px 22px;font-family:inherit;font-weight:600;font-size:16px;line-height:1.2;cursor:pointer;text-decoration:none;min-height:46px;box-sizing:border-box}'
+            . '.btn:hover{background:#15303F;border-color:#15303F}.btn:focus-visible,input:focus-visible{outline:3px solid #F7941D;outline-offset:2px}'
+            . '.btn.wide{width:100%;margin:4px 0 8px}.btn.ghost{background:#fff;color:#1E4D6B;border:1px solid #1E4D6B}.btn.ghost:hover{background:#EFF8FC}.actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}'
+            . 'label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}input[type=email]{width:100%;box-sizing:border-box;height:48px;padding:0 14px;font-family:inherit;font-size:16px;color:#15303F;background:#fff;border:1px solid #414B58;border-radius:9px;margin-bottom:14px}'
+            . 'a{color:#1E4D6B}footer{padding:24px 20px 40px}footer a{color:#414B58}@media (max-width:480px){h1{font-size:23px}.card{padding:16px}}';
     }
 }
