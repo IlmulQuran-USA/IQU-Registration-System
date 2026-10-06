@@ -504,7 +504,8 @@ class IQU_Billing_Send
     private static function message_kind(array $acc): string
     {
         $status = (string) $acc['status'];
-        if (in_array($status, ['not_sent', 'link_sent'], true) || empty($acc['stripe_subscription_id'])) return 'setup';
+        // Same rule as $is_setup on the family page (IQU_Billing_Portal::render_account).
+        if (in_array($status, ['not_sent', 'link_sent'], true) && empty($acc['stripe_subscription_id'])) return 'setup';
         if (in_array($status, ['past_due', 'unpaid', 'paused'], true)) return 'problem';
         return 'account';
     }
