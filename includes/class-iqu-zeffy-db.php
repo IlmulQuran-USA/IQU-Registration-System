@@ -92,8 +92,7 @@ class IQU_Zeffy_DB
             KEY                is_recurring (is_recurring)
         ) {$charset};";
 
-        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-        dbDelta($sql);
+        IQU_Database::apply_schema($table, $sql);
 
         update_option('iqu_zeffy_db_version', IQU_VERSION);
     }

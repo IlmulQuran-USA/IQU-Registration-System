@@ -33,6 +33,37 @@ class IQU_Database
     }
 
     /**
+     * Create or update a table safely.
+     * - dbDelta() needs exactly one space between a column name and its type; the
+     *   aligned SQL in this plugin uses several, which made dbDelta re-alter every
+     *   column on each version bump. Spaces are normalised first.
+     * - On PHP 8.5, dbDelta() crashes when the table does not exist yet, so a missing
+     *   table is created directly and dbDelta() only updates existing tables.
+     */
+    public static function apply_schema(string $table, string $sql): void
+    {
+        global $wpdb;
+
+        $lines = explode("\n", str_replace("\r", '', $sql));
+        foreach ($lines as &$line) {
+            $indent = strlen($line) - strlen(ltrim($line));
+            $line   = substr($line, 0, $indent) . preg_replace('/ {2,}/', ' ', ltrim($line));
+            $line   = preg_replace('/^(\s*)PRIMARY KEY \(/i', '$1PRIMARY KEY  (', $line);
+        }
+        unset($line);
+        $sql = implode("\n", $lines);
+
+        $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
+        if (!$exists) {
+            $wpdb->query(preg_replace('/^\s*CREATE TABLE /i', 'CREATE TABLE IF NOT EXISTS ', $sql, 1));
+            return;
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        dbDelta($sql);
+    }
+
+    /**
      * Plugin activation: create table (or migrate)
      */
     public static function create_table(): void
@@ -99,8 +130,7 @@ class IQU_Database
             KEY                coupon_id (coupon_id)
         ) {$charset};";
 
-        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-        dbDelta($sql);
+        IQU_Database::apply_schema($table, $sql);
 
         update_option('iqu_db_version', IQU_VERSION);
     }

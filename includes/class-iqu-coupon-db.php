@@ -69,8 +69,7 @@ class IQU_Coupon_DB
             KEY             expire_date (expire_date)
         ) {$charset};";
 
-        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-        dbDelta($sql);
+        IQU_Database::apply_schema($table, $sql);
 
         update_option('iqu_coupon_db_version', IQU_VERSION);
     }
