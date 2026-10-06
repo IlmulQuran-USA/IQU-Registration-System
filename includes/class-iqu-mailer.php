@@ -102,7 +102,7 @@ class IQU_Mailer
     <?php echo self::render_email_logo(); ?>
 
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#1a5276 0%,#2874a6 100%);padding:28px 24px;text-align:center">
+    <div style="background:linear-gradient(135deg,#1E4D6B 0%,#2874a6 100%);padding:28px 24px;text-align:center">
         <div
             style="display:inline-block;background:rgba(255,255,255,.15);color:#fff;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;margin-bottom:12px">
             NEW REGISTRATION
@@ -117,7 +117,7 @@ class IQU_Mailer
     <!-- Quick Summary Bar -->
     <div style="background:#f0f7fa;padding:14px 24px;border-bottom:1px solid #e1e8ef;text-align:center">
         <span
-            style="color:#1a5276;font-size:15px;font-weight:700"><?php echo esc_html(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')); ?></span>
+            style="color:#1E4D6B;font-size:15px;font-weight:700"><?php echo esc_html(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')); ?></span>
         <span style="color:#888;margin:0 8px">·</span>
         <span style="color:#555;font-size:13px"><?php echo esc_html($data['email'] ?? ''); ?></span>
         <?php if (!empty($data['whatsapp']) || !empty($data['guardian_whatsapp'])): ?>
@@ -135,7 +135,7 @@ class IQU_Mailer
           ?>
             <tr>
                 <th
-                    style="padding:11px 20px;border-bottom:1px solid #eef2f7;font-weight:600;color:#1a5276;text-align:left;width:38%;background:<?php echo $bgColor; ?>;font-size:13px;vertical-align:top">
+                    style="padding:11px 20px;border-bottom:1px solid #eef2f7;font-weight:600;color:#1E4D6B;text-align:left;width:38%;background:<?php echo $bgColor; ?>;font-size:13px;vertical-align:top">
                     <?php echo esc_html($label); ?>
                 </th>
                 <td
@@ -150,13 +150,13 @@ class IQU_Mailer
     <!-- Action Button -->
     <div style="padding:24px;text-align:center;background:#f9fbfd">
         <a href="<?php echo esc_url($admin_url); ?>"
-            style="background:linear-gradient(135deg,#1a5276,#2874a6);color:#fff;padding:12px 32px;text-decoration:none;border-radius:8px;display:inline-block;font-weight:600;font-size:14px;letter-spacing:.3px">
+            style="background:linear-gradient(135deg,#1E4D6B,#2874a6);color:#fff;padding:12px 32px;text-decoration:none;border-radius:8px;display:inline-block;font-weight:600;font-size:14px;letter-spacing:.3px">
             View Full Details →
         </a>
     </div>
 
     <!-- Footer -->
-    <div style="background:#1a5276;padding:16px 24px;text-align:center">
+    <div style="background:#1E4D6B;padding:16px 24px;text-align:center">
         <p style="color:rgba(255,255,255,.7);margin:0;font-size:12px;letter-spacing:.3px">
             © <?php echo (int) date('Y'); ?> Ilm-ul-Quran USA · Subsidized by Al-Hasanah Foundation (501(c)(3))
         </p>
@@ -233,11 +233,11 @@ class IQU_Mailer
 
     <!-- Hero -->
     <div style="text-align:center">
-        <div style="background:#f0f7fa;padding:24px 24px 16px;border-bottom:3px solid #1a5276">
+        <div style="background:#f0f7fa;padding:24px 24px 16px;border-bottom:3px solid #1E4D6B">
             <img src="<?php echo esc_attr(IQU_EMAIL_LOGO_SRC); ?>" alt="Ilm-ul-Quran USA logo"
                 style="max-width:180px;width:100%;height:auto;display:inline-block;border:0">
         </div>
-        <div style="background:linear-gradient(135deg,#1a5276 0%,#2874a6 100%);padding:16px 24px">
+        <div style="background:linear-gradient(135deg,#1E4D6B 0%,#2874a6 100%);padding:16px 24px">
             <p style="color:rgba(255,255,255,.7);margin:0;font-size:11px;letter-spacing:.5px;font-weight:700">
                 LEARN QURAN WITH LOVE &amp; PATIENCE
             </p>
@@ -250,7 +250,7 @@ class IQU_Mailer
             style="display:inline-block;background:#eaf6ec;color:#1e8449;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.5px">
             ✓ REGISTRATION CONFIRMED
         </div>
-        <h2 style="color:#1a5276;margin:18px 0 6px;font-size:22px;font-weight:700">
+        <h2 style="color:#1E4D6B;margin:18px 0 6px;font-size:22px;font-weight:700">
             Assalamu Alaikum, <?php echo esc_html($salutation); ?>
         </h2>
         <p style="color:#333;margin:0;font-size:15px;line-height:1.6">
@@ -263,13 +263,13 @@ class IQU_Mailer
         <div
             style="background:#f7fafc;border:1px solid #e1e8ef;border-left:4px solid #f0b429;border-radius:10px;padding:20px 22px">
             <h3
-                style="margin:0 0 14px;color:#1a5276;font-size:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">
+                style="margin:0 0 14px;color:#1E4D6B;font-size:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">
                 Registration Summary
             </h3>
             <table style="width:100%;border-collapse:collapse" cellpadding="0" cellspacing="0">
                 <?php foreach ($summary as [$k, $v]): ?>
                 <tr>
-                    <td style="padding:7px 0;color:#1a5276;font-size:13px;font-weight:600;width:42%;vertical-align:top">
+                    <td style="padding:7px 0;color:#1E4D6B;font-size:13px;font-weight:600;width:42%;vertical-align:top">
                         <?php echo esc_html($k); ?>
                     </td>
                     <td style="padding:7px 0;color:#333;font-size:13px;vertical-align:top">
@@ -284,7 +284,7 @@ class IQU_Mailer
     <!-- What's Next -->
     <div style="padding:20px 30px 8px">
         <h3
-            style="color:#1a5276;font-size:14px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.5px;font-weight:700">
+            style="color:#1E4D6B;font-size:14px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.5px;font-weight:700">
             What Happens Next?
         </h3>
 
@@ -301,7 +301,7 @@ class IQU_Mailer
                     <?php if ($contact_wa): ?>
                     <?php if ($wa_link): ?>
                     (<a href="<?php echo esc_url($wa_link); ?>"
-                        style="color:#1a5276;font-weight:600;text-decoration:none"><?php echo esc_html($contact_wa); ?></a>)
+                        style="color:#1E4D6B;font-weight:600;text-decoration:none"><?php echo esc_html($contact_wa); ?></a>)
                     <?php else: ?>
                     (<strong><?php echo esc_html($contact_wa); ?></strong>)
                     <?php endif; ?>
@@ -315,7 +315,7 @@ class IQU_Mailer
         <div style="display:table;width:100%;margin-bottom:10px">
             <div style="display:table-cell;width:32px;vertical-align:top;padding-top:2px">
                 <div
-                    style="width:26px;height:26px;background:#e8f0fe;color:#1a5276;border-radius:50%;text-align:center;line-height:26px;font-size:13px;font-weight:700">
+                    style="width:26px;height:26px;background:#e8f0fe;color:#1E4D6B;border-radius:50%;text-align:center;line-height:26px;font-size:13px;font-weight:700">
                     2</div>
             </div>
             <div style="display:table-cell;vertical-align:top;padding-left:10px">
@@ -346,7 +346,7 @@ class IQU_Mailer
     <!-- Summer Program Quick Info -->
     <div
         style="margin:16px 30px;padding:16px 20px;background:#e8f4fd;border-radius:10px;border:1px solid #c8dff0;display:flex;align-items:center;justify-content:center">
-        <p style="margin:0;color:#1a5276;font-size:13px;line-height:1.6;text-align:center">
+        <p style="margin:0;color:#1E4D6B;font-size:13px;line-height:1.6;text-align:center">
             <strong>📅 Program:</strong> June 1 – July 31, 2026 &nbsp;·&nbsp;
             <strong>🕙 Time:</strong> Mon–Thu, 10 AM – 12 PM CDT <br />
             <strong>💻 Platform:</strong> Live Zoom Sessions
@@ -365,14 +365,14 @@ class IQU_Mailer
 
     <!-- Contact -->
     <div style="padding:16px 30px 24px;text-align:center;font-size:13px;color:#555;line-height:1.7">
-        <strong style="color:#1a5276">Need help?</strong><br>
+        <strong style="color:#1E4D6B">Need help?</strong><br>
         📞 <?php echo esc_html(IQU_CONTACT_PHONE); ?> (Text Only) &nbsp;·&nbsp;
         ✉ <a href="mailto:<?php echo esc_attr(IQU_CONTACT_EMAIL); ?>"
-            style="color:#1a5276;text-decoration:none;font-weight:600"><?php echo esc_html(IQU_CONTACT_EMAIL); ?></a>
+            style="color:#1E4D6B;text-decoration:none;font-weight:600"><?php echo esc_html(IQU_CONTACT_EMAIL); ?></a>
     </div>
 
     <!-- Footer -->
-    <div style="background:#1a5276;padding:16px 24px;text-align:center">
+    <div style="background:#1E4D6B;padding:16px 24px;text-align:center">
         <p style="color:rgba(255,255,255,.7);margin:0;font-size:11px;letter-spacing:.3px; font-weight:700">
             © <?php echo (int) date('Y'); ?> Ilm-ul-Quran USA · Subsidized by Al-Hasanah Foundation (501(c)(3))
         </p>
@@ -448,7 +448,7 @@ class IQU_Mailer
 
     ob_start();
   ?>
-<div style="padding:24px 24px 16px;text-align:center;background:#f0f7fa;border-bottom:3px solid #1a5276">
+<div style="padding:24px 24px 16px;text-align:center;background:#f0f7fa;border-bottom:3px solid #1E4D6B">
     <img src="<?php echo esc_attr($src); ?>" alt="Ilm-ul-Quran USA logo"
         style="max-width:180px;width:100%;height:auto;display:inline-block;border:0;outline:none;text-decoration:none">
 </div>
