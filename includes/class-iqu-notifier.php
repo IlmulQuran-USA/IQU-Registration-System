@@ -354,9 +354,13 @@ class IQU_Notifier
             $rows['Awaiting review'] = $pending . ' pending registration' . ($pending === 1 ? '' : 's');
         }
 
+        // Let other modules (e.g. IQU Billing) add their own lines.
+        $rows = apply_filters('iqu_daily_summary_rows', $rows, $since);
+
         $footer = ($count === 0 && $registrations === 0)
             ? 'A quiet day — nothing came in.'
             : 'Covers the last 24 hours.';
+        $footer = apply_filters('iqu_daily_summary_footer', $footer, $since);
 
         IQU_Telegram::send(IQU_Telegram::compose(
             '📊 Daily Summary — ' . IQU_Telegram::now(),

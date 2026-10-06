@@ -54,7 +54,7 @@ define('IQU_ZEFFY_URL', 'https://www.zeffy.com/en-US/fundraising/d912691e-fbd0-4
 define('IQU_ZELLE_PHONE', '469-275-6450');
 define('IQU_ZELLE_EMAIL', 'admin@alhasanahfoundation.org');
 define('IQU_CONTACT_PHONE', '(214) 529-3544');
-define('IQU_CONTACT_EMAIL', 'info@ilmulquranusa.org'); 
+define('IQU_CONTACT_EMAIL', 'info@ilmulquranus.org');
 define('IQU_MESSENGER_URL', 'https://www.facebook.com/ilmulquranusa');
 
 define(
@@ -108,6 +108,9 @@ require_once IQU_PLUGIN_DIR . 'includes/class-iqu-notifier.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-pricing.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-coupon-db.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-coupon.php';
+
+// 💳 Monthly tuition billing (Stripe) — see includes/billing/bootstrap.php
+require_once IQU_PLUGIN_DIR . 'includes/billing/bootstrap.php';
 
 // ============================================================
 // 🚀 Activation / Deactivation

@@ -63,7 +63,6 @@ class IQU_Mailer
   {
     return [
       'Content-Type: text/html; charset=UTF-8',
-      'From: Ilm-ul-Quran USA <noreply@ilmulquranusa.org>',
     ];
   }
 
