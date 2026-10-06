@@ -301,7 +301,7 @@ class IQU_Billing_Send
 
         $students = self::students($acc);
         $text     = self::message_text($acc);
-        $kind     = ['setup' => ['Set-up message', 'gold'], 'account' => ['Billing page message', 'green'], 'problem' => ['Payment problem message', 'red']][self::message_kind($acc)];
+        $kind     = ['setup' => ['Set-up message', 'gold'], 'account' => ['Billing page message', 'green'], 'problem' => ['Payment problem message', 'red'], 'stopped' => ['Billing stopped message', 'neutral']][self::message_kind($acc)];
         $wa       = preg_replace('/\D/', '', (string) $acc['contact_whatsapp']);
         $wa_url   = $wa !== '' ? 'https://wa.me/' . $wa . '?text=' . rawurlencode($text) : '';
         $post     = esc_url(admin_url('admin-post.php'));
@@ -498,8 +498,8 @@ class IQU_Billing_Send
     }
 
     /**
-     * Which message the family gets:
-     * 'setup' (no bank or card yet), 'problem' (a payment failed) or 'account' (link to the billing page).
+     * Which message the family gets: 'setup' (no bank or card yet), 'problem' (a payment failed),
+     * 'stopped' (billing canceled) or 'account' (link to the billing page).
      */
     private static function message_kind(array $acc): string
     {
@@ -507,12 +507,24 @@ class IQU_Billing_Send
         // Same rule as $is_setup on the family page (IQU_Billing_Portal::render_account).
         if (in_array($status, ['not_sent', 'link_sent'], true) && empty($acc['stripe_subscription_id'])) return 'setup';
         if (in_array($status, ['past_due', 'unpaid', 'paused'], true)) return 'problem';
+        if ($status === 'canceled') return 'stopped';
         return 'account';
     }
 
-    /** Wording of the 'account' and 'problem' messages, shared by the text and the email. */
+    /** Wording of the 'account', 'problem' and 'stopped' messages, shared by the text and the email. */
     private static function followup(array $acc, string $kind, string $kids, string $amount): array
     {
+        if ($kind === 'stopped') {
+            return [
+                'subject'     => 'Your tuition billing has stopped — Ilm-ul-Quran USA',
+                'button'      => 'See my payments',
+                'lead'        => "Monthly tuition billing for {$kids} has stopped, and nothing more will be charged.",
+                'before_link' => 'You can still see your past payments and receipts here:',
+                'facts'       => [],
+                'close'       => 'If you would like to restart classes, or if this is a mistake, just reply here.',
+            ];
+        }
+
         if ($kind === 'problem') {
             return [
                 'subject'     => 'Tuition payment did not go through — Ilm-ul-Quran USA',
@@ -527,7 +539,7 @@ class IQU_Billing_Send
         }
 
         $facts = ['Monthly tuition' => $amount];
-        if (!empty($acc['next_charge_at']) && $acc['status'] !== 'canceled') {
+        if (!empty($acc['next_charge_at'])) {
             $facts['Next payment'] = self::nice_utc((string) $acc['next_charge_at']);
         }
         return [
