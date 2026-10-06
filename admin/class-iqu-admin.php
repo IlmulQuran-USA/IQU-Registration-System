@@ -82,7 +82,7 @@ class IQU_Admin
       $this->render_list_page(IQU_Database::FORM_SUMMER_LEVEL2, 'Summer Program — Level 2 (Ages 11–15)');
     }); 
     add_submenu_page('iqu-registrations', 'Weekend Ilm Program', 'Weekend Program', 'manage_options', 'iqu-list-weekend', function () {
-      $this->render_list_page(IQU_Database::weekend_types(), 'Weekend Ilm Program (Ages 5–15)');
+      $this->render_list_page(IQU_Database::weekend_types(), 'Weekend Ilm Program (Ages 5–12)');
     });
     add_submenu_page('iqu-registrations', 'Registration Details — IQU', 'View Registration', 'manage_options', 'iqu-view-registration', [$this, 'render_view_page']);
     add_action('admin_head', function () {

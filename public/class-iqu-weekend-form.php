@@ -91,7 +91,7 @@ class IQU_Weekend_Form
 
             <h1 class="wk-title">
                 Weekend Ilm Program
-                <span>For kids, ages 5&ndash;15</span>
+                <span>For kids, ages 5&ndash;12</span>
             </h1>
 
             <p class="wk-lede">
@@ -177,7 +177,7 @@ class IQU_Weekend_Form
                             <span class="wk-meta-ico" aria-hidden="true">🎒</span>
                             <div>
                                 <div class="wk-meta-k">AGES</div>
-                                <div class="wk-meta-v">5 to 15 years</div>
+                                <div class="wk-meta-v">5 to 12 years</div>
                             </div>
                         </div>
                         <div class="wk-meta-row">
@@ -303,10 +303,10 @@ class IQU_Weekend_Form
 
                     <div class="iqu-question">
                         <label for="wk_age">Participant's Age <span class="req">*</span></label>
-                        <p class="iqu-help">Open to children aged 5 to 15.</p>
+                        <p class="iqu-help">Open to children aged 5 to 12.</p>
                         <select id="wk_age" name="age" class="wk-age-select" data-wk-visible-rows="5" required>
                             <option value="">-- Select age --</option>
-                            <?php for ($a = 5; $a <= 15; $a++): ?>
+                            <?php for ($a = 5; $a <= 12; $a++): ?>
                             <option value="<?php echo (int) $a; ?>"><?php echo (int) $a; ?> years</option>
                             <?php endfor; ?>
                         </select>

@@ -365,7 +365,7 @@ class IQU_Validator
         $this->v_name($post, 'first_name', 'Participant\'s First Name');
         $this->v_name($post, 'last_name', 'Participant\'s Last Name');
         $this->v_email($post, 'email', 'Participant\'s Email');
-        $this->v_age($post, 'age', 5, 15);
+        $this->v_age($post, 'age', 5, 12);
         $this->v_text($post, 'guardian_name', 'Guardian\'s Full Name', 150);
         $this->v_text($post, 'country_origin', 'Country of Origin', 100);
         $this->v_text($post, 'country_res', 'Country of Residence', 100);
