@@ -301,6 +301,7 @@ class IQU_Billing_Send
 
         $students = self::students($acc);
         $text     = self::message_text($acc);
+        $kind     = ['setup' => ['Set-up message', 'gold'], 'account' => ['Billing page message', 'green'], 'problem' => ['Payment problem message', 'red']][self::message_kind($acc)];
         $wa       = preg_replace('/\D/', '', (string) $acc['contact_whatsapp']);
         $wa_url   = $wa !== '' ? 'https://wa.me/' . $wa . '?text=' . rawurlencode($text) : '';
         $post     = esc_url(admin_url('admin-post.php'));
@@ -341,6 +342,7 @@ class IQU_Billing_Send
             </div>
             <div class="iqu-billing-body">
                 <div class="iqu-fld iqu-billing-msg">
+                    <span class="iqu-fld-label"><span class="iqu-chip iqu-chip--<?php echo $kind[1]; ?>"><?php echo esc_html($kind[0]); ?></span></span>
                     <label for="iqu-msg" class="screen-reader-text">Message</label>
                     <textarea id="iqu-msg" readonly rows="16"><?php echo esc_textarea($text); ?></textarea>
                 </div>
@@ -488,6 +490,55 @@ class IQU_Billing_Send
         return $ts ? wp_date('M j, g:i A', $ts) : $mysql_utc;
     }
 
+    /** "5 November 2026" from a UTC DATETIME such as next_charge_at. */
+    private static function nice_utc(string $mysql_utc): string
+    {
+        $ts = strtotime($mysql_utc . ' UTC');
+        return $ts ? gmdate('j F Y', $ts) : '—';
+    }
+
+    /**
+     * Which message the family gets:
+     * 'setup' (no bank or card yet), 'problem' (a payment failed) or 'account' (link to the billing page).
+     */
+    private static function message_kind(array $acc): string
+    {
+        $status = (string) $acc['status'];
+        if (in_array($status, ['not_sent', 'link_sent'], true) || empty($acc['stripe_subscription_id'])) return 'setup';
+        if (in_array($status, ['past_due', 'unpaid', 'paused'], true)) return 'problem';
+        return 'account';
+    }
+
+    /** Wording of the 'account' and 'problem' messages, shared by the text and the email. */
+    private static function followup(array $acc, string $kind, string $kids, string $amount): array
+    {
+        if ($kind === 'problem') {
+            return [
+                'subject'     => 'Tuition payment did not go through — Ilm-ul-Quran USA',
+                'button'      => 'Pay or update my card',
+                'lead'        => "The tuition payment of {$amount} for {$kids} did not go through.",
+                'before_link' => $acc['status'] === 'past_due'
+                    ? 'We will try again automatically, but you can also pay now or switch to a different bank account or card here:'
+                    : 'You can pay it, or switch to a different bank account or card, on your private billing page:',
+                'facts'       => [],
+                'close'       => 'If paying is difficult right now, or the fee is a burden, just reply here and we will sort it out together. No child\'s place is ever affected by cost.',
+            ];
+        }
+
+        $facts = ['Monthly tuition' => $amount];
+        if (!empty($acc['next_charge_at']) && $acc['status'] !== 'canceled') {
+            $facts['Next payment'] = self::nice_utc((string) $acc['next_charge_at']);
+        }
+        return [
+            'subject'     => 'Your billing page — Ilm-ul-Quran USA',
+            'button'      => 'Open my billing page',
+            'lead'        => '',
+            'before_link' => "Here is the private billing page for {$kids}. You can see every payment and receipt, and change your bank account or card at any time:",
+            'facts'       => $facts,
+            'close'       => 'If you have any questions, just reply here.',
+        ];
+    }
+
     /** Plain-text message for WhatsApp, SMS or Messenger. */
     public static function message_text(array $acc): string
     {
@@ -502,6 +553,28 @@ class IQU_Billing_Send
         $lines = [];
         $lines[] = 'Assalamu alaikum' . ($name !== '' ? ' ' . $name : '') . ',';
         $lines[] = '';
+
+        $kind = self::message_kind($acc);
+        if ($kind !== 'setup') {
+            $f = self::followup($acc, $kind, $kids, $amount);
+            if ($f['lead'] !== '') {
+                $lines[] = $f['lead'];
+                $lines[] = '';
+            }
+            $lines[] = $f['before_link'];
+            $lines[] = IQU_Billing_Service::link_for($acc);
+            $lines[] = '';
+            if ($f['facts']) {
+                foreach ($f['facts'] as $label => $value) $lines[] = $label . ': ' . $value;
+                $lines[] = '';
+            }
+            $lines[] = $f['close'];
+            $lines[] = '';
+            $lines[] = 'Jazakum Allahu khayran';
+            $lines[] = 'Ilm-ul-Quran USA';
+            return implode("\n", $lines);
+        }
+
         $lines[] = $new
             ? "Tuition for {$kids} will be collected automatically each month after the free first month, so there is nothing to remember and nothing to transfer."
             : "From this month, tuition for {$kids} will be collected automatically, so there is nothing to remember and nothing to transfer.";
@@ -554,6 +627,7 @@ class IQU_Billing_Send
         $link   = IQU_Billing_Service::link_for($acc);
         $zelle  = (string) get_option(self::OPT_ZELLE, '');
         $new    = ($acc['student_type'] ?? '') === 'new';
+        $kind   = self::message_kind($acc);
 
         $subject = 'Set up monthly tuition for ' . $kids . ' — one time only';
         $intro   = $new
@@ -562,6 +636,11 @@ class IQU_Billing_Send
 
         // Same frame as the registration emails (IQU_Mailer): logo header with a deep blue rule, white card, deep blue footer.
         $p = 'style="margin:0 0 14px;font-size:15px;line-height:23px;color:#15303F"';
+        $box = fn(string $html): string => '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EFF8FC;border:1px solid #E5E7EB;border-left:4px solid #F7941D;border-radius:10px;margin:0 0 22px;font-size:14px;line-height:24px;color:#15303F"><tr><td style="padding:14px 18px">'
+            . $html . '</td></tr></table>';
+        $button = fn(string $label): string => '<p style="margin:0 0 20px;text-align:center"><a href="' . esc_url($link) . '" style="display:inline-block;background:#1E4D6B;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 28px;border-radius:8px">'
+            . esc_html($label) . '</a></p>';
+
         $body  = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F1F4;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif"><tr><td align="center" style="padding:24px 12px">';
         $body .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden">';
         $body .= '<tr><td align="center" style="padding:24px 24px 16px;background:#EFF8FC;border-bottom:3px solid #1E4D6B">'
@@ -570,15 +649,27 @@ class IQU_Billing_Send
             . '</td></tr></table></td></tr>';
         $body .= '<tr><td style="padding:30px 30px 12px">';
         $body .= '<p ' . $p . '>Assalamu alaikum' . ($name !== '' ? ' ' . esc_html($name) : '') . ',</p>';
-        $body .= '<p ' . $p . '>' . esc_html($intro) . '</p>';
-        $body .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EFF8FC;border:1px solid #E5E7EB;border-left:4px solid #F7941D;border-radius:10px;margin:0 0 22px;font-size:14px;line-height:24px;color:#15303F"><tr><td style="padding:14px 18px">';
-        $body .= 'Monthly tuition: <strong>' . esc_html($amount) . '</strong><br>First payment: <strong>' . esc_html($first) . '</strong>' . ($new ? ' (after the free first month)' : '');
-        $body .= '</td></tr></table>';
-        $body .= '<p style="margin:0 0 20px;text-align:center"><a href="' . esc_url($link) . '" style="display:inline-block;background:#1E4D6B;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 28px;border-radius:8px">Set up monthly tuition</a></p>';
-        $body .= '<p style="margin:0 0 12px;font-size:13px;line-height:20px;color:#414B58">You add a bank account or card once. Nothing is charged before ' . esc_html($first) . '.';
-        if ($zelle !== '') $body .= ' From ' . esc_html(self::nice_date($zelle)) . ', tuition can no longer be sent by Zelle.';
-        $body .= '</p>';
-        $body .= '<p style="margin:0 0 18px;font-size:13px;line-height:20px;color:#414B58">If paying online is difficult, or the fee is a burden right now, just reply to this email. No child\'s place is ever affected by cost.</p>';
+        if ($kind === 'setup') {
+            $body .= '<p ' . $p . '>' . esc_html($intro) . '</p>';
+            $body .= $box('Monthly tuition: <strong>' . esc_html($amount) . '</strong><br>First payment: <strong>' . esc_html($first) . '</strong>' . ($new ? ' (after the free first month)' : ''));
+            $body .= $button('Set up monthly tuition');
+            $body .= '<p style="margin:0 0 12px;font-size:13px;line-height:20px;color:#414B58">You add a bank account or card once. Nothing is charged before ' . esc_html($first) . '.';
+            if ($zelle !== '') $body .= ' From ' . esc_html(self::nice_date($zelle)) . ', tuition can no longer be sent by Zelle.';
+            $body .= '</p>';
+            $body .= '<p style="margin:0 0 18px;font-size:13px;line-height:20px;color:#414B58">If paying online is difficult, or the fee is a burden right now, just reply to this email. No child\'s place is ever affected by cost.</p>';
+        } else {
+            $f = self::followup($acc, $kind, $kids, $amount);
+            $subject = $f['subject'];
+            if ($f['lead'] !== '') $body .= '<p ' . $p . '>' . esc_html($f['lead']) . '</p>';
+            $body .= '<p ' . $p . '>' . esc_html($f['before_link']) . '</p>';
+            $body .= $button($f['button']);
+            if ($f['facts']) {
+                $facts = [];
+                foreach ($f['facts'] as $label => $value) $facts[] = esc_html($label) . ': <strong>' . esc_html($value) . '</strong>';
+                $body .= $box(implode('<br>', $facts));
+            }
+            $body .= '<p style="margin:0 0 18px;font-size:13px;line-height:20px;color:#414B58">' . esc_html($f['close']) . '</p>';
+        }
         $body .= '<p ' . $p . '>Jazakum Allahu khayran,<br>Ilm-ul-Quran USA</p>';
         $body .= '</td></tr>';
         $body .= '<tr><td style="background:#1E4D6B;padding:16px 24px;text-align:center;font-size:12px;line-height:18px;color:#EFF8FC">This link is private to your family. Please do not forward it. Ilm-ul-Quran USA is operated by AL HASANAH FOUNDATION, a 501(c)(3) nonprofit.</td></tr>';
