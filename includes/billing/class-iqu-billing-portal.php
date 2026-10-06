@@ -24,7 +24,7 @@ if (!defined('ABSPATH')) exit;
 class IQU_Billing_Portal
 {
     private const PATH        = 'my-billing';
-    private const CONTACT     = 'info@ilmulquranus.org';
+    private const CONTACT     = IQU_CONTACT_EMAIL;
     private const RL_BAD      = 20;  // invalid token views per IP per 15 min
     private const RL_FIND_IP  = 5;   // link requests per IP per hour
     private const RL_FIND_EML = 3;   // link emails per address per hour

@@ -482,7 +482,7 @@ class IQU_Billing_Send
     /** In test mode, emails only go to our own addresses, never to real families. */
     public static function test_email_allowed(string $email): bool
     {
-        $allowed = array_map('strtolower', array_filter([get_option('admin_email'), 'info@ilmulquranus.org']));
+        $allowed = array_map('strtolower', array_filter([get_option('admin_email'), IQU_CONTACT_EMAIL]));
         return in_array(strtolower(trim($email)), $allowed, true);
     }
 
