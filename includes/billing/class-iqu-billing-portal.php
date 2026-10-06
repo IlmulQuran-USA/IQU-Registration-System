@@ -183,7 +183,7 @@ class IQU_Billing_Portal
             . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden">'
             . '<tr><td align="center" style="padding:24px 24px 16px;background:#EFF8FC;border-bottom:3px solid #1E4D6B">'
             . '<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td>'
-            . '<img src="' . content_url('uploads/2026/10/iqu-email-logo.png') . '" width="240" alt="Ilm-ul-Quran USA" style="display:block;border:0;height:auto;max-width:240px">'
+            . '<img src="' . esc_url(content_url('uploads/2026/10/iqu-email-logo.png')) . '" width="240" alt="Ilm-ul-Quran USA" style="display:block;border:0;height:auto;max-width:240px">'
             . '</td></tr></table></td></tr>'
             . '<tr><td style="padding:30px 30px 12px;font-size:15px;line-height:23px;color:#15303F">'
             . '<p style="margin:0 0 14px">Assalamu alaikum,</p><p style="margin:0 0 14px">Here is your private billing page for Ilm-ul-Quran USA:</p>'
@@ -446,7 +446,7 @@ class IQU_Billing_Portal
         $fonts = get_stylesheet_directory_uri() . '/assets/fonts/poppins/';
         $face  = '';
         foreach ([400 => 'Regular', 500 => 'Medium', 600 => 'SemiBold'] as $weight => $file) {
-            $face .= '@font-face{font-family:"Poppins";font-style:normal;font-weight:' . $weight . ';font-display:swap;src:url("' . $fonts . 'Poppins-' . $file . '.ttf") format("truetype")}';
+            $face .= '@font-face{font-family:"Poppins";font-style:normal;font-weight:' . $weight . ';font-display:swap;src:url("' . esc_url($fonts . 'Poppins-' . $file . '.ttf') . '") format("truetype")}';
         }
 
         // Theme palette: deep blue #1E4D6B, dark navy #15303F, slate #414B58, light gray #F1F1F4,
