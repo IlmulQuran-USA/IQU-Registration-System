@@ -560,23 +560,29 @@ class IQU_Billing_Send
             ? "Tuition for {$kids} will be collected automatically each month after the free first month, so there is nothing to remember and nothing to transfer."
             : "From this month, tuition for {$kids} will be collected automatically, so there is nothing to remember and nothing to transfer.";
 
-        $p = 'style="margin:0 0 14px;font-size:15px;line-height:23px;color:#1c2b24"';
-        $body  = '<div style="background:#f2f1ec;padding:24px 12px;font-family:Arial,Helvetica,sans-serif">';
-        $body .= '<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #dcd7cb;border-radius:12px;padding:28px 30px">';
-        $body .= '<div style="font-size:20px;font-weight:bold;color:#1c2b24;margin-bottom:18px">Ilm-ul-Quran USA</div>';
+        // Same frame as the registration emails (IQU_Mailer): logo header with a deep blue rule, white card, deep blue footer.
+        $p = 'style="margin:0 0 14px;font-size:15px;line-height:23px;color:#15303F"';
+        $body  = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F1F4;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif"><tr><td align="center" style="padding:24px 12px">';
+        $body .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden">';
+        $body .= '<tr><td align="center" style="padding:24px 24px 16px;background:#EFF8FC;border-bottom:3px solid #1E4D6B">'
+            . '<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td>'
+            . '<img src="' . content_url('uploads/2026/10/iqu-email-logo.png') . '" width="240" alt="Ilm-ul-Quran USA" style="display:block;border:0;height:auto;max-width:240px">'
+            . '</td></tr></table></td></tr>';
+        $body .= '<tr><td style="padding:30px 30px 12px">';
         $body .= '<p ' . $p . '>Assalamu alaikum' . ($name !== '' ? ' ' . esc_html($name) : '') . ',</p>';
         $body .= '<p ' . $p . '>' . esc_html($intro) . '</p>';
-        $body .= '<table role="presentation" style="width:100%;background:#f7f5f0;border-radius:10px;margin:0 0 20px;font-size:14px;line-height:24px"><tr><td style="padding:14px 16px">';
+        $body .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EFF8FC;border:1px solid #E5E7EB;border-left:4px solid #F7941D;border-radius:10px;margin:0 0 22px;font-size:14px;line-height:24px;color:#15303F"><tr><td style="padding:14px 18px">';
         $body .= 'Monthly tuition: <strong>' . esc_html($amount) . '</strong><br>First payment: <strong>' . esc_html($first) . '</strong>' . ($new ? ' (after the free first month)' : '');
         $body .= '</td></tr></table>';
-        $body .= '<p style="margin:0 0 18px;text-align:center"><a href="' . esc_url($link) . '" style="display:inline-block;background:#1e4d6b;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 26px;border-radius:8px">Set up monthly tuition</a></p>';
-        $body .= '<p style="margin:0 0 12px;font-size:13px;line-height:20px;color:#55615a">You add a bank account or card once. Nothing is charged before ' . esc_html($first) . '.';
+        $body .= '<p style="margin:0 0 20px;text-align:center"><a href="' . esc_url($link) . '" style="display:inline-block;background:#1E4D6B;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 28px;border-radius:8px">Set up monthly tuition</a></p>';
+        $body .= '<p style="margin:0 0 12px;font-size:13px;line-height:20px;color:#414B58">You add a bank account or card once. Nothing is charged before ' . esc_html($first) . '.';
         if ($zelle !== '') $body .= ' From ' . esc_html(self::nice_date($zelle)) . ', tuition can no longer be sent by Zelle.';
         $body .= '</p>';
-        $body .= '<p style="margin:0 0 18px;font-size:13px;line-height:20px;color:#55615a">If paying online is difficult, or the fee is a burden right now, just reply to this email. No child\'s place is ever affected by cost.</p>';
+        $body .= '<p style="margin:0 0 18px;font-size:13px;line-height:20px;color:#414B58">If paying online is difficult, or the fee is a burden right now, just reply to this email. No child\'s place is ever affected by cost.</p>';
         $body .= '<p ' . $p . '>Jazakum Allahu khayran,<br>Ilm-ul-Quran USA</p>';
-        $body .= '<div style="border-top:1px solid #ece8de;padding-top:12px;font-size:12px;line-height:18px;color:#55615a">This link is private to your family. Please do not forward it. Ilm-ul-Quran USA is operated by AL HASANAH FOUNDATION, a 501(c)(3) nonprofit.</div>';
-        $body .= '</div></div>';
+        $body .= '</td></tr>';
+        $body .= '<tr><td style="background:#1E4D6B;padding:16px 24px;text-align:center;font-size:12px;line-height:18px;color:#EFF8FC">This link is private to your family. Please do not forward it. Ilm-ul-Quran USA is operated by AL HASANAH FOUNDATION, a 501(c)(3) nonprofit.</td></tr>';
+        $body .= '</table></td></tr></table>';
 
         $ok = wp_mail($acc['contact_email'], $subject, $body, ['Content-Type: text/html; charset=UTF-8']);
         if ($ok) {

@@ -178,11 +178,21 @@ class IQU_Billing_Portal
         if (IQU_Stripe::expected_mode() === 'test' && !self::test_email_allowed($acc['contact_email'])) return;
 
         $link = IQU_Billing_Service::link_for($acc);
-        $body = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#1c2b24;max-width:520px">'
-            . '<p>Assalamu alaikum,</p><p>Here is your private billing page for Ilm-ul-Quran USA:</p>'
-            . '<p><a href="' . esc_url($link) . '" style="display:inline-block;background:#1e4d6b;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:8px">Open my billing page</a></p>'
-            . '<p style="font-size:13px;color:#55615a">You asked for this link on our website. If you did not, you can ignore this email. Please do not forward it.</p>'
-            . '<p>Jazakum Allahu khayran,<br>Ilm-ul-Quran USA</p></div>';
+        // Same frame as the registration emails (IQU_Mailer): logo header with a deep blue rule, white card, deep blue footer.
+        $body = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F1F4;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif"><tr><td align="center" style="padding:24px 12px">'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden">'
+            . '<tr><td align="center" style="padding:24px 24px 16px;background:#EFF8FC;border-bottom:3px solid #1E4D6B">'
+            . '<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td>'
+            . '<img src="' . content_url('uploads/2026/10/iqu-email-logo.png') . '" width="240" alt="Ilm-ul-Quran USA" style="display:block;border:0;height:auto;max-width:240px">'
+            . '</td></tr></table></td></tr>'
+            . '<tr><td style="padding:30px 30px 12px;font-size:15px;line-height:23px;color:#15303F">'
+            . '<p style="margin:0 0 14px">Assalamu alaikum,</p><p style="margin:0 0 14px">Here is your private billing page for Ilm-ul-Quran USA:</p>'
+            . '<p style="margin:0 0 20px;text-align:center"><a href="' . esc_url($link) . '" style="display:inline-block;background:#1E4D6B;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 28px;border-radius:8px">Open my billing page</a></p>'
+            . '<p style="margin:0 0 14px;font-size:13px;line-height:20px;color:#414B58">You asked for this link on our website. If you did not, you can ignore this email. Please do not forward it.</p>'
+            . '<p style="margin:0 0 14px">Jazakum Allahu khayran,<br>Ilm-ul-Quran USA</p>'
+            . '</td></tr>'
+            . '<tr><td style="background:#1E4D6B;height:8px;line-height:8px;font-size:0">&nbsp;</td></tr>'
+            . '</table></td></tr></table>';
         wp_mail($acc['contact_email'], 'Your billing page — Ilm-ul-Quran USA', $body, ['Content-Type: text/html; charset=UTF-8']);
     }
 
