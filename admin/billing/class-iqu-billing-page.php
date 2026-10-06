@@ -403,7 +403,7 @@ class IQU_Billing_Page
                 <?php foreach ([
                     ['Collected this month', IQU_Pricing::format($this_month['total']), $this_month['count'] . ((int) $this_month['count'] === 1 ? ' payment' : ' payments'), 'revenue'],
                     ['Last month', IQU_Pricing::format($last_month['total']), $last_month['count'] . ((int) $last_month['count'] === 1 ? ' payment' : ' payments'), 'total'],
-                    ['On billing', (int) $on_billing['n'] . ' families', IQU_Pricing::format((float) $on_billing['t']) . ' a month', 'l1'],
+                    ['On billing', (int) $on_billing['n'] . ((int) $on_billing['n'] === 1 ? ' family' : ' families'), IQU_Pricing::format((float) $on_billing['t']) . ' a month', 'l1'],
                     ['Next 14 days', IQU_Pricing::format($up_total), count($upcoming) . (count($upcoming) === 1 ? ' charge expected' : ' charges expected'), 'free'],
                     ['Payment problems', (string) count($problems), count($problems) ? 'see below' : 'none', 'problem'],
                 ] as [$label, $value, $sub, $accent]): ?>
