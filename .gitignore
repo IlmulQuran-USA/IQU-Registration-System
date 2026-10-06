@@ -96,3 +96,6 @@ composer.phar
 *.pid
 *.seed
 coverage/
+
+# Claude Code local settings
+.claude/
