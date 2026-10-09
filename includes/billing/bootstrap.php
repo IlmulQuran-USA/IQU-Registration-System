@@ -17,7 +17,7 @@ if (defined('IQU_BILLING_VERSION') || class_exists('IQU_Stripe', false)) {
     return;
 }
 
-define('IQU_BILLING_VERSION', '1.0.0');
+define('IQU_BILLING_VERSION', '1.1.0');
 
 add_action('plugins_loaded', function () {
     $inc = IQU_PLUGIN_DIR . 'includes/billing/';
