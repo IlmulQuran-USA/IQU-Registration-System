@@ -306,33 +306,11 @@ class IQU_Billing_Send
         $wa_url   = $wa !== '' ? 'https://wa.me/' . $wa . '?text=' . rawurlencode($text) : '';
         $post     = esc_url(admin_url('admin-post.php'));
         ?>
-        <!-- ── Family ─────────────────────────────────────── -->
-        <div class="iqu-card">
-            <div class="iqu-card-head">
-                <span class="iqu-card-head-title">Payment link message</span>
-                <span class="iqu-chip iqu-chip--<?php echo IQU_Billing_Page::status_tone($acc['status']); ?>"><?php echo esc_html(self::status_label($acc['status'])); ?></span>
-            </div>
-            <div class="iqu-billing-body">
-                <div class="iqu-detail-data">
-                    <div class="iqu-detail-item iqu-detail-full">
-                        <div class="iqu-detail-lbl">Family</div>
-                        <div class="iqu-detail-val"><?php echo esc_html($acc['guardian_name'] ?: '—'); ?> · <?php echo esc_html($acc['contact_email']); ?> · <?php echo esc_html($acc['contact_whatsapp'] ?: 'no WhatsApp'); ?></div>
-                    </div>
-                    <div class="iqu-detail-item iqu-detail-full">
-                        <div class="iqu-detail-lbl">Students</div>
-                        <div class="iqu-detail-val"><?php echo esc_html(implode(', ', $students)); ?></div>
-                    </div>
-                    <div class="iqu-detail-item">
-                        <div class="iqu-detail-lbl">Monthly</div>
-                        <div class="iqu-detail-val"><strong><?php echo esc_html(IQU_Pricing::format((float) $acc['net_amount'])); ?></strong> · first charge <?php echo esc_html(self::nice_date($acc['first_charge_date'])); ?></div>
-                    </div>
-                    <div class="iqu-detail-item">
-                        <div class="iqu-detail-lbl">Sent</div>
-                        <div class="iqu-detail-val">Email: <?php echo $acc['email_sent_at'] ? esc_html(self::nice_time($acc['email_sent_at'])) : 'not sent'; ?> · WhatsApp: <?php echo $acc['whatsapp_sent_at'] ? esc_html(self::nice_time($acc['whatsapp_sent_at'])) : 'not marked as sent'; ?></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <?php
+        $history = IQU_Billing_History::for_account((int) $acc['id']);
+        self::family_header($acc, $students);
+        self::family_students($acc);
+        ?>
 
         <!-- ── Message ────────────────────────────────────── -->
         <div class="iqu-card">
@@ -383,6 +361,10 @@ class IQU_Billing_Send
                 <p class="iqu-fld-hint">The link in this message is private to this family. Reset it only if it was shared with the wrong person; then send the new message.</p>
             </div>
         </div>
+        <?php
+        self::family_history($history);
+        self::family_activity((int) $acc['id'], $history);
+        ?>
         </div>
         <script>
         (function () {
@@ -394,6 +376,205 @@ class IQU_Billing_Send
             });
         })();
         </script>
+        <?php
+    }
+
+    // ------------------------------------------------------------
+    // Family page sections (Message screen)
+    // ------------------------------------------------------------
+
+    /** 1. Header: name, avatar, status, quick facts, link to Stripe. */
+    private static function family_header(array $acc, array $students): void
+    {
+        $name   = trim((string) $acc['guardian_name']) ?: implode(', ', $students);
+        $next   = !empty($acc['next_charge_at']) ? self::nice_utc((string) $acc['next_charge_at']) : ($acc['first_charge_date'] ? self::nice_date($acc['first_charge_date']) . ' (first charge)' : '—');
+        $stripe = !empty($acc['stripe_customer_id'])
+            ? 'https://dashboard.stripe.com/' . (IQU_Stripe::expected_mode() === 'test' ? 'test/' : '') . 'customers/' . rawurlencode((string) $acc['stripe_customer_id'])
+            : '';
+        ?>
+        <!-- ── Family ─────────────────────────────────────── -->
+        <div class="iqu-card">
+            <div class="iqu-card-head iqu-family-head">
+                <span class="iqu-family-cell">
+                    <span class="iqu-avatar" aria-hidden="true"><?php echo esc_html(IQU_Billing_Page::initials($name)); ?></span>
+                    <span>
+                        <span class="iqu-profile-name"><?php echo esc_html($name ?: '—'); ?></span>
+                        <span class="iqu-profile-meta"><?php echo esc_html($acc['contact_email']); ?> · <?php echo esc_html($acc['contact_whatsapp'] ?: 'no WhatsApp'); ?></span>
+                    </span>
+                </span>
+                <span class="iqu-family-head-right">
+                    <span class="iqu-chip iqu-chip--<?php echo esc_attr(IQU_Billing_Page::status_tone((string) $acc['status'])); ?>"><?php echo esc_html(self::status_label((string) $acc['status'])); ?></span>
+                    <?php if ($stripe): ?><a class="iqu-action-btn" href="<?php echo esc_url($stripe); ?>" target="_blank" rel="noopener noreferrer">View in Stripe</a><?php endif; ?>
+                </span>
+            </div>
+            <div class="iqu-billing-body">
+                <div class="iqu-detail-data">
+                    <div class="iqu-detail-item">
+                        <div class="iqu-detail-lbl">Monthly</div>
+                        <div class="iqu-detail-val"><strong><?php echo esc_html(IQU_Pricing::format((float) $acc['net_amount'])); ?></strong><?php echo (float) $acc['discount_amount'] > 0 ? ' · ' . esc_html(IQU_Pricing::format((float) $acc['discount_amount'])) . ' discount' : ''; ?></div>
+                    </div>
+                    <div class="iqu-detail-item">
+                        <div class="iqu-detail-lbl">Next charge</div>
+                        <div class="iqu-detail-val"><?php echo esc_html($next); ?></div>
+                    </div>
+                    <div class="iqu-detail-item">
+                        <div class="iqu-detail-lbl">Paying from</div>
+                        <div class="iqu-detail-val"><?php echo esc_html($acc['payment_method_label'] ?: 'No bank or card yet'); ?></div>
+                    </div>
+                    <div class="iqu-detail-item">
+                        <div class="iqu-detail-lbl">Link sent</div>
+                        <div class="iqu-detail-val">Email: <?php echo $acc['email_sent_at'] ? esc_html(self::nice_time($acc['email_sent_at'])) : 'not sent'; ?> · WhatsApp: <?php echo $acc['whatsapp_sent_at'] ? esc_html(self::nice_time($acc['whatsapp_sent_at'])) : 'not marked as sent'; ?></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    /** 2. Students: one row per student. */
+    private static function family_students(array $acc): void
+    {
+        $rows = [];
+        foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
+            $reg = IQU_Database::get_registration((int) $m['registration_id']);
+            if ($reg) $rows[] = [$reg, IQU_Billing_Pricing::for_registration($reg), (float) $m['amount']];
+        }
+        ?>
+        <div class="iqu-card">
+            <div class="iqu-card-head">
+                <span class="iqu-card-head-title">Students</span>
+                <span class="iqu-card-head-badge"><?php echo (int) count($rows); ?> <?php echo count($rows) === 1 ? 'student' : 'students'; ?></span>
+            </div>
+            <?php if (!$rows): ?>
+                <div class="iqu-empty-state">No students on this billing record.</div>
+            <?php else: ?>
+            <div class="iqu-table-wrap">
+            <table class="iqu-tbl iqu-dt iqu-billing-tbl">
+                <thead><tr><th>Student</th><th>IQU no</th><th>Course</th><th class="is-num">Days/week</th><th class="is-num">Monthly</th><th>Discount / Zakat</th></tr></thead>
+                <tbody>
+                <?php foreach ($rows as [$reg, $p, $amount]): ?>
+                    <tr>
+                        <td class="iqu-td-name"><strong><?php echo esc_html(trim($reg['first_name'] . ' ' . $reg['last_name'])); ?></strong></td>
+                        <td><a href="<?php echo esc_url(admin_url('admin.php?page=iqu-view-registration&id=' . (int) $reg['id'])); ?>">IQU-<?php echo (int) $reg['id']; ?></a></td>
+                        <td><?php echo esc_html($p['course_label'] ?: '—'); ?></td>
+                        <td class="is-num"><?php echo (int) $p['days_per_week'] ?: '—'; ?></td>
+                        <td class="is-num"><?php echo esc_html(IQU_Pricing::format($amount)); ?></td>
+                        <td class="iqu-billing-wrap"><?php echo (float) $p['discount'] > 0 ? esc_html(($p['discount_label'] ?: 'Discount') . ' −' . IQU_Pricing::format((float) $p['discount'])) : '—'; ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+                <tfoot><tr><td colspan="4">Charged together each month</td><td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) $acc['net_amount'])); ?></td><td></td></tr></tfoot>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /** 4. Payment history: every tuition month, newest first, with yearly subtotals. */
+    private static function family_history(array $history): void
+    {
+        $years = [];
+        foreach ($history as $r) $years[substr((string) $r['period_month'], 0, 4) ?: '—'][] = $r;
+        ?>
+        <div class="iqu-card">
+            <div class="iqu-card-head">
+                <span class="iqu-card-head-title">Payment history</span>
+                <span class="iqu-card-head-badge"><?php echo (int) count($history); ?> <?php echo count($history) === 1 ? 'invoice' : 'invoices'; ?></span>
+            </div>
+            <?php if (!$history): ?>
+                <div class="iqu-empty-state">No payments stored for this family yet. New payments appear here as Stripe reports them; to load earlier months, use <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-settings')); ?>">Settings → Backfill payment history</a> (or Sync from Stripe above).</div>
+            <?php else: ?>
+            <div class="iqu-table-wrap">
+            <table class="iqu-tbl iqu-dt iqu-billing-tbl">
+                <thead><tr><th>Tuition month</th><th class="is-num">Amount due</th><th class="is-num">Amount paid</th><th>Status</th><th>Paid on</th><th>Method</th><th>Receipt</th><th>Attempts</th></tr></thead>
+                <tbody>
+                <?php foreach ($years as $year => $rows):
+                    $due = 0.0; $paid = 0.0; ?>
+                    <?php foreach ($rows as $r):
+                        [$blabel, $btone] = IQU_Billing_History::badge($r);
+                        if ($r['status'] !== 'void') $due += (float) $r['amount_due'];
+                        if ($r['status'] === 'paid') $paid += (float) $r['amount_paid'];
+                        $receipt = IQU_Billing_History::safe_url($r['hosted_invoice_url']);
+                        $pdf     = IQU_Billing_History::safe_url($r['invoice_pdf']); ?>
+                        <tr>
+                            <td><?php echo esc_html(IQU_Billing_History::month_label((string) $r['period_month'])); ?></td>
+                            <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) $r['amount_due'])); ?></td>
+                            <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) $r['amount_paid'])); ?><?php if ((float) $r['amount_refunded'] > 0): ?><br><span class="iqu-billing-sub">Refunded <?php echo esc_html(IQU_Pricing::format((float) $r['amount_refunded'])); ?></span><?php endif; ?></td>
+                            <td><span class="iqu-chip iqu-chip--<?php echo esc_attr($btone); ?>"><?php echo esc_html($blabel); ?></span></td>
+                            <td class="iqu-td-date"><?php echo $r['paid_at'] ? esc_html(self::nice_time((string) $r['paid_at'])) : '—'; ?></td>
+                            <td><?php echo esc_html($r['method_label'] ?: '—'); ?></td>
+                            <td><?php if ($receipt): ?><a href="<?php echo esc_url($receipt); ?>" target="_blank" rel="noopener noreferrer">Receipt</a><?php endif; ?><?php if ($receipt && $pdf): ?> · <?php endif; ?><?php if ($pdf): ?><a href="<?php echo esc_url($pdf); ?>" target="_blank" rel="noopener noreferrer">Invoice PDF</a><?php endif; ?><?php echo (!$receipt && !$pdf) ? '—' : ''; ?></td>
+                            <td class="iqu-billing-wrap"><?php echo (int) $r['attempt_count']; ?><?php if ($r['failure_reason'] !== ''): ?><br><span class="iqu-billing-sub"><?php echo esc_html($r['failure_reason']); ?></span><?php endif; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <tr class="iqu-dt-subtotal"><td><?php echo esc_html($year); ?> total</td><td class="is-num"><?php echo esc_html(IQU_Pricing::format($due)); ?></td><td class="is-num"><?php echo esc_html(IQU_Pricing::format($paid)); ?></td><td colspan="5"></td></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /** Plain-English line for a webhook event. */
+    private static function event_text(array $e, array $history): string
+    {
+        $map = [
+            'checkout.session.completed'      => 'Bank or card added on the Stripe page',
+            'customer.subscription.created'   => 'Monthly billing set up',
+            'customer.subscription.updated'   => 'Billing updated',
+            'customer.subscription.deleted'   => 'Billing stopped',
+            'customer.subscription.paused'    => 'Billing paused',
+            'customer.subscription.resumed'   => 'Billing resumed',
+            'invoice.paid'                    => 'Payment received',
+            'invoice.payment_failed'          => 'Payment failed',
+            'invoice.payment_action_required' => 'The bank asked the family to confirm a payment',
+            'charge.refunded'                 => 'Refund issued',
+        ];
+        $text = $map[$e['type']] ?? (string) $e['type'];
+        if ($e['type'] === 'invoice.payment_failed') {
+            $at = (int) strtotime($e['received_at'] . ' UTC');
+            foreach ($history as $r) {
+                if ($r['failure_reason'] !== '' && abs((int) strtotime((string) $r['updated_at'] . ' UTC') - $at) < 900) {
+                    $text .= ' — ' . lcfirst(rtrim((string) $r['failure_reason'], '.'));
+                    break;
+                }
+            }
+        }
+        if (preg_match('/^(\w+) -> (\w+)$/', (string) $e['note'], $m) && $m[1] !== $m[2]) {
+            $text .= ' (' . self::status_label($m[1]) . ' → ' . self::status_label($m[2]) . ')';
+        }
+        if (!in_array($e['result'], ['ok', 'received'], true)) $text .= ' [' . $e['result'] . ']';
+        return $text;
+    }
+
+    /** 5. Activity: this family's webhook events, newest first (last 50). */
+    private static function family_activity(int $account_id, array $history): void
+    {
+        $events = IQU_Billing_History::events_for_account($account_id, 50);
+        ?>
+        <div class="iqu-card">
+            <div class="iqu-card-head">
+                <span class="iqu-card-head-title">Activity</span>
+                <span class="iqu-card-head-badge">From Stripe, newest first</span>
+            </div>
+            <?php if (!$events): ?>
+                <div class="iqu-empty-state">No Stripe activity yet. Card added, payments and failures appear here as they happen.</div>
+            <?php else: ?>
+            <div class="iqu-table-wrap">
+            <table class="iqu-tbl iqu-dt iqu-billing-tbl">
+                <thead><tr><th>When</th><th>What happened</th></tr></thead>
+                <tbody>
+                <?php foreach ($events as $e): ?>
+                    <tr><td class="iqu-td-date"><?php echo esc_html(self::nice_time((string) $e['received_at'])); ?></td><td class="iqu-billing-wrap"><?php echo esc_html(self::event_text($e, $history)); ?></td></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
         <?php
     }
 

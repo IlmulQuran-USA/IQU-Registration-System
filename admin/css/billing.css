@@ -764,6 +764,27 @@ th[aria-sort="descending"] .iqu-sort::after {
   gap: 8px;
 }
 
+.iqu-family-head {
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.iqu-family-head .iqu-profile-name {
+  display: block;
+}
+
+.iqu-family-head .iqu-profile-meta {
+  display: block;
+  margin-top: 2px;
+}
+
+.iqu-family-head-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .iqu-family-link {
   font-weight: 600;
   color: var(--iqu-text1);

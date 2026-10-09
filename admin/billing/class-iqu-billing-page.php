@@ -317,7 +317,7 @@ class IQU_Billing_Page
                 <?php endif; ?>
             </th>
             <td class="iqu-td-name">
-                <strong><a href="<?php echo esc_url(admin_url('admin.php?page=iqu-view-registration&id=' . $id)); ?>"><?php echo esc_html($reg['first_name'] . ' ' . $reg['last_name']); ?></a></strong>
+                <strong><a href="<?php echo esc_url($acc ? self::family_url((int) $acc['id']) : admin_url('admin.php?page=iqu-view-registration&id=' . $id)); ?>"><?php echo esc_html($reg['first_name'] . ' ' . $reg['last_name']); ?></a></strong>
                 <br><span class="iqu-billing-sub">IQU-<?php echo $id; ?><?php echo $reg['guardian_name'] ? ' · guardian ' . esc_html($reg['guardian_name']) : ''; ?></span>
                 <br><span class="iqu-billing-sub"><?php echo esc_html($reg['email']); ?></span>
             </td>

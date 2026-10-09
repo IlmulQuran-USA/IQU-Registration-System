@@ -289,6 +289,16 @@ class IQU_Billing_History
         ), ARRAY_A) ?: [];
     }
 
+    /** The newest webhook events recorded for one family (no payloads are ever stored). */
+    public static function events_for_account(int $account_id, int $limit = 50): array
+    {
+        global $wpdb;
+        return $wpdb->get_results($wpdb->prepare(
+            'SELECT type, result, note, received_at FROM ' . IQU_Billing_DB::events_table() . ' WHERE account_id = %d AND mode = %s ORDER BY received_at DESC, id DESC LIMIT %d',
+            $account_id, IQU_Stripe::expected_mode(), max(1, min(200, $limit))
+        ), ARRAY_A) ?: [];
+    }
+
     /** History rows whose tuition month is between two 'YYYY-MM' values (inclusive). */
     public static function rows_for_months(string $from_ym, string $to_ym): array
     {
