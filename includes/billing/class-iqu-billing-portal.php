@@ -196,14 +196,14 @@ class IQU_Billing_Portal
     private static function render_find(string $intro = '', string $error = '', string $success = ''): void
     {
         $html  = '<h1>Find your billing page</h1>';
-        $html .= '<p class="muted">' . esc_html($intro ?: 'Enter the email you gave us when you enrolled. We will email you your private link.') . '</p>';
-        if ($error)   $html .= '<div class="box bad">' . esc_html($error) . '</div>';
-        if ($success) $html .= '<div class="box good">' . esc_html($success) . '</div>';
+        $html .= '<p class="lead">' . esc_html($intro ?: 'Enter the email you gave us when you enrolled. We will email you your private link.') . '</p>';
+        if ($error)   $html .= '<div class="box bad" role="alert">' . esc_html($error) . '</div>';
+        if ($success) $html .= '<div class="box good" role="status">' . esc_html($success) . '</div>';
         $html .= '<form rel="noreferrer" method="post" action="' . esc_url(home_url('/' . self::PATH . '/')) . '" class="card">'
             . '<input type="hidden" name="do" value="find">'
             . '<label for="email">Email</label>'
             . '<input id="email" name="email" type="email" required autocomplete="email" placeholder="you@example.com">'
-            . '<button type="submit" class="btn">Email me my link</button>'
+            . '<button type="submit" class="btn wide">Email me my link</button>'
             . '</form>'
             . '<p class="muted small">For privacy, this page never says whether an email is in our records. Changed your email? Write to us at ' . self::contact_link() . '.</p>';
         self::page('Find your billing page', $html);
@@ -234,114 +234,202 @@ class IQU_Billing_Portal
         }
         if ($error) $h .= '<div class="box bad">' . esc_html($error) . '</div>';
 
-        $h .= '<p class="muted">Assalamu alaikum' . ($greet !== '' ? ', ' . esc_html($greet) : '') . '</p>';
+        $h .= '<p class="hello">Assalamu alaikum' . ($greet !== '' ? ', ' . esc_html($greet) : '') . '</p>';
         $h .= '<h1>' . ($is_setup ? 'Set up monthly tuition' : 'Monthly tuition') . ($kids !== '' ? ' <span class="for">for ' . esc_html($kids) . '</span>' : '') . '</h1>';
 
-        if ($failed) {
-            $h .= self::failed_box($acc, $url, $tok);
-        }
-
-        // Students and fee
-        $h .= '<div class="card"><div class="label">Students</div>';
-        foreach ($students as $s) {
-            $reg = $s['reg']; $p = $s['p'];
-            $h .= '<div class="row"><div><strong>' . esc_html($reg['first_name'] . ' ' . $reg['last_name']) . '</strong><br><span class="muted small">'
-                . esc_html(trim(($p['course_label'] ?: 'Monthly tuition') . ($p['days_per_week'] ? ' · ' . $p['days_per_week'] . ' classes a week' : '')))
-                . ' · IQU-' . (int) $reg['id'] . '</span></div><div class="amt">'
-                . ($p['discount'] > 0 ? '<span class="strike">' . esc_html(IQU_Pricing::format($p['gross'])) . '</span> ' : '')
-                . esc_html(IQU_Pricing::format($s['amount'])) . '</div></div>';
-            if ($p['discount'] > 0 && $p['discount_label']) {
-                $h .= '<div class="row sub"><span class="muted small">' . esc_html($p['discount_label']) . '</span><span class="muted small">−' . esc_html(IQU_Pricing::format($p['discount'])) . '</span></div>';
-            }
-        }
-        $h .= '<div class="row total"><span>You pay each month</span><span>' . esc_html(IQU_Pricing::format((float) $acc['net_amount'])) . '</span></div></div>';
-
         if ($is_setup) {
-            $first = self::nice_date($acc['first_charge_date'] ? $acc['first_charge_date'] . ' 15:00:00' : null);
-            $soon  = IQU_Billing_Service::first_charge_timestamp($acc['first_charge_date']) === 0;
-            $h .= '<div class="box good"><strong>' . ($soon ? 'Your first payment is taken when you finish setting up.' : 'First payment: ' . esc_html($first)) . '</strong>'
-                . ($soon ? '' : '<br><span class="small">' . (($acc['student_type'] ?? '') === 'new' ? 'After the free first month. ' : '') . 'Nothing is charged before then. After that, the same date every month.</span>') . '</div>';
-            $h .= '<form rel="noreferrer" method="post" action="' . $url . '"><input type="hidden" name="do" value="checkout"><input type="hidden" name="t" value="' . $tok . '">'
-                . '<button type="submit" class="btn wide">Add bank account or card</button></form>'
-                . '<p class="muted small center">This opens Stripe\'s secure page. Ilm-ul-Quran USA never sees or stores your bank or card details.</p>';
+            $h .= self::hero_setup($acc, $url, $tok);
+        } elseif ($failed) {
+            $h .= self::hero_problem($acc, $url, $tok);
+        } elseif ($status === 'canceled') {
+            $h .= self::hero_stopped($kids);
         } else {
-            $h .= self::status_card($acc, $url, $tok);
-            $h .= self::history($acc);
+            $h .= self::hero_active($acc, $url, $tok);
         }
 
-        $h .= '<div class="card"><div class="label">Need help?</div><p class="small">If the fee is a burden for your family right now, or you need to pause or stop classes, write to us at ' . self::contact_link() . '. No child\'s place is ever affected by cost.</p></div>';
+        $h .= self::students_card($students, $acc);
+        if (!$is_setup) $h .= self::history($acc);
+        $h .= self::how_it_works();
+
+        $h .= '<section class="card help"><h2 class="label">Need help?</h2><p class="small">If the fee is a burden for your family right now, or you need to pause or stop classes, write to us at ' . self::contact_link() . '. No child\'s place is ever affected by cost.</p></section>';
         $h .= '<p class="muted small">This page is private to your family. If you think someone else has your link, tell us and we will send you a new one.</p>';
 
         self::page('Monthly tuition', $h);
     }
 
-    private static function status_card(array $acc, string $url, string $tok): string
-    {
-        $labels = [
-            'free_month'           => ['Free first month', 'good'],
-            'waiting_first_charge' => ['Set up — waiting for the first payment', 'good'],
-            'active'               => ['Active', 'good'],
-            'past_due'             => ['Payment did not go through', 'bad'],
-            'unpaid'               => ['On hold — please contact us', 'bad'],
-            'paused'               => ['On hold — please contact us', 'bad'],
-            'canceled'             => ['Stopped', 'muted'],
-        ];
-        [$label, $tone] = $labels[$acc['status']] ?? ['Being set up', 'muted'];
-        $next = $acc['status'] === 'canceled' ? '—' : self::nice_date($acc['next_charge_at']);
+    /** Status label and pill tone shown on the family page. */
+    private const STATUS_PILLS = [
+        'free_month'           => ['Free first month', 'good'],
+        'waiting_first_charge' => ['Set up — waiting for the first payment', 'good'],
+        'active'               => ['Active', 'good'],
+        'past_due'             => ['Payment did not go through', 'bad'],
+        'unpaid'               => ['On hold — please contact us', 'bad'],
+        'paused'               => ['On hold — please contact us', 'bad'],
+        'canceled'             => ['Stopped', 'muted'],
+    ];
 
-        $h  = '<div class="card"><div class="row"><div><div class="label">Status</div><span class="pill ' . $tone . '">' . esc_html($label) . '</span></div></div>';
-        $h .= '<div class="grid">'
-            . '<div><div class="label">Next payment</div>' . esc_html($next) . '</div>'
-            . '<div><div class="label">Paying from</div>' . esc_html($acc['payment_method_label'] ?: '—') . '</div>'
-            . '<div><div class="label">Receipts go to</div>' . esc_html(self::mask_email((string) $acc['contact_email'])) . '</div>'
-            . '</div>';
-        if ($acc['status'] !== 'canceled') {
-            $h .= '<form rel="noreferrer" method="post" action="' . $url . '"><input type="hidden" name="do" value="portal"><input type="hidden" name="t" value="' . $tok . '">'
-                . '<button type="submit" class="btn ghost">Change bank or card</button></form>';
-        }
-        return $h . '</div>';
+    private static function pill(string $status): string
+    {
+        [$label, $tone] = self::STATUS_PILLS[$status] ?? ['Being set up', 'muted'];
+        return '<span class="pill ' . $tone . '">' . esc_html($label) . '</span>';
     }
 
-    private static function failed_box(array $acc, string $url, string $tok): string
+    /** Not set up: three steps and one big button. */
+    private static function hero_setup(array $acc, string $url, string $tok): string
     {
-        $pay = '';
-        $open = self::unpaid_invoice($acc);
+        $first = self::nice_date($acc['first_charge_date'] ? $acc['first_charge_date'] . ' 15:00:00' : null);
+        $soon  = IQU_Billing_Service::first_charge_timestamp($acc['first_charge_date']) === 0;
+        $new   = ($acc['student_type'] ?? '') === 'new';
+
+        return '<section class="card hero" aria-labelledby="hero-title"><h2 id="hero-title" class="label">Three steps, once</h2><ol class="steps">'
+            . '<li><span class="step-n" aria-hidden="true">1</span><div><strong>Add a bank account or card</strong>'
+            . '<span class="small muted">This opens Stripe\'s secure page. Ilm-ul-Quran USA never sees or stores your bank or card details.</span></div></li>'
+            . '<li><span class="step-n" aria-hidden="true">2</span><div>'
+            . ($soon
+                ? '<strong>Your first payment is taken when you finish setting up.</strong><span class="small muted">After that, the same date every month.</span>'
+                : '<strong>Nothing is charged before ' . esc_html($first) . '</strong><span class="small muted">First payment: ' . esc_html($first) . ($new ? ' (after the free first month)' : '') . '. After that, the same date every month.</span>')
+            . '</div></li>'
+            . '<li><span class="step-n" aria-hidden="true">3</span><div><strong>Receipts arrive by email</strong>'
+            . '<span class="small muted">Every payment, to ' . esc_html(self::mask_email((string) $acc['contact_email'])) . '.</span></div></li>'
+            . '</ol>'
+            . '<form rel="noreferrer" method="post" action="' . $url . '"><input type="hidden" name="do" value="checkout"><input type="hidden" name="t" value="' . $tok . '">'
+            . '<button type="submit" class="btn wide">Add bank account or card</button></form>'
+            . '</section>';
+    }
+
+    /** Active, free month or waiting for the first charge: the next payment, big. */
+    private static function hero_active(array $acc, string $url, string $tok): string
+    {
+        return '<section class="card hero">'
+            . '<div class="hero-top"><h2 class="label">Next payment</h2>' . self::pill((string) $acc['status']) . '</div>'
+            . '<p class="big">' . esc_html(IQU_Pricing::format((float) $acc['net_amount'])) . '</p>'
+            . '<p class="big-sub">' . esc_html(self::nice_date($acc['next_charge_at'])) . '</p>'
+            . '<dl class="facts">'
+            . '<div><dt>Paying from</dt><dd>' . esc_html($acc['payment_method_label'] ?: '—') . '</dd></div>'
+            . '<div><dt>Receipts go to</dt><dd>' . esc_html(self::mask_email((string) $acc['contact_email'])) . '</dd></div>'
+            . '</dl>'
+            . '<form rel="noreferrer" method="post" action="' . $url . '"><input type="hidden" name="do" value="portal"><input type="hidden" name="t" value="' . $tok . '">'
+            . '<button type="submit" class="btn wide">Change bank or card</button></form>'
+            . '</section>';
+    }
+
+    /** Payment problem: what happened, how much, and the way out. */
+    private static function hero_problem(array $acc, string $url, string $tok): string
+    {
+        $open   = self::unpaid_invoice($acc);
+        $amount = $open ? (float) $open['amount_due'] : (float) $acc['net_amount'];
+        $month  = $open ? IQU_Billing_History::month_label((string) $open['period_month']) : '';
+
+        $h = '<section class="card hero problem" role="alert">'
+            . '<div class="hero-top"><h2 class="label">Your last payment did not go through.</h2>' . self::pill((string) $acc['status']) . '</div>'
+            . '<p class="big">' . esc_html(IQU_Pricing::format($amount)) . '</p>'
+            . ($month !== '' ? '<p class="big-sub">' . esc_html($month . ' tuition') . '</p>' : '')
+            . '<p>' . ($acc['status'] === 'past_due' ? 'We will try again automatically. You can also pay now, or use a different bank or card.' : 'Please pay now or contact us, and we will sort it out together.') . '</p>'
+            . '<div class="actions">';
         if ($open) {
-            $pay = '<a class="btn" rel="noopener noreferrer" href="' . esc_url($open['hosted_invoice_url']) . '">Pay ' . esc_html(IQU_Pricing::format((float) $open['amount_due'])) . ' now</a> ';
+            $h .= '<a class="btn wide" rel="noopener noreferrer" href="' . esc_url($open['hosted_invoice_url']) . '">Pay ' . esc_html(IQU_Pricing::format($amount)) . ' now</a>';
         }
-        return '<div class="box bad"><strong>Your last payment did not go through.</strong><br><span class="small">'
-            . ($acc['status'] === 'past_due' ? 'We will try again automatically. You can also pay now, or use a different bank or card.' : 'Please pay now or contact us, and we will sort it out together.')
-            . '</span><div class="actions">' . $pay
-            . '<form rel="noreferrer" method="post" action="' . $url . '" style="display:inline"><input type="hidden" name="do" value="portal"><input type="hidden" name="t" value="' . $tok . '"><button type="submit" class="btn ghost">Change bank or card</button></form>'
-            . '</div></div>';
+        $h .= '<form rel="noreferrer" method="post" action="' . $url . '"><input type="hidden" name="do" value="portal"><input type="hidden" name="t" value="' . $tok . '">'
+            . '<button type="submit" class="btn wide' . ($open ? ' ghost' : '') . '">Change bank or card</button></form>'
+            . '</div>'
+            . '<p class="small">If paying is difficult right now, write to us at ' . self::contact_link() . '. No child\'s place is ever affected by cost.</p>'
+            . '</section>';
+        return $h;
     }
 
+    /** Billing stopped: calm, with the history still below. */
+    private static function hero_stopped(string $kids): string
+    {
+        return '<section class="card hero calm">'
+            . '<div class="hero-top"><h2 class="label">Monthly billing</h2>' . self::pill('canceled') . '</div>'
+            . '<p class="lead">Monthly tuition billing' . ($kids !== '' ? ' for ' . esc_html($kids) : '') . ' has stopped, and nothing more will be charged.</p>'
+            . '<p class="small muted">You can still see your past payments and receipts below.</p>'
+            . '</section>';
+    }
+
+    /** Your students: one small card each, then the monthly total. */
+    private static function students_card(array $students, array $acc): string
+    {
+        $h = '<section class="card"><h2 class="label">' . (count($students) === 1 ? 'Your student' : 'Your students') . '</h2><div class="students">';
+        foreach ($students as $s) {
+            $reg = $s['reg']; $p = $s['p'];
+            $h .= '<div class="student"><div class="student-top"><strong>' . esc_html($reg['first_name'] . ' ' . $reg['last_name']) . '</strong><span class="amt">'
+                . ($p['discount'] > 0 ? '<span class="strike">' . esc_html(IQU_Pricing::format($p['gross'])) . '</span> ' : '')
+                . esc_html(IQU_Pricing::format($s['amount'])) . '</span></div>'
+                . '<span class="muted small">' . esc_html(trim(($p['course_label'] ?: 'Monthly tuition') . ($p['days_per_week'] ? ' · ' . $p['days_per_week'] . ' classes a week' : ''))) . ' · IQU-' . (int) $reg['id'] . '</span>'
+                . (($p['discount'] > 0 && $p['discount_label']) ? '<span class="small discount">' . esc_html($p['discount_label']) . ' −' . esc_html(IQU_Pricing::format($p['discount'])) . '</span>' : '')
+                . '</div>';
+        }
+        $h .= '</div><div class="row total"><span>You pay each month</span><span>' . esc_html(IQU_Pricing::format((float) $acc['net_amount'])) . '</span></div></section>';
+        return $h;
+    }
+
+    /** Payment history from the local table, grouped by year, newest first. */
     private static function history(array $acc): string
     {
-        $h = '<div class="card"><div class="label">Payment history</div>';
-        $rows = '';
-        foreach (array_slice(IQU_Billing_History::for_account((int) $acc['id']), 0, 12) as $i) {
-            $paid  = (float) $i['amount_paid'];
-            $due   = (float) $i['amount_due'];
-            $month = IQU_Billing_History::month_label((string) $i['period_month']);
-            if ($i['status'] === 'paid' && $paid <= 0) {
-                $what = 'Free month'; $amt = '$0.00';
-            } elseif ($i['status'] === 'paid') {
-                $what = 'Paid ' . ($i['paid_at'] ? gmdate('j M', (int) strtotime($i['paid_at'] . ' UTC')) : ''); $amt = IQU_Pricing::format($paid);
-            } elseif (in_array($i['status'], ['open', 'failed'], true)) {
-                $what = 'Not paid yet'; $amt = IQU_Pricing::format($due);
-            } else {
-                $what = ucfirst((string) $i['status']); $amt = IQU_Pricing::format($due);
-            }
-            $receipt = '';
-            foreach (['hosted_invoice_url', 'invoice_pdf'] as $k) {
-                $link = IQU_Billing_History::safe_url($i[$k] ?? '');
-                if ($link !== '') { $receipt = '<a rel="noopener noreferrer" href="' . esc_url($link) . '">Receipt</a>'; break; }
-            }
-            $rows .= '<div class="row"><div>' . esc_html($month) . '<br><span class="muted small">' . esc_html($what) . '</span></div><div class="amt">' . esc_html($amt) . ($receipt ? '<br><span class="small">' . $receipt . '</span>' : '') . '</div></div>';
+        $tones = ['green' => 'good', 'red' => 'bad', 'gold' => 'warn', 'neutral' => 'muted'];
+        $years = [];
+        foreach (IQU_Billing_History::for_account((int) $acc['id']) as $i) {
+            $years[substr((string) $i['period_month'], 0, 4) ?: '—'][] = $i;
         }
-        $h .= $rows !== '' ? $rows : '<p class="muted small">No payments yet. Every payment will appear here with a receipt.</p>';
-        return $h . '</div>';
+
+        $h = '<section class="card"><h2 class="label">Payment history</h2>';
+        if (!$years) {
+            return $h . '<p class="muted small">No payments yet. Every payment will appear here with a receipt.</p></section>';
+        }
+        foreach ($years as $year => $rows) {
+            $h .= '<h3 class="year">' . esc_html($year) . '</h3><ul class="hist">';
+            foreach ($rows as $i) {
+                [$label, $tone] = IQU_Billing_History::badge($i);
+                $paid = in_array($i['status'], ['paid', 'refunded'], true);
+                $amt  = $paid ? (float) $i['amount_paid'] : (float) $i['amount_due'];
+                if ($paid && (float) $i['amount_due'] > 0) {
+                    $when = $i['paid_at'] ? 'Paid ' . gmdate('j M', (int) strtotime($i['paid_at'] . ' UTC')) : 'Paid';
+                } elseif ($paid) {
+                    $when = 'Nothing to pay';
+                } elseif (in_array($i['status'], ['open', 'failed'], true)) {
+                    $when = 'Not paid yet';
+                } else {
+                    $when = '';
+                }
+                $links = '';
+                $receipt = IQU_Billing_History::safe_url($i['hosted_invoice_url'] ?? '');
+                $pdf     = IQU_Billing_History::safe_url($i['invoice_pdf'] ?? '');
+                if ($receipt !== '') $links .= '<a class="link-btn" rel="noopener noreferrer" href="' . esc_url($receipt) . '">Receipt</a>';
+                if ($pdf !== '')     $links .= '<a class="link-btn" rel="noopener noreferrer" href="' . esc_url($pdf) . '">Invoice</a>';
+                $h .= '<li class="hist-row"><div class="hist-main"><strong>' . esc_html(IQU_Billing_History::month_label((string) $i['period_month'])) . '</strong>'
+                    . '<span class="badge ' . ($tones[$tone] ?? 'muted') . '">' . esc_html($label) . '</span></div>'
+                    . '<div class="hist-meta"><span class="amt">' . esc_html(IQU_Pricing::format($amt)) . '</span>'
+                    . ($when !== '' ? '<span class="muted small">' . esc_html($when) . '</span>' : '')
+                    . ((float) $i['amount_refunded'] > 0 && $i['status'] === 'paid' ? '<span class="muted small">Refunded ' . esc_html(IQU_Pricing::format((float) $i['amount_refunded'])) . '</span>' : '')
+                    . '</div>'
+                    . ($links !== '' ? '<div class="hist-links">' . $links . '</div>' : '')
+                    . '</li>';
+            }
+            $h .= '</ul>';
+        }
+        return $h . '</section>';
+    }
+
+    /** "How billing works": plain answers, no JavaScript (<details>). */
+    private static function how_it_works(): string
+    {
+        $items = [
+            'When am I charged?' =>
+                'Tuition is taken automatically once a month, on the same date as your first payment. You get a receipt by email each time, and every payment also appears on this page.',
+            'Changing your card or bank' =>
+                'Press "Change bank or card" on this page. It opens Stripe\'s secure page, and the new card or bank is used from the next payment.',
+            'If a payment fails' =>
+                'Nothing is lost and classes continue. We try again automatically over the next few days. You can also pay now from this page or switch to a different card or bank — and if paying is difficult, just talk to us.',
+            'Pausing or stopping' =>
+                'Please tell us at least 7 days before your next payment date if you need to pause or stop classes, and we will update your billing.',
+        ];
+        $h = '<section class="card"><h2 class="label">How billing works</h2>';
+        foreach ($items as $q => $a) {
+            $h .= '<details><summary>' . esc_html($q) . '</summary><p class="small">' . esc_html($a) . '</p></details>';
+        }
+        $h .= '<details><summary>Refunds</summary><p class="small">Refunds follow our <a href="' . esc_url(home_url('/tuition-refund-policy/')) . '">Tuition, Payment &amp; Refund Policy</a>. If you think you were charged by mistake, write to us at ' . self::contact_link() . ' and we will look into it.</p></details>';
+        return $h . '</section>';
     }
 
     /** Newest unpaid invoice with a Stripe payment page, from the local payment history. */
@@ -442,26 +530,69 @@ class IQU_Billing_Portal
             $face .= '@font-face{font-family:"Poppins";font-style:normal;font-weight:' . $weight . ';font-display:swap;src:url("' . esc_url($fonts . 'Poppins-' . $file . '.ttf') . '") format("truetype")}';
         }
 
-        // Theme palette: deep blue #1E4D6B, dark navy #15303F, slate #414B58, light gray #F1F1F4,
-        // ice blue #EFF8FC, mint #EDFAEE, forest green #0A553A, pale gray #E5E7EB. Red only for payment problems.
+        // Theme palette: deep blue #1E4D6B, vibrant orange #F7941D (accent only, never text),
+        // dark navy #15303F, slate #414B58, light gray #F1F1F4, ice blue #EFF8FC, mint #EDFAEE,
+        // forest green #0A553A, pale gray #E5E7EB. Red only for payment problems.
+        // Mobile first (360px+), 720px max, tap targets ≥ 44px, visible keyboard focus.
         return $face
-            . 'body{margin:0;background:#F1F1F4;color:#15303F;font:16px/1.55 "Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}'
-            . 'strong,b{font-weight:600}'
-            . '.wrap{max-width:680px;margin:0 auto;padding:0 20px}header{background:#fff;border-bottom:1px solid #E5E7EB;margin-bottom:28px}'
-            . '.head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px}.brand{font-weight:600;font-size:19px;color:#1E4D6B}'
-            . 'h1{font-size:27px;font-weight:600;line-height:1.25;margin:4px 0 20px;color:#15303F}h1 .for{display:block;font-size:17px;font-weight:400;color:#414B58;margin-top:4px}'
-            . '.muted{color:#414B58}.small{font-size:14px}.center{text-align:center}'
-            . '.card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:20px 22px;margin:0 0 18px}'
-            . '.label{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#414B58;margin-bottom:8px}'
-            . '.row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #E5E7EB}.row:first-of-type{border-top:0}.row.sub{padding-top:0;border-top:0}'
-            . '.row.total{font-weight:600;font-size:18px;color:#1E4D6B;border-top:2px solid #E5E7EB;margin-top:6px;padding-top:12px}.amt{text-align:right;white-space:nowrap}.strike{text-decoration:line-through;color:#414B58;font-weight:400}'
-            . '.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:14px 0;padding:14px 16px;background:#EFF8FC;border-radius:10px}'
-            . '.box{border-radius:12px;padding:14px 18px;margin:0 0 18px}.box.good{background:#EDFAEE;border:1px solid #EDFAEE;border-left:4px solid #0A553A;color:#0A553A}.box.bad{background:#fbece6;border:1px solid #ebc9bb;border-left:4px solid #8a2424;color:#7a2e12}'
-            . '.pill{display:inline-block;padding:3px 12px;border-radius:999px;font-size:14px;font-weight:500}.pill.good{background:#EDFAEE;color:#0A553A;border:1px solid #0A553A}.pill.bad{background:#8a2424;color:#fff}.pill.muted{background:#F1F1F4;color:#414B58;border:1px solid #E5E7EB}'
-            . '.btn{display:inline-block;background:#1E4D6B;color:#fff;border:1px solid #1E4D6B;border-radius:9px;padding:13px 22px;font-family:inherit;font-weight:600;font-size:16px;line-height:1.2;cursor:pointer;text-decoration:none;min-height:46px;box-sizing:border-box}'
-            . '.btn:hover{background:#15303F;border-color:#15303F}.btn:focus-visible,input:focus-visible{outline:3px solid #F7941D;outline-offset:2px}'
-            . '.btn.wide{width:100%;margin:4px 0 8px}.btn.ghost{background:#fff;color:#1E4D6B;border:1px solid #1E4D6B}.btn.ghost:hover{background:#EFF8FC}.actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}'
-            . 'label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}input[type=email]{width:100%;box-sizing:border-box;height:48px;padding:0 14px;font-family:inherit;font-size:16px;color:#15303F;background:#fff;border:1px solid #414B58;border-radius:9px;margin-bottom:14px}'
-            . 'a{color:#1E4D6B}footer{padding:24px 20px 40px}footer a{color:#414B58}@media (max-width:480px){h1{font-size:23px}.card{padding:16px}}';
+            . '*,*::before,*::after{box-sizing:border-box}'
+            . 'body{margin:0;background:#F1F1F4;color:#15303F;font:16px/1.6 "Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}'
+            . 'strong,b{font-weight:600}a{color:#1E4D6B}'
+            . '.wrap{max-width:720px;margin:0 auto;padding:0 16px}'
+            . 'header{background:#fff;border-bottom:1px solid #E5E7EB;border-top:4px solid #F7941D;margin-bottom:24px}'
+            . '.head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px}.brand{font-weight:600;font-size:19px;color:#1E4D6B}'
+            . 'h1{font-size:26px;font-weight:600;line-height:1.25;margin:2px 0 20px;color:#15303F}h1 .for{display:block;font-size:17px;font-weight:400;color:#414B58;margin-top:4px}'
+            . '.hello{margin:0;color:#414B58}.lead{font-size:17px;margin:0 0 18px}'
+            . '.muted{color:#414B58}.small{font-size:14px;line-height:1.55}.center{text-align:center}'
+            . '.card{background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:20px;margin:0 0 16px}'
+            . '.label{margin:0 0 12px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#414B58}'
+            // hero by state
+            . '.hero{border-top:4px solid #1E4D6B}.hero.calm{border-top-color:#414B58}'
+            . '.hero.problem{background:#fbece6;border-color:#ebc9bb;border-top-color:#8a2424;color:#7a2e12}'
+            . '.hero.problem .label{color:#7a2e12;font-size:17px;letter-spacing:0;text-transform:none}'
+            . '.hero-top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px 12px}.hero-top .label{margin:0}'
+            . '.big{margin:10px 0 0;font-size:40px;font-weight:600;line-height:1.1;color:#1E4D6B}.big-sub{margin:4px 0 0;font-size:17px;color:#414B58}'
+            . '.hero.problem .big,.hero.problem .big-sub{color:#7a2e12}'
+            . '.facts{display:grid;gap:12px;margin:18px 0;padding:14px 16px;background:#EFF8FC;border-radius:12px}'
+            . '.facts div{margin:0}dt{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#414B58}dd{margin:2px 0 0;font-weight:500}'
+            . '.steps{list-style:none;margin:0 0 18px;padding:0;display:grid;gap:16px}.steps li{display:flex;gap:14px;align-items:flex-start}'
+            . '.steps strong{display:block;font-size:17px}.steps .small{display:block;margin-top:2px}'
+            . '.step-n{flex:0 0 36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;color:#1E4D6B;background:#EFF8FC;border:2px solid #1E4D6B}'
+            // students
+            . '.students{display:grid;gap:10px}.student{display:flex;flex-direction:column;gap:2px;padding:14px 16px;border:1px solid #E5E7EB;border-radius:12px}'
+            . '.student-top{display:flex;justify-content:space-between;gap:12px}.discount{color:#0A553A}'
+            . '.row{display:flex;justify-content:space-between;gap:12px;padding:10px 0}'
+            . '.row.total{font-weight:600;font-size:18px;color:#1E4D6B;border-top:2px solid #E5E7EB;margin-top:12px;padding-top:12px}'
+            . '.amt{text-align:right;white-space:nowrap;font-weight:600}.strike{text-decoration:line-through;color:#414B58;font-weight:400}'
+            // history
+            . '.year{margin:20px 0 8px;font-size:15px;font-weight:600}.label+.year{margin-top:4px}'
+            . '.hist{list-style:none;margin:0;padding:0;border:1px solid #E5E7EB;border-radius:12px}'
+            . '.hist-row{display:grid;gap:6px;padding:12px 14px;border-top:1px solid #E5E7EB}.hist-row:first-child{border-top:0}'
+            . '.hist-main{display:flex;justify-content:space-between;align-items:center;gap:10px}'
+            . '.hist-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}.hist-links{display:flex;flex-wrap:wrap;gap:8px}'
+            . '.link-btn{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;font-size:14px;font-weight:500;color:#1E4D6B;text-decoration:none;background:#fff;border:1px solid #E5E7EB;border-radius:10px}'
+            . '.link-btn:hover{background:#EFF8FC}'
+            . '.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:500;white-space:nowrap}'
+            . '.badge.good{background:#EDFAEE;color:#0A553A}.badge.bad{background:#fbece6;color:#8a2424}.badge.warn{background:#EFF8FC;color:#1E4D6B}.badge.muted{background:#F1F1F4;color:#414B58}'
+            // messages, pills, buttons, form
+            . '.box{border-radius:12px;padding:14px 18px;margin:0 0 16px}.box.good{background:#EDFAEE;border:1px solid #EDFAEE;border-left:4px solid #0A553A;color:#0A553A}'
+            . '.box.bad{background:#fbece6;border:1px solid #ebc9bb;border-left:4px solid #8a2424;color:#7a2e12}'
+            . '.pill{display:inline-block;padding:3px 12px;border-radius:999px;font-size:13px;font-weight:500;white-space:nowrap}'
+            . '.pill.good{background:#EDFAEE;color:#0A553A;border:1px solid #0A553A}.pill.bad{background:#8a2424;color:#fff;border:1px solid #8a2424}.pill.muted{background:#F1F1F4;color:#414B58;border:1px solid #E5E7EB}'
+            . '.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:12px 22px;font-family:inherit;font-size:17px;font-weight:600;line-height:1.2;text-align:center;text-decoration:none;color:#fff;background:#1E4D6B;border:1px solid #1E4D6B;border-radius:12px;cursor:pointer}'
+            . '.btn:hover{background:#15303F;border-color:#15303F}.btn.wide{width:100%;margin:6px 0}'
+            . '.btn.ghost{color:#1E4D6B;background:#fff}.btn.ghost:hover{background:#EFF8FC}'
+            . '.actions{display:flex;flex-wrap:wrap;gap:0 10px;margin:14px 0 6px}.actions>*{flex:1 1 240px}.actions form{margin:0}'
+            . 'a:focus-visible,.btn:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #1E4D6B;outline-offset:3px}'
+            . 'label{display:block;margin-bottom:6px;font-size:15px;font-weight:600}'
+            . 'input[type=email]{width:100%;height:52px;margin-bottom:14px;padding:0 14px;font-family:inherit;font-size:17px;color:#15303F;background:#fff;border:1px solid #414B58;border-radius:12px}'
+            // "How billing works"
+            . 'details{border-top:1px solid #E5E7EB}.label+details{border-top:0}'
+            . 'summary{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:48px;padding:8px 0;font-weight:600;cursor:pointer;list-style:none}'
+            . 'summary::-webkit-details-marker{display:none}summary::after{content:"+";font-size:22px;font-weight:400;color:#1E4D6B}details[open] summary::after{content:"\2212"}'
+            . 'details p{margin:0 0 14px}.help p{margin:0}'
+            . 'footer{padding:24px 16px 40px}footer a{display:inline-block;padding:6px 0;color:#414B58}'
+            . '@media (min-width:640px){.wrap{padding:0 24px}h1{font-size:30px}.card{padding:24px 26px}.big{font-size:46px}'
+            . '.facts{grid-template-columns:1fr 1fr}.students{grid-template-columns:1fr 1fr}}';
     }
 }
