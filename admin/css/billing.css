@@ -758,6 +758,12 @@ th[aria-sort="descending"] .iqu-sort::after {
 }
 
 /* ── Family links, avatars ──────────────────────────────────── */
+.iqu-family-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .iqu-family-link {
   font-weight: 600;
   color: var(--iqu-text1);

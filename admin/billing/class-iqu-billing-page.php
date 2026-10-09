@@ -378,133 +378,33 @@ class IQU_Billing_Page
     }
 
     // ------------------------------------------------------------
-    // Payments tab (filled in once Stripe updates arrive)
+    // Payments tab (admin/billing/class-iqu-billing-payments.php)
     // ------------------------------------------------------------
 
     public static function render_payments(): void
     {
         if (!current_user_can(self::CAP)) wp_die('You do not have permission to view this page.', 403);
-        global $wpdb;
-        $mode = IQU_Stripe::expected_mode();
-        $A    = IQU_Billing_DB::accounts_table();
-        $P    = IQU_Billing_DB::payments_table();
-        $now  = time();
-        $m0   = strtotime(gmdate('Y-m-01 00:00:00') . ' UTC');
-        $lm0  = strtotime(gmdate('Y-m-01 00:00:00', $m0 - DAY_IN_SECONDS) . ' UTC');
+        IQU_Billing_Payments_Screen::render();
+    }
 
-        $this_month = IQU_Billing_DB::paid_between($m0, $now + 60);
-        $last_month = IQU_Billing_DB::paid_between($lm0, $m0);
-        $on_billing = $wpdb->get_row($wpdb->prepare("SELECT COUNT(*) AS n, COALESCE(SUM(net_amount),0) AS t FROM {$A} WHERE mode = %s AND status IN ('free_month','waiting_first_charge','active','past_due')", $mode), ARRAY_A);
-        $upcoming   = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$A} WHERE mode = %s AND status IN ('free_month','waiting_first_charge','active') AND next_charge_at IS NOT NULL AND next_charge_at < %s ORDER BY next_charge_at ASC LIMIT 100", $mode, gmdate('Y-m-d H:i:s', $now + 14 * DAY_IN_SECONDS)), ARRAY_A) ?: [];
-        $problems   = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$A} WHERE mode = %s AND status IN ('past_due','unpaid','paused') ORDER BY updated_at DESC", $mode), ARRAY_A) ?: [];
-        $recent     = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$P} WHERE mode = %s ORDER BY paid_at DESC LIMIT 50", $mode), ARRAY_A) ?: [];
-        $up_total   = array_sum(array_map(fn($a) => (float) $a['net_amount'], $upcoming));
-        $dash       = 'https://dashboard.stripe.com/' . ($mode === 'test' ? 'test/' : '') . 'invoices/';
-        $msg        = fn(int $id) => esc_url(admin_url('admin.php?page=' . IQU_Billing_Send::MSG_SLUG . '&account=' . $id));
-        $day        = fn(?string $utc) => $utc ? wp_date('j M Y', strtotime($utc . ' UTC')) : '—';
-        ?>
-        <div class="wrap iqu-admin-wrap iqu-billing">
-            <?php self::tabs('payments'); ?>
-            <?php if ($mode === 'test'): ?><div class="notice notice-warning inline"><p><strong>Test mode.</strong> These are test payments, not real money.</p></div><?php endif; ?>
+    /** The family page in the admin (Message screen) for one billing account. */
+    public static function family_url(int $account_id): string
+    {
+        return admin_url('admin.php?page=' . IQU_Billing_Send::MSG_SLUG . '&account=' . $account_id);
+    }
 
-            <!-- ── Metric Cards ─────────────────────────────── -->
-            <div class="iqu-metrics">
-                <?php foreach ([
-                    ['Collected this month', IQU_Pricing::format($this_month['total']), $this_month['count'] . ((int) $this_month['count'] === 1 ? ' payment' : ' payments'), 'revenue'],
-                    ['Last month', IQU_Pricing::format($last_month['total']), $last_month['count'] . ((int) $last_month['count'] === 1 ? ' payment' : ' payments'), 'total'],
-                    ['On billing', (int) $on_billing['n'] . ((int) $on_billing['n'] === 1 ? ' family' : ' families'), IQU_Pricing::format((float) $on_billing['t']) . ' a month', 'l1'],
-                    ['Next 14 days', IQU_Pricing::format($up_total), count($upcoming) . (count($upcoming) === 1 ? ' charge expected' : ' charges expected'), 'free'],
-                    ['Payment problems', (string) count($problems), count($problems) ? 'see below' : 'none', 'problem'],
-                ] as [$label, $value, $sub, $accent]): ?>
-                    <div class="iqu-metric<?php echo ($label === 'Payment problems' && $problems) ? ' iqu-metric--alert' : ''; ?>">
-                        <div class="iqu-metric-accent iqu-metric-accent--<?php echo $accent; ?>"></div>
-                        <div class="iqu-metric-num"><?php echo esc_html($value); ?></div>
-                        <div class="iqu-metric-lbl"><?php echo esc_html($label); ?></div>
-                        <div class="iqu-metric-sub"><?php echo esc_html($sub); ?></div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-
-            <!-- ── Needs attention ──────────────────────────── -->
-            <div class="iqu-card">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">Needs attention</span>
-                    <span class="iqu-card-head-badge">Payment problems</span>
-                </div>
-                <?php if (!$problems): ?>
-                    <div class="iqu-empty-state">No payment problems.</div>
-                <?php else: ?>
-                    <div class="iqu-table-wrap">
-                    <table class="iqu-tbl iqu-billing-tbl"><thead><tr><th>Family</th><th>Monthly</th><th>Status</th><th>Detail</th><th></th></tr></thead><tbody>
-                    <?php foreach ($problems as $a): ?>
-                        <tr>
-                            <td><?php echo esc_html(self::family_label($a)); ?></td>
-                            <td><?php echo esc_html(IQU_Pricing::format((float) $a['net_amount'])); ?></td>
-                            <td><span class="iqu-chip iqu-chip--<?php echo self::status_tone($a['status']); ?>"><?php echo esc_html(IQU_Billing_Send::status_label($a['status'])); ?></span></td>
-                            <td class="iqu-billing-wrap"><?php echo esc_html($a['last_failure_reason'] ?: '—'); ?></td>
-                            <td class="iqu-td-actions"><a class="iqu-action-btn iqu-action-btn--view" href="<?php echo $msg((int) $a['id']); ?>">Message</a></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody></table>
-                    </div>
-                <?php endif; ?>
-            </div>
-
-            <!-- ── Upcoming charges ─────────────────────────── -->
-            <div class="iqu-card">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">Expected in the next 14 days</span>
-                    <span class="iqu-card-head-badge">Upcoming charges</span>
-                </div>
-                <?php if (!$upcoming): ?>
-                    <div class="iqu-empty-state">No charges in the next 14 days.</div>
-                <?php else: ?>
-                    <div class="iqu-table-wrap">
-                    <table class="iqu-tbl iqu-billing-tbl"><thead><tr><th>Date</th><th>Family</th><th>Amount</th><th>Paying from</th><th></th></tr></thead><tbody>
-                    <?php foreach ($upcoming as $a): ?>
-                        <tr>
-                            <td class="iqu-td-date"><?php echo esc_html($day($a['next_charge_at'])); ?></td>
-                            <td><?php echo esc_html(self::family_label($a)); ?><?php echo $a['status'] === 'free_month' ? ' <span class="iqu-billing-sub">(end of free month)</span>' : ''; ?></td>
-                            <td><?php echo esc_html(IQU_Pricing::format((float) $a['net_amount'])); ?></td>
-                            <td><?php echo esc_html($a['payment_method_label'] ?: '—'); ?></td>
-                            <td class="iqu-td-actions"><a class="iqu-action-btn iqu-action-btn--view" href="<?php echo $msg((int) $a['id']); ?>">Message</a></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody></table>
-                    </div>
-                <?php endif; ?>
-            </div>
-
-            <!-- ── Recent payments ──────────────────────────── -->
-            <div class="iqu-card">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">Recent payments</span>
-                    <span class="iqu-card-head-badge">Last 50</span>
-                </div>
-                <?php if (!$recent): ?>
-                    <div class="iqu-empty-state">No payments received yet.</div>
-                <?php else: ?>
-                    <div class="iqu-table-wrap">
-                    <table class="iqu-tbl iqu-billing-tbl"><thead><tr><th>Paid</th><th>Family</th><th>Amount</th><th>Invoice</th></tr></thead><tbody>
-                    <?php foreach ($recent as $p):
-                        $a = IQU_Billing_DB::get_account((int) $p['account_id']); ?>
-                        <tr>
-                            <td class="iqu-td-date"><?php echo esc_html($day($p['paid_at'])); ?></td>
-                            <td><?php echo $a ? esc_html(self::family_label($a)) : '—'; ?></td>
-                            <td><?php echo esc_html(IQU_Pricing::format((float) $p['amount'])); ?></td>
-                            <td class="iqu-td-actions"><a class="iqu-action-btn" href="<?php echo esc_url($dash . rawurlencode($p['stripe_invoice_id'])); ?>" target="_blank" rel="noopener noreferrer">View in Stripe</a></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody></table>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
-        <?php
+    /** "SK" from "Sara Khan" (avatar initials). */
+    public static function initials(string $name): string
+    {
+        $out = '';
+        foreach (preg_split('/\s+/', trim($name)) ?: [] as $w) {
+            if ($w !== '' && mb_strlen($out) < 2) $out .= mb_strtoupper(mb_substr($w, 0, 1));
+        }
+        return $out !== '' ? $out : '?';
     }
 
     /** "Sara Khan — Ayesha K., Bilal K." */
-    private static function family_label(array $acc): string
+    public static function family_label(array $acc): string
     {
         $names = [];
         foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {

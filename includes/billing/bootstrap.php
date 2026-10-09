@@ -46,6 +46,7 @@ add_action('plugins_loaded', function () {
         require_once $adm . 'class-iqu-billing-import.php';
         require_once $adm . 'class-iqu-billing-send.php';
         require_once $adm . 'class-iqu-billing-page.php';
+        require_once $adm . 'class-iqu-billing-payments.php';
         IQU_Billing_Page::init();
         IQU_Billing_Settings::init();
         IQU_Billing_Add_Student::init();

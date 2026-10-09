@@ -248,6 +248,20 @@ class IQU_Billing_History
         return $type !== '' ? ucfirst(str_replace('_', ' ', $type)) : '';
     }
 
+    /** Status badge for a history row: [label, chip tone] (tones: green, gold, red, neutral). */
+    public static function badge(array $r): array
+    {
+        switch ((string) $r['status']) {
+            case 'paid':          return (float) $r['amount_due'] <= 0 ? ['Free month', 'neutral'] : ['Paid', 'green'];
+            case 'refunded':      return ['Refunded', 'neutral'];
+            case 'failed':        return ['Failed', 'red'];
+            case 'uncollectible': return ['Unpaid', 'red'];
+            case 'open':          return ['Open', 'gold'];
+            case 'void':          return ['Void', 'neutral'];
+        }
+        return [ucfirst((string) $r['status']), 'neutral'];
+    }
+
     /** Group a method label for the Payments chart: card brand, "US bank", "Link" or "Other". */
     public static function method_group(string $label): string
     {
