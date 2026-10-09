@@ -899,6 +899,12 @@ class IQU_Form
 
         $clean = $validator->get_clean();
 
+        // US and Canada only (Billing Settings → Enrollment → Country check). Nothing is saved when blocked.
+        $blocked = IQU_Eligibility::apply($clean, 'free');
+        if ($blocked) {
+            wp_send_json_error($blocked);
+        }
+
         // Duplicate email check within this form type
         // if (IQU_Database::email_exists($clean['email'], IQU_Database::FORM_FREE)) {
         //   wp_send_json_error([

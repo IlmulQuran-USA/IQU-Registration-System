@@ -42,6 +42,211 @@
             })
         : Promise.resolve(null);
 
+    // ── 3.3.0: "US and Canada only" modal + waitlist (Enforce mode only) ──
+    const locationModal = (function () {
+      let root = null;
+      let lastFocus = null;
+      let program = "free";
+      let country = "";
+      let shownFor = "";
+
+      function el(tag, attrs, text) {
+        const node = document.createElement(tag);
+        Object.keys(attrs || {}).forEach(function (k) {
+          node.setAttribute(k, attrs[k]);
+        });
+        if (text) node.textContent = text;
+        return node;
+      }
+
+      function build() {
+        root = el("div", {
+          class: "iqu-geo-modal",
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-labelledby": "iqu-geo-title",
+          "aria-describedby": "iqu-geo-text",
+          hidden: "",
+        });
+        const backdrop = el("div", { class: "iqu-geo-backdrop" });
+        const dialog = el("div", { class: "iqu-geo-dialog", tabindex: "-1" });
+        const close = el("button", {
+          type: "button",
+          class: "iqu-geo-close",
+          "aria-label": "Close",
+        }, "×");
+        const icon = el("p", { class: "iqu-geo-icon", "aria-hidden": "true" }, "🌍");
+        const title = el("h2", { id: "iqu-geo-title", class: "iqu-geo-title" }, enrollCfg.block_title || "We are not in your country yet");
+        const text = el("p", { id: "iqu-geo-text", class: "iqu-geo-text" }, enrollCfg.block_message || "");
+
+        const form = el("form", { class: "iqu-geo-form", novalidate: "" });
+        const lEmail = el("label", { for: "iqu-geo-email" }, "Email ");
+        const email = el("input", { type: "email", id: "iqu-geo-email", name: "email", required: "", autocomplete: "email", maxlength: "191", inputmode: "email" });
+        const lName = el("label", { for: "iqu-geo-name" }, "Name ");
+        lName.appendChild(el("span", { class: "iqu-geo-optional" }, "(optional)"));
+        const name = el("input", { type: "text", id: "iqu-geo-name", name: "name", autocomplete: "name", maxlength: "150" });
+        const msg = el("p", { class: "iqu-geo-msg", role: "status", "aria-live": "polite" });
+        const submit = el("button", { type: "submit", class: "iqu-geo-submit" }, "Email me when classes open");
+        form.append(lEmail, email, lName, name, msg, submit);
+
+        dialog.append(close, icon, title, text, form);
+        const url = String(enrollCfg.contact_url || "");
+        if (/^https:\/\//.test(url)) {
+          const p = el("p", { class: "iqu-geo-contact" });
+          p.appendChild(el("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, enrollCfg.contact_label || ""));
+          dialog.appendChild(p);
+        }
+        root.append(backdrop, dialog);
+        document.body.appendChild(root);
+
+        backdrop.addEventListener("click", hide);
+        close.addEventListener("click", hide);
+        root.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            hide();
+            return;
+          }
+          if (e.key !== "Tab") return;
+          const items = Array.prototype.filter.call(
+            dialog.querySelectorAll("button, a[href], input"),
+            function (n) {
+              return !n.disabled && !n.hidden;
+            },
+          );
+          if (!items.length) return;
+          const first = items[0];
+          const last = items[items.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        });
+
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          const value = email.value.trim();
+          email.removeAttribute("aria-invalid");
+          msg.className = "iqu-geo-msg";
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            email.setAttribute("aria-invalid", "true");
+            msg.classList.add("is-error");
+            msg.textContent = "Please enter a valid email address.";
+            email.focus();
+            return;
+          }
+          submit.disabled = true;
+          msg.textContent = "Sending…";
+          getRecaptchaToken("iqu_waitlist")
+            .catch(function () {
+              return "";
+            })
+            .then(function (token) {
+              return fetch(enrollCfg.waitlist_url, {
+                method: "POST",
+                credentials: "same-origin",
+                cache: "no-store",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-WP-Nonce": enrollCfg.rest_nonce || "",
+                },
+                body: JSON.stringify({
+                  nonce: enrollCfg.waitlist_nonce || "",
+                  recaptcha_token: token,
+                  email: value,
+                  name: name.value.trim(),
+                  program: program,
+                  country: country,
+                  source: "modal",
+                }),
+              });
+            })
+            .then(function (r) {
+              return r.json().catch(function () {
+                return {};
+              });
+            })
+            .then(function (d) {
+              submit.disabled = false;
+              if (d && d.ok) {
+                msg.classList.add("is-ok");
+                msg.textContent = d.message || "Thank you!";
+                form.querySelectorAll("input").forEach(function (n) {
+                  n.disabled = true;
+                });
+                submit.hidden = true;
+              } else {
+                msg.classList.add("is-error");
+                msg.textContent = (d && d.message) || "Something went wrong. Please try again.";
+              }
+            })
+            .catch(function () {
+              submit.disabled = false;
+              msg.classList.add("is-error");
+              msg.textContent = "No response from the server. Please try again.";
+            });
+        });
+      }
+
+      function show(prog, ctry) {
+        if (enrollCfg.check !== "enforce") return;
+        program = prog || "free";
+        country = /^[A-Za-z]{2}$/.test(ctry || "") ? String(ctry).toUpperCase() : "";
+        if (!root) build();
+        if (!root.hidden) return;
+        lastFocus = document.activeElement;
+        root.hidden = false;
+        document.body.classList.add("iqu-geo-open");
+        root.querySelector(".iqu-geo-dialog").focus();
+      }
+
+      function hide() {
+        if (!root || root.hidden) return;
+        root.hidden = true;
+        document.body.classList.remove("iqu-geo-open");
+        if (lastFocus && typeof lastFocus.focus === "function") lastFocus.focus();
+      }
+
+      /** Show once per reason (a different country or number shows it again). */
+      function showOnce(prog, ctry, key) {
+        if (shownFor === key) return;
+        shownFor = key;
+        show(prog, ctry);
+      }
+
+      return { show: show, showOnce: showOnce };
+    })();
+
+    function programOfForm($form) {
+      const id = ($form && $form.attr("id")) || "";
+      if (id === "iqu-summer-reg-form") return "summer";
+      if (id === "iqu-weekend-reg-form") return "weekend";
+      return "free";
+    }
+
+    /** "US" / "CA" when a +1 number has a US or Canadian area code (NANPA list from the server). */
+    function nanpCountry(e164) {
+      const m = /^\+1(\d{3})/.exec(String(e164 || "").replace(/[^\d+]/g, ""));
+      if (!m || !enrollCfg.nanp) return "";
+      const npa = parseInt(m[1], 10);
+      if ((enrollCfg.nanp.US || []).indexOf(npa) !== -1) return "US";
+      if ((enrollCfg.nanp.CA || []).indexOf(npa) !== -1) return "CA";
+      return "";
+    }
+
+    // Visitor's IP country is outside the US and Canada → modal (Enforce only).
+    if (enrollCfg.check === "enforce") {
+      geoReady.then(function (geo) {
+        const $f = $("#iqu-reg-form, #iqu-summer-reg-form, #iqu-weekend-reg-form").first();
+        if (geo && geo.allowed === false && $f.length) {
+          locationModal.showOnce(programOfForm($f), geo.country, "ip:" + geo.country);
+        }
+      });
+    }
+
     function getRecaptchaToken(action) {
       return new Promise(function (resolve, reject) {
         if (typeof grecaptcha === "undefined" || !grecaptcha.ready) {
@@ -147,6 +352,32 @@
             showFieldError($form, name, "");
           }
           $(input).removeClass("iqu-invalid");
+        });
+
+        // Enforce: a country other than the US / Canada, or a +1 number with a
+        // non-US/Canadian area code (e.g. Jamaica 876), opens the modal.
+        $(input).on("countrychange blur", function () {
+          if (enrollCfg.check !== "enforce") return;
+          const $f = $(input).closest(".iqu-form");
+          let iso = "";
+          try {
+            iso = String((iti.getSelectedCountryData() || {}).iso2 || "").toLowerCase();
+          } catch (e) {
+            iso = "";
+          }
+          if (iso && iso !== "us" && iso !== "ca") {
+            locationModal.showOnce(programOfForm($f), iso, "phone:" + iso);
+            return;
+          }
+          let number = "";
+          try {
+            number = input.value ? String(iti.getNumber() || "") : "";
+          } catch (e) {
+            number = "";
+          }
+          if (/^\+1\d{3}/.test(number) && !nanpCountry(number)) {
+            locationModal.showOnce(programOfForm($f), "", "npa:" + number.slice(0, 5));
+          }
         });
       });
     }
@@ -1593,6 +1824,9 @@
 
             onSuccess(data);
           } else {
+            if (response.data && response.data.code === "location_blocked") {
+              locationModal.show(response.data.program || programOfForm($form), response.data.country || "");
+            }
             if (response.data && response.data.errors) {
               showFieldErrors($form, response.data.errors);
               scrollToFirstError($form);

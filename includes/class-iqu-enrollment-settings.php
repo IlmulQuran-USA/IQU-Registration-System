@@ -63,10 +63,41 @@ class IQU_Enrollment_Settings
     /** Settings form.js needs (printed as IQU_ENROLL). Nothing visitor-specific, so cached pages stay correct. */
     public static function js_config(): array
     {
+        $contact = self::travel_contact();
         return [
-            'check'   => self::country_mode(),
-            'geo_url' => esc_url_raw(rest_url('iqu/v1/geo')),
+            'check'          => self::country_mode(),
+            'geo_url'        => esc_url_raw(rest_url('iqu/v1/geo')),
+            'waitlist_url'   => esc_url_raw(rest_url('iqu/v1/waitlist')),
+            'waitlist_nonce' => wp_create_nonce('iqu_waitlist'),
+            'rest_nonce'     => wp_create_nonce('wp_rest'),
+            'nanp'           => IQU_Eligibility::js_nanp(),
+            'block_title'    => 'We are not in your country yet',
+            'block_message'  => IQU_Eligibility::block_message(),
+            'contact_url'    => $contact['url'],
+            'contact_label'  => $contact['label'],
         ];
+    }
+
+    /**
+     * "Live in the US or Canada and travelling?" link under the modal.
+     * IQU_CONTACT_WHATSAPP (optional, wp-config.php): a phone number or a wa.me link.
+     * Without it, Facebook Messenger (IQU_MESSENGER_URL) is used.
+     * @return array{url:string, label:string}
+     */
+    public static function travel_contact(): array
+    {
+        $text = "Assalamu alaikum. I live in the US or Canada and I am travelling right now. I would like to enroll at Ilm-ul-Quran USA.";
+        $wa = defined('IQU_CONTACT_WHATSAPP') ? trim((string) IQU_CONTACT_WHATSAPP) : '';
+        if ($wa !== '') {
+            if (preg_match('#^https://(wa\.me|api\.whatsapp\.com)/#i', $wa)) {
+                $url = strpos($wa, 'text=') === false ? add_query_arg('text', rawurlencode($text), $wa) : $wa;
+            } else {
+                $digits = preg_replace('/\D/', '', $wa);
+                $url = $digits !== '' ? 'https://wa.me/' . $digits . '?text=' . rawurlencode($text) : '';
+            }
+            if ($url !== '') return ['url' => $url, 'label' => 'Live in the US or Canada and travelling? Message us on WhatsApp'];
+        }
+        return ['url' => IQU_MESSENGER_URL, 'label' => 'Live in the US or Canada and travelling? Message us on Facebook Messenger'];
     }
 
     /** Save the switches from a posted form. Unknown values keep the current setting. */

@@ -467,6 +467,12 @@ class IQU_Weekend_Form
         }
         $clean = $validator->get_clean();
 
+        // US and Canada only (Billing Settings → Enrollment → Country check). Nothing is saved when blocked.
+        $blocked = IQU_Eligibility::apply($clean, 'weekend');
+        if ($blocked) {
+            wp_send_json_error($blocked);
+        }
+
         // 5. Insert
         $reg_id = IQU_Database::insert_registration($clean);
         if (!$reg_id) {

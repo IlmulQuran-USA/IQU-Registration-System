@@ -183,6 +183,15 @@ class IQU_Database
         'reminders_sent'     => 'TINYINT(3) UNSIGNED NOT NULL DEFAULT 0',
     ];
 
+    /**
+     * True when the 3.3.0 columns are verified (iqu_db_version is bumped only after that).
+     * New columns are written only then, so a failed upgrade can never make an insert fail.
+     */
+    public static function schema_ready(): bool
+    {
+        return get_option('iqu_db_version') === IQU_VERSION;
+    }
+
     public static function waitlist_table(): string
     {
         global $wpdb;

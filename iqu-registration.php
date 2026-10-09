@@ -110,6 +110,8 @@ require_once IQU_PLUGIN_DIR . 'includes/class-iqu-coupon-db.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-coupon.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-enrollment-settings.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-geo.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-eligibility.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-waitlist.php';
 
 // 💳 Monthly tuition billing (Stripe) — see includes/billing/bootstrap.php
 require_once IQU_PLUGIN_DIR . 'includes/billing/bootstrap.php';
@@ -147,6 +149,8 @@ add_action('plugins_loaded', function () {
   IQU_Notifier::schedule();
   IQU_Geo::schedule();
   IQU_Geo::init();
+  IQU_Waitlist::init();
+  IQU_Eligibility::init();
 
   new IQU_Form();
   new IQU_Summer_Form();
@@ -161,7 +165,9 @@ add_action('plugins_loaded', function () {
     new IQU_Zeffy_Admin();
     new IQU_Coupon_Admin();
     require_once IQU_PLUGIN_DIR . 'admin/class-iqu-enrollment-admin.php';
+    require_once IQU_PLUGIN_DIR . 'admin/class-iqu-waitlist-admin.php';
     IQU_Enrollment_Admin::init();
+    IQU_Waitlist_Admin::init();
   }
 });
 
