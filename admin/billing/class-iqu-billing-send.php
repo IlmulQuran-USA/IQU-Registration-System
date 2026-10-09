@@ -428,8 +428,10 @@ class IQU_Billing_Send
     {
         $acc = self::account_for_action(self::A_SYNC);
         $r   = IQU_Billing_Sync::sync($acc);
+        $n   = $r['ok'] ? IQU_Billing_History::refresh_account($r['account']) : null;
         self::notice($r['ok']
-            ? ['type' => 'success', 'items' => ['Synced from Stripe. Status: ' . self::status_label($r['new']) . ($r['old'] !== $r['new'] ? ' (was: ' . self::status_label($r['old']) . ')' : '') . '.']]
+            ? ['type' => 'success', 'items' => ['Synced from Stripe. Status: ' . self::status_label($r['new']) . ($r['old'] !== $r['new'] ? ' (was: ' . self::status_label($r['old']) . ')' : '') . '.'
+                . ($n === null ? ' Payment history could not be read.' : ' Payment history: ' . $n . ' invoices.')]]
             : ['type' => 'error', 'items' => ['Could not sync: ' . $r['error']]]);
         self::to_message((int) $acc['id']);
     }

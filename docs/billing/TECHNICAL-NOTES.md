@@ -60,6 +60,19 @@ wp-config.php. Changing the salts invalidates every family's link.
 
 Code pins Stripe-Version 2025-09-30.clover for its own API calls.
 
+### Payment history (billing 1.1.0, DB 1.2.0)
+
+- `{prefix}iqu_billing_payments` now holds one row per invoice: paid, failed, open, void,
+  uncollectible or refunded, with tuition month, amounts due/paid/refunded, method,
+  receipt and invoice links, attempts and failure reason (`includes/class-iqu-billing-history.php`).
+- The webhook listens to a 10th event, **`charge.refunded`**. Add it to every Stripe webhook
+  destination (test now, live when it is created); without it refunds still arrive through
+  Sync, Sync all and Backfill.
+- Settings → Sync with Stripe → **Backfill payment history** reads every invoice of every
+  family once. Run it after deploying 1.1.0; it is safe to run again.
+- Admin pages and the family page read this table only; Stripe is called by the webhook,
+  Sync, Sync all and Backfill.
+
 ## Decisions
 
 - Sibling discount: NO. Siblings pay the full fee each, but are charged together in one monthly payment.

@@ -28,6 +28,7 @@ add_action('plugins_loaded', function () {
     require_once $inc . 'class-iqu-billing-pricing.php';
     require_once $inc . 'class-iqu-billing-service.php';
     require_once $inc . 'class-iqu-billing-sync.php';
+    require_once $inc . 'class-iqu-billing-history.php';
     require_once $inc . 'class-iqu-billing-notify.php';
     require_once $inc . 'class-iqu-billing-webhook.php';
     require_once $inc . 'class-iqu-billing-summary.php';

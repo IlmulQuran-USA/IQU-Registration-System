@@ -33,6 +33,7 @@ class IQU_Billing_Webhook
         'invoice.paid',
         'invoice.payment_failed',
         'invoice.payment_action_required',
+        'charge.refunded',
     ];
 
     public static function init(): void
@@ -157,6 +158,19 @@ class IQU_Billing_Webhook
                     'last_failure_reason' => 'The bank asked the family to confirm the payment. Stripe has emailed them a link.',
                 ]);
                 break;
+
+            case 'charge.refunded':
+                // Payment history only: re-read the refunded charge's invoice from Stripe.
+                $inv_id = IQU_Billing_History::invoice_id_for_charge($obj);
+                if ($inv_id === '' || !IQU_Billing_History::refresh_invoice($inv_id, $acc)) {
+                    IQU_Billing_History::refresh_account($acc);
+                }
+                break;
+        }
+
+        // Payment history: store the invoice as Stripe has it now. Never throws.
+        if (in_array($event['type'], ['invoice.paid', 'invoice.payment_failed', 'invoice.payment_action_required'], true)) {
+            IQU_Billing_History::refresh_invoice((string) ($obj['id'] ?? ''), IQU_Billing_DB::get_account($id) ?: $acc);
         }
 
         if (in_array($sync['new'], ['unpaid', 'paused', 'canceled'], true) && $sync['new'] !== $sync['old']) {

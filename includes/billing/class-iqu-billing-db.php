@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) exit;
  */
 class IQU_Billing_DB
 {
-    public const DB_VERSION = '1.1.0';
+    public const DB_VERSION = '1.2.0';
     private const OPT_VERSION = 'iqu_billing_db_version';
 
     /** Columns update_account() may change, with their formats. */
@@ -149,22 +149,110 @@ class IQU_Billing_DB
             KEY account_id (account_id)
         ) {$charset};");
 
+        // Payment history (1.2.0): one row per Stripe invoice — paid, failed, open, void,
+        // uncollectible or refunded. Created or extended through apply_schema() (PHP 8.5 safe).
+        // Index names and definitions match the 1.1.0 table exactly, so dbDelta adds no duplicates.
         $payments = self::payments_table();
-        $wpdb->query("CREATE TABLE IF NOT EXISTS {$payments} (
+        IQU_Database::apply_schema($payments, "CREATE TABLE {$payments} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             stripe_invoice_id VARCHAR(64) NOT NULL,
             account_id BIGINT(20) UNSIGNED NOT NULL,
             mode VARCHAR(4) NOT NULL DEFAULT 'test',
             amount DECIMAL(8,2) NOT NULL DEFAULT 0.00,
-            paid_at DATETIME NOT NULL,
+            paid_at DATETIME DEFAULT NULL,
             created_at DATETIME NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT '',
+            period_month CHAR(7) NOT NULL DEFAULT '',
+            period_start DATETIME DEFAULT NULL,
+            period_end DATETIME DEFAULT NULL,
+            amount_due DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+            amount_paid DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+            amount_refunded DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+            method_label VARCHAR(60) NOT NULL DEFAULT '',
+            hosted_invoice_url VARCHAR(500) NOT NULL DEFAULT '',
+            invoice_pdf VARCHAR(500) NOT NULL DEFAULT '',
+            receipt_number VARCHAR(64) NOT NULL DEFAULT '',
+            attempt_count SMALLINT(5) UNSIGNED NOT NULL DEFAULT 0,
+            failure_reason VARCHAR(255) NOT NULL DEFAULT '',
+            updated_at DATETIME DEFAULT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY stripe_invoice_id (stripe_invoice_id),
-            KEY mode_paid (mode, paid_at),
-            KEY account_id (account_id)
+            KEY mode_paid (mode,paid_at),
+            KEY account_id (account_id),
+            KEY mode_period (mode,period_month),
+            KEY account_period (account_id,period_month)
         ) {$charset};");
 
+        $problem = self::migrate_payments_120();
+        if ($problem !== '') {
+            // Leave the version behind so the next page load tries again.
+            error_log('IQU Billing: payments table upgrade to ' . self::DB_VERSION . ' not finished — ' . $problem);
+            return;
+        }
+
         update_option(self::OPT_VERSION, self::DB_VERSION, false);
+    }
+
+    /** Columns the 1.2.0 payments table must have. */
+    private const PAYMENT_COLUMNS_120 = [
+        'status', 'period_month', 'period_start', 'period_end', 'amount_due', 'amount_paid',
+        'amount_refunded', 'method_label', 'hosted_invoice_url', 'invoice_pdf', 'receipt_number',
+        'attempt_count', 'failure_reason', 'updated_at',
+    ];
+
+    /** paid_at column metadata from SHOW COLUMNS, keyed by column name. */
+    private static function payment_columns(): array
+    {
+        global $wpdb;
+        $out = [];
+        foreach ((array) $wpdb->get_results('SHOW COLUMNS FROM ' . self::payments_table(), ARRAY_A) as $c) {
+            $out[(string) $c['Field']] = $c;
+        }
+        return $out;
+    }
+
+    /**
+     * 1.2.0 upgrade of the payments table after apply_schema():
+     * dbDelta does not relax NOT NULL, so paid_at is changed explicitly (only when needed),
+     * the result is verified, and rows from the 1.1.0 ledger get their status and amounts.
+     * @return string '' when the table is ready, otherwise the reason.
+     */
+    private static function migrate_payments_120(): string
+    {
+        global $wpdb;
+        $table = self::payments_table();
+
+        $cols = self::payment_columns();
+        if (isset($cols['paid_at']) && strtoupper((string) $cols['paid_at']['Null']) === 'NO') {
+            $wpdb->query("ALTER TABLE {$table} MODIFY paid_at DATETIME NULL DEFAULT NULL");
+        }
+
+        $cols = self::payment_columns();
+        if (!isset($cols['paid_at'])) return 'column paid_at not found';
+        if (strtoupper((string) $cols['paid_at']['Null']) !== 'YES') return 'paid_at is still NOT NULL (' . $wpdb->last_error . ')';
+        $missing = array_diff(self::PAYMENT_COLUMNS_120, array_keys($cols));
+        if ($missing) return 'missing columns: ' . implode(', ', $missing);
+
+        // Rows written by record_payment() before 1.2.0 are paid invoices.
+        // period_month is provisional (month of payment); Backfill replaces it with the invoice period.
+        $tz = wp_timezone();
+        foreach (['test', 'live'] as $mode) {
+            $rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT id, amount, paid_at FROM {$table} WHERE mode = %s AND status = %s",
+                $mode, ''
+            ), ARRAY_A) ?: [];
+            foreach ($rows as $r) {
+                $month = '';
+                if (!empty($r['paid_at'])) {
+                    $month = (new DateTimeImmutable((string) $r['paid_at'], new DateTimeZone('UTC')))->setTimezone($tz)->format('Y-m');
+                }
+                $wpdb->query($wpdb->prepare(
+                    "UPDATE {$table} SET status = %s, amount_paid = amount, amount_due = amount, period_month = %s, updated_at = %s WHERE id = %d AND mode = %s AND status = %s",
+                    'paid', $month, current_time('mysql', true), (int) $r['id'], $mode, ''
+                ));
+            }
+        }
+        return '';
     }
 
     // ------------------------------------------------------------

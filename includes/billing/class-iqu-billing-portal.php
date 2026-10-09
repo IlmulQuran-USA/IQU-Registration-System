@@ -312,9 +312,9 @@ class IQU_Billing_Portal
     private static function failed_box(array $acc, string $url, string $tok): string
     {
         $pay = '';
-        $open = self::invoices($acc, 'open');
-        if ($open && !empty($open[0]['hosted_invoice_url']) && strpos($open[0]['hosted_invoice_url'], 'https://invoice.stripe.com/') === 0) {
-            $pay = '<a class="btn" rel="noopener noreferrer" href="' . esc_url($open[0]['hosted_invoice_url']) . '">Pay ' . esc_html(IQU_Pricing::format(((int) $open[0]['amount_due']) / 100)) . ' now</a> ';
+        $open = self::unpaid_invoice($acc);
+        if ($open) {
+            $pay = '<a class="btn" rel="noopener noreferrer" href="' . esc_url($open['hosted_invoice_url']) . '">Pay ' . esc_html(IQU_Pricing::format((float) $open['amount_due'])) . ' now</a> ';
         }
         return '<div class="box bad"><strong>Your last payment did not go through.</strong><br><span class="small">'
             . ($acc['status'] === 'past_due' ? 'We will try again automatically. You can also pay now, or use a different bank or card.' : 'Please pay now or contact us, and we will sort it out together.')
@@ -325,27 +325,25 @@ class IQU_Billing_Portal
 
     private static function history(array $acc): string
     {
-        $inv = self::invoices($acc);
         $h = '<div class="card"><div class="label">Payment history</div>';
         $rows = '';
-        foreach ($inv as $i) {
-            if (($i['status'] ?? '') === 'draft') continue;
-            $paid  = (int) ($i['amount_paid'] ?? 0);
-            $due   = (int) ($i['amount_due'] ?? 0);
-            $start = (int) ($i['lines']['data'][0]['period']['start'] ?? $i['period_start'] ?? $i['created']);
-            $month = gmdate('F Y', $start);
-            if ($i['status'] === 'paid' && $paid === 0) {
+        foreach (array_slice(IQU_Billing_History::for_account((int) $acc['id']), 0, 12) as $i) {
+            $paid  = (float) $i['amount_paid'];
+            $due   = (float) $i['amount_due'];
+            $month = IQU_Billing_History::month_label((string) $i['period_month']);
+            if ($i['status'] === 'paid' && $paid <= 0) {
                 $what = 'Free month'; $amt = '$0.00';
             } elseif ($i['status'] === 'paid') {
-                $what = 'Paid ' . gmdate('j M', (int) ($i['status_transitions']['paid_at'] ?? $i['created'])); $amt = IQU_Pricing::format($paid / 100);
-            } elseif ($i['status'] === 'open') {
-                $what = 'Not paid yet'; $amt = IQU_Pricing::format($due / 100);
+                $what = 'Paid ' . ($i['paid_at'] ? gmdate('j M', (int) strtotime($i['paid_at'] . ' UTC')) : ''); $amt = IQU_Pricing::format($paid);
+            } elseif (in_array($i['status'], ['open', 'failed'], true)) {
+                $what = 'Not paid yet'; $amt = IQU_Pricing::format($due);
             } else {
-                $what = ucfirst((string) $i['status']); $amt = IQU_Pricing::format($due / 100);
+                $what = ucfirst((string) $i['status']); $amt = IQU_Pricing::format($due);
             }
             $receipt = '';
-            foreach (['hosted_invoice_url' => 'https://invoice.stripe.com/', 'invoice_pdf' => 'https://pay.stripe.com/'] as $k => $prefix) {
-                if (!empty($i[$k]) && strpos((string) $i[$k], $prefix) === 0) { $receipt = '<a rel="noopener noreferrer" href="' . esc_url($i[$k]) . '">Receipt</a>'; break; }
+            foreach (['hosted_invoice_url', 'invoice_pdf'] as $k) {
+                $link = IQU_Billing_History::safe_url($i[$k] ?? '');
+                if ($link !== '') { $receipt = '<a rel="noopener noreferrer" href="' . esc_url($link) . '">Receipt</a>'; break; }
             }
             $rows .= '<div class="row"><div>' . esc_html($month) . '<br><span class="muted small">' . esc_html($what) . '</span></div><div class="amt">' . esc_html($amt) . ($receipt ? '<br><span class="small">' . $receipt . '</span>' : '') . '</div></div>';
         }
@@ -353,14 +351,16 @@ class IQU_Billing_Portal
         return $h . '</div>';
     }
 
-    /** Last 12 invoices for this family, read from Stripe. */
-    private static function invoices(array $acc, string $status = ''): array
+    /** Newest unpaid invoice with a Stripe payment page, from the local payment history. */
+    private static function unpaid_invoice(array $acc): ?array
     {
-        if (empty($acc['stripe_customer_id'])) return [];
-        $params = ['customer' => $acc['stripe_customer_id'], 'limit' => 12];
-        if ($status !== '') $params['status'] = $status;
-        $r = IQU_Stripe::get('/invoices', $params);
-        return $r['ok'] ? (array) ($r['data']['data'] ?? []) : [];
+        foreach (IQU_Billing_History::for_account((int) $acc['id']) as $i) {
+            if (in_array($i['status'], ['failed', 'open'], true) && (float) $i['amount_due'] > 0
+                && strpos((string) $i['hosted_invoice_url'], 'https://invoice.stripe.com/') === 0) {
+                return $i;
+            }
+        }
+        return null;
     }
 
     // ------------------------------------------------------------

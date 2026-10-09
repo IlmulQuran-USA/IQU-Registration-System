@@ -21,7 +21,9 @@ class IQU_Billing_Settings
     private const NOTICE_TX = 'iqu_billing_notice_';
     private const A_SAVE    = 'iqu_billing_save_settings';
     private const A_SYNC_ALL = 'iqu_billing_sync_all';
+    private const A_BACKFILL = 'iqu_billing_backfill_history';
     private const OPT_ZELLE = 'iqu_billing_zelle_end_date';
+    private const TIME_BUDGET = 20; // seconds; stay well inside the request time limit
 
     public static function init(): void
     {
@@ -29,6 +31,7 @@ class IQU_Billing_Settings
         add_action('admin_post_' . self::ACTION, [__CLASS__, 'handle_test_connection']);
         add_action('admin_post_' . self::A_SAVE, [__CLASS__, 'handle_save']);
         add_action('admin_post_' . self::A_SYNC_ALL, [__CLASS__, 'handle_sync_all']);
+        add_action('admin_post_' . self::A_BACKFILL, [__CLASS__, 'handle_backfill']);
     }
 
     public static function register_menu(): void
@@ -91,18 +94,48 @@ class IQU_Billing_Settings
             'SELECT id FROM ' . IQU_Billing_DB::accounts_table() . " WHERE mode = %s AND stripe_customer_id <> '' ORDER BY id",
             IQU_Stripe::expected_mode()
         ));
-        $start = time(); $done = 0; $changed = 0; $failed = 0; $left = 0;
+        $start = time(); $done = 0; $changed = 0; $failed = 0; $left = 0; $invoices = 0;
         foreach ($ids as $id) {
-            if (time() - $start > 20) { $left++; continue; } // stay well inside the request time limit
+            if (time() - $start > self::TIME_BUDGET) { $left++; continue; }
             $acc = IQU_Billing_DB::get_account((int) $id);
             if (!$acc) continue;
             $r = IQU_Billing_Sync::sync($acc);
             if (!$r['ok']) { $failed++; continue; }
             $done++;
             if ($r['old'] !== $r['new']) $changed++;
+            $invoices += (int) IQU_Billing_History::refresh_account($r['account']);
         }
-        $text = "Synced {$done} families, {$changed} changed, {$failed} could not be read." . ($left ? " {$left} not reached — press Sync again." : '');
+        $text = "Synced {$done} families, {$changed} changed, {$failed} could not be read." . ($left ? " {$left} not reached — press Sync again." : '')
+            . " Payment history: {$invoices} invoices stored.";
         set_transient(self::NOTICE_TX . get_current_user_id(), ['type' => $failed ? 'warning' : 'success', 'text' => $text], 60);
+        wp_safe_redirect(admin_url('admin.php?page=' . self::PAGE_SLUG));
+        exit;
+    }
+
+    /** Read every family's invoices from Stripe into the payment history table. */
+    public static function handle_backfill(): void
+    {
+        if (!current_user_can(self::CAP)) wp_die('You do not have permission to do this.', 403);
+        check_admin_referer(self::A_BACKFILL);
+        global $wpdb;
+        $ids = $wpdb->get_col($wpdb->prepare(
+            'SELECT id FROM ' . IQU_Billing_DB::accounts_table() . " WHERE mode = %s AND stripe_customer_id <> '' ORDER BY id",
+            IQU_Stripe::expected_mode()
+        ));
+        $start = time(); $families = 0; $invoices = 0; $failed = 0; $left = 0;
+        foreach ($ids as $id) {
+            if (time() - $start > self::TIME_BUDGET) { $left++; continue; }
+            $acc = IQU_Billing_DB::get_account((int) $id);
+            if (!$acc) continue;
+            $n = IQU_Billing_History::refresh_account($acc);
+            if ($n === null) { $failed++; continue; }
+            $families++;
+            $invoices += $n;
+        }
+        $text = "Stored {$invoices} invoices for {$families} families."
+            . ($failed ? " {$failed} could not be read from Stripe." : '')
+            . ($left ? " {$left} not reached — press Backfill again." : '');
+        set_transient(self::NOTICE_TX . get_current_user_id(), ['type' => ($failed || $left) ? 'warning' : 'success', 'text' => $text], 60);
         wp_safe_redirect(admin_url('admin.php?page=' . self::PAGE_SLUG));
         exit;
     }
@@ -213,12 +246,20 @@ class IQU_Billing_Settings
                 </div>
                 <div class="iqu-billing-body">
                     <p class="iqu-billing-intro">Stripe updates arrive by webhook within seconds. If one was missed, this reads every family's billing again from Stripe.</p>
+                    <p class="iqu-fld-hint"><strong>Backfill payment history</strong> reads every invoice of every family from Stripe — paid, failed, open and refunded — for the Payments charts, Reports and each family's history. Run it once after updating; it is safe to run again.</p>
                 </div>
-                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-actions">
-                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SYNC_ALL); ?>">
-                    <?php wp_nonce_field(self::A_SYNC_ALL); ?>
-                    <?php submit_button('Sync all families', 'secondary', 'submit', false, $ready ? [] : ['disabled' => 'disabled']); ?>
-                </form>
+                <div class="iqu-cpn-actions">
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SYNC_ALL); ?>">
+                        <?php wp_nonce_field(self::A_SYNC_ALL); ?>
+                        <?php submit_button('Sync all families', 'secondary', 'submit', false, $ready ? [] : ['disabled' => 'disabled']); ?>
+                    </form>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="<?php echo esc_attr(self::A_BACKFILL); ?>">
+                        <?php wp_nonce_field(self::A_BACKFILL); ?>
+                        <?php submit_button('Backfill payment history', 'secondary', 'submit', false, $ready ? [] : ['disabled' => 'disabled']); ?>
+                    </form>
+                </div>
             </div>
         </div>
         <?php
