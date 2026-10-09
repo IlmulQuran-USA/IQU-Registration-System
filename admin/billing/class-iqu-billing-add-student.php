@@ -206,6 +206,31 @@ class IQU_Billing_Add_Student
         return $e;
     }
 
+    /**
+     * Which form field a validation message belongs to (presentation only: used to show
+     * each server message next to its field, here and in the Import preview). '' = general.
+     */
+    public static function error_field(string $msg): string
+    {
+        $map = [
+            'first and last name'       => 'first_name',
+            'valid email address'       => 'email',
+            'WhatsApp number'           => 'whatsapp',
+            'Choose a course'           => 'course',
+            'classes per week'          => 'days',
+            'minimum of'                => 'days',
+            'no more than 7 days'       => 'days',
+            'valid course'              => 'course',
+            'agreed fee'                => 'agreed_fee',
+            'enrollment records'        => 'first_name',
+            'appears twice'             => 'first_name',
+        ];
+        foreach ($map as $needle => $field) {
+            if (stripos($msg, $needle) !== false) return $field;
+        }
+        return '';
+    }
+
     private static function is_duplicate(string $first, string $last, string $email): bool
     {
         global $wpdb;
@@ -242,17 +267,44 @@ class IQU_Billing_Add_Student
         $old = $flash['old'] ?? [];
         $v   = fn($k, $d = '') => esc_attr((string) ($old[$k] ?? $d));
 
-        $rates = [];
-        foreach (IQU_Pricing::course_keys() as $key) {
-            $rates[$key] = ['label' => IQU_Pricing::label($key), 'min' => IQU_Pricing::min_days($key), 'prices' => []];
-            for ($d = 1; $d <= 7; $d++) {
-                $c = IQU_Pricing::calculate($key, $d);
-                $rates[$key]['prices'][$d] = !empty($c['valid']) ? (float) $c['monthly_amount'] : null;
-            }
+        // Server messages, also shown next to their field (the list at the top stays).
+        $field_errors = [];
+        foreach ((array) ($flash['errors'] ?? []) as $msg) {
+            $f = self::error_field((string) $msg);
+            if ($f !== '') $field_errors[$f][] = (string) $msg;
         }
+        $err = function (string $field) use ($field_errors): string {
+            $msgs = $field_errors[$field] ?? [];
+            return '<p class="iqu-fld-error" id="iqu-err-' . esc_attr($field) . '"' . ($msgs ? '' : ' hidden') . '>'
+                . '<span class="dashicons dashicons-warning" aria-hidden="true"></span><span class="iqu-fld-error-text">' . esc_html(implode(' ', $msgs)) . '</span></p>';
+        };
+        $invalid = fn(string $field) => isset($field_errors[$field]) ? ' aria-invalid="true"' : '';
+
+        // Pricing rules for the chips and the summary (the server prices again on save).
+        $pricing = IQU_Pricing::js_config();
+
+        // Billing emails that already have a family account in this mode (informational notice only).
+        global $wpdb;
+        $families = [];
+        $accounts = $wpdb->get_results($wpdb->prepare(
+            'SELECT * FROM ' . IQU_Billing_DB::accounts_table() . ' WHERE mode = %s AND status <> %s ORDER BY id',
+            IQU_Stripe::expected_mode(), 'canceled'
+        ), ARRAY_A) ?: [];
+        foreach ($accounts as $acc) {
+            $email = strtolower(trim((string) $acc['contact_email']));
+            if ($email === '' || isset($families[$email])) continue;
+            $families[$email] = ['label' => IQU_Billing_Page::family_label($acc), 'url' => IQU_Billing_Page::family_url((int) $acc['id'])];
+        }
+        wp_add_inline_script('iqu-billing-js', 'window.IQU_BILLING_ADD = ' . wp_json_encode(['pricing' => $pricing, 'families' => $families]) . ';', 'before');
+
+        $course_old = (string) ($old['course'] ?? '');
+        $days_old   = (int) ($old['days'] ?? 0);
+        $show_fee   = !empty($old['use_agreed']) || !empty($old['zakat']);
+        $students   = admin_url('admin.php?page=' . IQU_Billing_Page::SLUG);
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('add'); ?>
+            <?php IQU_Billing_Page::page_header('Add existing student', 'For students who joined before the website form existed. They join the enrollment records and are always billed as current students (no free month).'); ?>
 
             <?php if (!empty($flash['errors'])): ?>
                 <div class="notice notice-error"><ul class="iqu-billing-notice-list">
@@ -265,103 +317,138 @@ class IQU_Billing_Add_Student
                     <strong><?php echo esc_html($s['name']); ?></strong> added (IQU-<?php echo (int) $s['id']; ?>) —
                     monthly fee <?php echo esc_html(IQU_Pricing::format((float) $s['net'])); ?>.
                     <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-view-registration&id=' . (int) $s['id'])); ?>">View record</a>
+                    · <a href="<?php echo esc_url(admin_url('admin.php?page=' . IQU_Billing_Send::SEND_SLUG . '&ids=' . (int) $s['id'])); ?>">Check and send</a>
                 </p></div>
             <?php endif; ?>
 
-            <div class="iqu-card">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">Add existing student</span>
-                    <span class="iqu-card-head-badge">Billed as a current student</span>
-                </div>
-                <div class="iqu-billing-body">
-                    <p class="iqu-billing-intro">For students who joined before the website form existed. They are added to the enrollment records like any other student, and always billed as current students (no free month).</p>
-                </div>
-
-                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-form">
+            <div class="iqu-add-layout">
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-card iqu-add-form" id="iqu-add-student-form" novalidate>
                     <input type="hidden" name="action" value="<?php echo esc_attr(self::ACTION); ?>">
                     <?php wp_nonce_field(self::ACTION); ?>
 
-                    <div class="iqu-fld-grid">
+                    <section class="iqu-add-section" aria-labelledby="iqu-sec-1">
+                        <div class="iqu-add-section-head"><span class="iqu-add-step" aria-hidden="true">1</span><div>
+                            <p class="iqu-add-section-title" id="iqu-sec-1">Student</p>
+                            <p class="iqu-fld-hint">Who is joining. Use the name the family uses.</p>
+                        </div></div>
+                        <div class="iqu-fld-grid">
+                            <div class="iqu-fld">
+                                <label for="first_name">First name <em>*</em></label>
+                                <input id="first_name" name="first_name" type="text" required autocomplete="off" aria-describedby="iqu-err-first_name" value="<?php echo $v('first_name'); ?>"<?php echo $invalid('first_name'); ?>>
+                                <?php echo $err('first_name'); ?>
+                            </div>
+                            <div class="iqu-fld">
+                                <label for="last_name">Last name <em>*</em></label>
+                                <input id="last_name" name="last_name" type="text" required autocomplete="off" aria-describedby="iqu-err-last_name" value="<?php echo $v('last_name'); ?>">
+                                <?php echo $err('last_name'); ?>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="iqu-add-section" aria-labelledby="iqu-sec-2">
+                        <div class="iqu-add-section-head"><span class="iqu-add-step" aria-hidden="true">2</span><div>
+                            <p class="iqu-add-section-title" id="iqu-sec-2">Family contact</p>
+                            <p class="iqu-fld-hint">The billing email receives the private payment link and every receipt. Siblings can share one email.</p>
+                        </div></div>
+                        <div class="iqu-fld-grid">
+                            <div class="iqu-fld">
+                                <label for="guardian_name">Guardian name</label>
+                                <input id="guardian_name" name="guardian_name" type="text" autocomplete="off" aria-describedby="iqu-hint-guardian" value="<?php echo $v('guardian_name'); ?>">
+                                <p class="iqu-fld-hint" id="iqu-hint-guardian">Leave empty for adult students.</p>
+                            </div>
+                            <div class="iqu-fld">
+                                <label for="email">Billing email <em>*</em></label>
+                                <input id="email" name="email" type="email" required autocomplete="off" aria-describedby="iqu-hint-email iqu-err-email iqu-family-note" value="<?php echo $v('email'); ?>"<?php echo $invalid('email'); ?>>
+                                <p class="iqu-fld-hint" id="iqu-hint-email">Payment link and receipts go here.</p>
+                                <?php echo $err('email'); ?>
+                            </div>
+                            <div class="iqu-fld">
+                                <label for="whatsapp">WhatsApp <em>*</em></label>
+                                <input id="whatsapp" name="whatsapp" type="text" inputmode="tel" required placeholder="+1 214 555 0148" aria-describedby="iqu-hint-whatsapp iqu-err-whatsapp" value="<?php echo $v('whatsapp'); ?>"<?php echo $invalid('whatsapp'); ?>>
+                                <p class="iqu-fld-hint" id="iqu-hint-whatsapp">With the country code.</p>
+                                <?php echo $err('whatsapp'); ?>
+                            </div>
+                            <div class="iqu-fld iqu-fld--full">
+                                <div class="iqu-family-note" id="iqu-family-note" role="status" hidden>
+                                    <span class="dashicons dashicons-info" aria-hidden="true"></span>
+                                    <p>This email already has a billing account (family: <a href="#" data-family-link><span data-family-label></span></a>). This student is added as a separate enrollment; their monthly billing is set up separately in Check and send.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="iqu-add-section" aria-labelledby="iqu-sec-3">
+                        <div class="iqu-add-section-head"><span class="iqu-add-step" aria-hidden="true">3</span><div>
+                            <p class="iqu-add-section-title" id="iqu-sec-3">Course and fee</p>
+                            <p class="iqu-fld-hint">The standard fee comes from the pricing rules; a lower agreed fee is stored as a reduction.</p>
+                        </div></div>
+                        <div class="iqu-fld-grid">
+                            <fieldset class="iqu-fld iqu-fld--full iqu-chips-field" aria-describedby="iqu-err-course">
+                                <legend class="iqu-fld-label">Course <em>*</em></legend>
+                                <div class="iqu-chips">
+                                    <?php foreach (IQU_Pricing::course_keys() as $i => $key): ?>
+                                        <label class="iqu-chip-opt"><input type="radio" name="course" value="<?php echo esc_attr($key); ?>"<?php echo $i === 0 ? ' required' : ''; ?> <?php checked($course_old, $key); ?>><span><?php echo esc_html(IQU_Pricing::label($key)); ?></span></label>
+                                    <?php endforeach; ?>
+                                </div>
+                                <?php echo $err('course'); ?>
+                            </fieldset>
+                            <fieldset class="iqu-fld iqu-fld--full iqu-chips-field" aria-describedby="iqu-hint-days iqu-err-days">
+                                <legend class="iqu-fld-label">Classes a week <em>*</em></legend>
+                                <div class="iqu-chips iqu-chips--days">
+                                    <?php for ($d = 1; $d <= IQU_Pricing::MAX_DAYS_PER_WEEK; $d++): ?>
+                                        <label class="iqu-chip-opt" data-day="<?php echo (int) $d; ?>"><input type="radio" name="days" value="<?php echo (int) $d; ?>"<?php echo $d === 1 ? ' required' : ''; ?> <?php checked($days_old, $d); ?>><span><?php echo (int) $d; ?></span></label>
+                                    <?php endfor; ?>
+                                </div>
+                                <p class="iqu-fld-hint" id="iqu-hint-days" data-days-hint>Only the numbers allowed for the chosen course are shown.</p>
+                                <?php echo $err('days'); ?>
+                            </fieldset>
+                            <div class="iqu-fld iqu-fld--full">
+                                <label class="iqu-billing-check-label"><input type="checkbox" id="iqu-use-agreed" name="use_agreed" value="1" aria-controls="iqu-agreed-panel" <?php checked(!empty($old['use_agreed'])); ?>> This family pays a lower fee agreed with us</label>
+                                <div class="iqu-agreed-panel" id="iqu-agreed-panel" data-show="<?php echo $show_fee ? '1' : '0'; ?>">
+                                    <label for="agreed_fee" class="iqu-billing-sublabel">Agreed monthly fee ($)</label>
+                                    <input id="agreed_fee" name="agreed_fee" type="number" min="0" step="0.01" class="iqu-fld-narrow" aria-describedby="iqu-hint-agreed iqu-err-agreed_fee" value="<?php echo $v('agreed_fee'); ?>"<?php echo $invalid('agreed_fee'); ?>>
+                                    <p class="iqu-fld-hint" id="iqu-hint-agreed">Cannot be more than the standard fee. Enter 0 for a full scholarship (they will not be billed).</p>
+                                    <?php echo $err('agreed_fee'); ?>
+                                    <label class="iqu-billing-check-label"><input type="checkbox" name="zakat" value="1" <?php checked(!empty($old['zakat'])); ?>> The reduction is paid by the Zakat Fund</label>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="iqu-add-section" aria-label="Note">
                         <div class="iqu-fld">
-                            <label for="first_name">Student first name <em>*</em></label>
-                            <input id="first_name" name="first_name" type="text" required value="<?php echo $v('first_name'); ?>">
-                        </div>
-                        <div class="iqu-fld">
-                            <label for="last_name">Student last name <em>*</em></label>
-                            <input id="last_name" name="last_name" type="text" required value="<?php echo $v('last_name'); ?>">
-                        </div>
-                        <div class="iqu-fld">
-                            <label for="guardian_name">Guardian name</label>
-                            <input id="guardian_name" name="guardian_name" type="text" value="<?php echo $v('guardian_name'); ?>">
-                            <p class="iqu-fld-hint">Leave empty for adult students.</p>
-                        </div>
-                        <div class="iqu-fld">
-                            <label for="email">Billing email <em>*</em></label>
-                            <input id="email" name="email" type="email" required value="<?php echo $v('email'); ?>">
-                            <p class="iqu-fld-hint">Payment link and every receipt go here. Siblings can share one email.</p>
-                        </div>
-                        <div class="iqu-fld">
-                            <label for="whatsapp">WhatsApp <em>*</em></label>
-                            <input id="whatsapp" name="whatsapp" type="text" required placeholder="+1 214 555 0148" value="<?php echo $v('whatsapp'); ?>">
-                        </div>
-                        <div class="iqu-fld">
-                            <label for="course">Course <em>*</em></label>
-                            <select id="course" name="course" required>
-                                <option value="">Choose…</option>
-                                <?php foreach ($rates as $key => $r): ?>
-                                    <option value="<?php echo esc_attr($key); ?>" <?php selected($old['course'] ?? '', $key); ?>><?php echo esc_html($r['label']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="iqu-fld">
-                            <label for="days">Classes per week <em>*</em></label>
-                            <select id="days" name="days" required>
-                                <option value="">Choose…</option>
-                                <?php for ($d = 1; $d <= 7; $d++): ?>
-                                    <option value="<?php echo $d; ?>" <?php selected((int) ($old['days'] ?? 0), $d); ?>><?php echo $d; ?></option>
-                                <?php endfor; ?>
-                            </select>
-                        </div>
-                        <div class="iqu-fld">
-                            <span class="iqu-fld-label">Standard monthly fee</span>
-                            <div class="iqu-fld-value"><strong id="iqu-std-fee">—</strong></div>
-                            <p class="iqu-fld-hint">Worked out from the pricing rules. Shown here for checking; the server calculates it again when you save.</p>
-                        </div>
-                        <div class="iqu-fld iqu-fld--full">
-                            <span class="iqu-fld-label">Agreed reduced fee</span>
-                            <label class="iqu-billing-check-label"><input type="checkbox" name="use_agreed" value="1" <?php checked(!empty($old['use_agreed'])); ?>> This family pays a lower fee agreed with us</label>
-                            <label for="agreed_fee" class="iqu-billing-sublabel">Agreed monthly fee ($)</label>
-                            <input id="agreed_fee" name="agreed_fee" type="number" min="0" step="0.01" class="iqu-fld-narrow" value="<?php echo $v('agreed_fee'); ?>">
-                            <p class="iqu-fld-hint">Can only be lower than the standard fee. Enter 0 for a full scholarship (they will not be billed).</p>
-                        </div>
-                        <div class="iqu-fld iqu-fld--full">
-                            <span class="iqu-fld-label">Zakat support</span>
-                            <label class="iqu-billing-check-label"><input type="checkbox" name="zakat" value="1" <?php checked(!empty($old['zakat'])); ?>> The reduction is paid by the Zakat Fund</label>
-                        </div>
-                        <div class="iqu-fld iqu-fld--full">
-                            <label for="note">Note</label>
+                            <label for="note">Note <span class="iqu-fld-optional">(optional)</span></label>
                             <textarea id="note" name="note" rows="3"><?php echo esc_textarea((string) ($old['note'] ?? '')); ?></textarea>
                         </div>
-                    </div>
+                    </section>
 
-                    <div class="iqu-cpn-actions">
-                        <?php submit_button('Add student'); ?>
+                    <div class="iqu-form-actions iqu-btn-group">
+                        <a class="iqu-btn iqu-btn--secondary" href="<?php echo esc_url($students); ?>">Cancel</a>
+                        <button type="submit" name="submit" value="Add student" class="iqu-btn iqu-btn--primary"><?php echo IQU_Billing_Page::icon('plus-alt2'); ?>Add student</button>
                     </div>
                 </form>
+
+                <aside class="iqu-card iqu-add-summary" aria-labelledby="iqu-sum-title">
+                    <div class="iqu-card-head"><span class="iqu-card-head-title" id="iqu-sum-title">Summary</span></div>
+                    <div class="iqu-billing-body" aria-live="polite">
+                        <p class="iqu-sum-name" data-sum="name">New student</p>
+                        <p class="iqu-sum-course" data-sum="course">Choose a course and classes a week.</p>
+                        <dl class="iqu-sum-fees">
+                            <div><dt>Standard fee</dt><dd data-sum="std">—</dd></div>
+                            <div data-sum-row="agreed" hidden><dt>Agreed fee</dt><dd data-sum="agreed">—</dd></div>
+                            <div data-sum-row="diff" hidden><dt>Reduction</dt><dd data-sum="diff">—</dd></div>
+                        </dl>
+                        <p class="iqu-sum-note" data-sum-row="zakat" hidden><span class="dashicons dashicons-heart" aria-hidden="true"></span>The Zakat Fund pays the reduction.</p>
+                        <p class="iqu-sum-next-title">What happens next</p>
+                        <ol class="iqu-sum-next">
+                            <li>Added as a current student — no free month.</li>
+                            <li>Open <strong>Check and send</strong> for them (Students → Not set up).</li>
+                            <li>Send the private payment link to the billing email.</li>
+                        </ol>
+                    </div>
+                </aside>
             </div>
         </div>
-        <script>
-        (function () {
-            var rates = <?php echo wp_json_encode($rates); ?>;
-            var c = document.getElementById('course'), d = document.getElementById('days'), out = document.getElementById('iqu-std-fee');
-            function show() {
-                var r = rates[c.value], p = r && d.value ? r.prices[d.value] : null;
-                if (!r || !d.value) { out.textContent = '\u2014'; return; }
-                out.textContent = p === null ? (r.label + ' needs at least ' + r.min + ' classes a week') : ('$' + Number(p).toFixed(2) + ' a month');
-            }
-            c.addEventListener('change', show); d.addEventListener('change', show); show();
-        })();
-        </script>
         <?php
     }
 }

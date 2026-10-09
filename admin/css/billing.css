@@ -1083,3 +1083,304 @@ th[aria-sort="descending"] .iqu-sort::after {
     flex: 0 0 56px;
   }
 }
+
+/* ═════════════════════════════════════════════════════════════
+ * 3.3.1 — Add Student: form (2/3) + sticky summary (1/3)
+ * ═════════════════════════════════════════════════════════════ */
+.iqu-add-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .iqu-add-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  }
+
+  .iqu-add-summary {
+    position: sticky;
+    top: 48px;
+  }
+}
+
+.iqu-billing .iqu-add-layout > .iqu-card {
+  margin-bottom: 0;
+}
+
+.iqu-add-section {
+  padding: 18px 20px 4px;
+  border-bottom: 1px solid var(--iqu-bdr);
+}
+
+.iqu-add-section .iqu-fld-grid {
+  padding: 14px 0 12px;
+}
+
+.iqu-add-section-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.iqu-add-step {
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--iqu-navy);
+  color: var(--iqu-bg1);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 28px;
+  text-align: center;
+}
+
+.iqu-add-section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+}
+
+.iqu-add-section-head .iqu-fld-hint {
+  margin: 2px 0 0;
+}
+
+.iqu-fld-optional {
+  font-weight: 400;
+  color: var(--iqu-text2);
+}
+
+/* Inline errors (server and browser use the same messages). */
+.iqu-fld-error {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iqu-red);
+}
+
+.iqu-fld-error[hidden] {
+  display: none;
+}
+
+.iqu-fld-error .dashicons {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.iqu-billing .iqu-fld [aria-invalid="true"] {
+  border-color: var(--iqu-red);
+}
+
+/* Chips: real radio buttons underneath (same names and values), keyboard arrows work. */
+.iqu-billing fieldset.iqu-chips-field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.iqu-chips-field legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.iqu-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.iqu-chip-opt {
+  position: relative;
+  margin: 0 !important;
+  cursor: pointer;
+}
+
+.iqu-chip-opt[hidden] {
+  display: none;
+}
+
+.iqu-chip-opt input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.iqu-chip-opt span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--iqu-navy);
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-navy);
+  border-radius: 999px;
+}
+
+.iqu-chip-opt:hover span {
+  background: var(--iqu-bg2);
+}
+
+.iqu-chip-opt input:checked + span {
+  color: var(--iqu-bg1);
+  background: var(--iqu-navy);
+}
+
+.iqu-chip-opt input:focus-visible + span {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 2px;
+}
+
+/* Lower agreed fee: shown when ticked (or when Zakat was already ticked). */
+.iqu-agreed-panel {
+  margin: 10px 0 0 26px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--iqu-bdr);
+  background: var(--iqu-bg2);
+  border-radius: var(--iqu-radius-md);
+}
+
+.iqu-agreed-panel[hidden] {
+  display: none;
+}
+
+/* Informational: the billing email already has a family on billing. */
+.iqu-family-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  color: var(--iqu-text1);
+  background: var(--iqu-bg2);
+  border: 1px solid var(--iqu-bdr);
+  border-left: 4px solid var(--iqu-blue);
+  border-radius: var(--iqu-radius-md);
+}
+
+.iqu-family-note[hidden] {
+  display: none;
+}
+
+.iqu-family-note p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.iqu-family-note .dashicons {
+  color: var(--iqu-blue);
+}
+
+.iqu-form-actions {
+  justify-content: flex-end;
+  padding: 16px 20px;
+}
+
+/* Summary card */
+.iqu-sum-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+}
+
+.iqu-sum-course {
+  margin: 2px 0 14px;
+  font-size: 13px;
+  color: var(--iqu-text2);
+}
+
+.iqu-sum-fees {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: var(--iqu-bg2);
+  border-radius: var(--iqu-radius-md);
+}
+
+.iqu-sum-fees > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.iqu-sum-fees > div[hidden] {
+  display: none;
+}
+
+.iqu-sum-fees dt {
+  color: var(--iqu-text2);
+}
+
+.iqu-sum-fees dd {
+  margin: 0;
+  font-weight: 600;
+  color: var(--iqu-text1);
+  text-align: right;
+}
+
+.iqu-sum-note {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--iqu-green);
+}
+
+.iqu-sum-note[hidden] {
+  display: none;
+}
+
+.iqu-sum-next-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--iqu-text2);
+}
+
+.iqu-sum-next {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--iqu-text1);
+}
+
+.iqu-sum-next li {
+  margin: 0 0 4px;
+}
+
+@media (max-width: 782px) {
+  .iqu-add-section {
+    padding: 16px 14px 4px;
+  }
+
+  .iqu-form-actions {
+    padding: 14px;
+  }
+
+  .iqu-form-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .iqu-agreed-panel {
+    margin-left: 0;
+  }
+}

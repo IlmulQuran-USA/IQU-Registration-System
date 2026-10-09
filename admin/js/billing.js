@@ -208,11 +208,183 @@
     new root.Chart(canvas.getContext("2d"), { type: cfg.type === "doughnut" ? "doughnut" : "bar", data: { labels: cfg.labels, datasets: datasets }, options: options });
   }
 
+  /**
+   * Add Student form (#iqu-add-student-form). cfg = window.IQU_BILLING_ADD:
+   *   pricing  IQU_Pricing::js_config() — courses[key] = {label, minDays, maxDays, byDays[d].amount}
+   *   families lowercased billing email -> {label, url} for the informational sibling notice
+   * Course / day chips, live summary, lower-fee panel, inline checks with the server's own
+   * messages. The server validates everything again; nothing here changes what is saved.
+   */
+  B.addStudent = function (form, cfg) {
+    var courses = (cfg.pricing && cfg.pricing.courses) || {};
+    var families = cfg.families || {};
+    var summary = document.querySelector(".iqu-add-summary");
+    var useAgreed = form.querySelector("#iqu-use-agreed");
+    var zakat = form.querySelector('input[name="zakat"]');
+    var panel = form.querySelector("#iqu-agreed-panel");
+    var agreed = form.querySelector("#agreed_fee");
+    var email = form.querySelector("#email");
+    var note = form.querySelector("#iqu-family-note");
+    var daysHint = form.querySelector("[data-days-hint]");
+    var daysHintText = daysHint ? daysHint.textContent : "";
+
+    function val(name) {
+      var el = form.querySelector('input[name="' + name + '"]:checked');
+      return el ? el.value : "";
+    }
+    function fee(course, days) {
+      var c = courses[course];
+      var row = c && c.byDays ? c.byDays[days] : null;
+      return row ? Number(row.amount) : null;
+    }
+    function sum(key, text) {
+      var el = summary && summary.querySelector('[data-sum="' + key + '"]');
+      if (el) el.textContent = text;
+    }
+    function sumRow(key, on) {
+      var el = summary && summary.querySelector('[data-sum-row="' + key + '"]');
+      if (el) el.hidden = !on;
+    }
+    function setError(field, msg) {
+      var box = form.querySelector("#iqu-err-" + field);
+      var input = form.querySelector('[name="' + field + '"]');
+      if (box) {
+        box.querySelector(".iqu-fld-error-text").textContent = msg || "";
+        box.hidden = !msg;
+      }
+      if (input && input.type !== "radio") {
+        if (msg) input.setAttribute("aria-invalid", "true");
+        else input.removeAttribute("aria-invalid");
+      }
+    }
+
+    // Only the classes-a-week numbers the chosen course allows (Hifz: at least 3).
+    function syncDays() {
+      var c = courses[val("course")];
+      var min = c ? Number(c.minDays) : 1;
+      var max = c ? Number(c.maxDays) : 7;
+      form.querySelectorAll(".iqu-chips--days .iqu-chip-opt").forEach(function (label) {
+        var d = Number(label.getAttribute("data-day"));
+        var input = label.querySelector("input");
+        var ok = d >= min && d <= max;
+        label.hidden = !ok;
+        input.disabled = !ok;
+        if (!ok && input.checked) input.checked = false;
+      });
+      if (daysHint) daysHint.textContent = c ? c.label + ": " + min + (max > min ? "–" + max : "") + " classes a week." : daysHintText;
+    }
+
+    function syncPanel() {
+      var on = useAgreed.checked || (zakat && zakat.checked);
+      panel.hidden = !on;
+      useAgreed.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+
+    function syncFamily() {
+      if (!note || !email) return;
+      var fam = families[String(email.value || "").trim().toLowerCase()];
+      note.hidden = !fam;
+      if (!fam) return;
+      note.querySelector("[data-family-label]").textContent = fam.label || "";
+      var link = note.querySelector("[data-family-link]");
+      if (/^https?:\/\//.test(fam.url || "")) link.setAttribute("href", fam.url);
+    }
+
+    function standard() {
+      return fee(val("course"), val("days"));
+    }
+
+    function agreedError() {
+      if (!useAgreed.checked || agreed.value === "") return "";
+      var a = Math.round(Number(agreed.value) * 100) / 100;
+      var std = standard();
+      if (isNaN(a)) return "";
+      if (a < 0) return "The agreed fee cannot be negative.";
+      if (std !== null && a > std) return "The agreed fee cannot be more than the standard fee (" + B.money(std) + ").";
+      return "";
+    }
+
+    function update() {
+      var first = form.querySelector("#first_name").value.trim();
+      var last = form.querySelector("#last_name").value.trim();
+      sum("name", (first + " " + last).trim() || "New student");
+      var c = courses[val("course")];
+      var days = val("days");
+      sum("course", c ? c.label + (days ? " · " + days + " class" + (days === "1" ? "" : "es") + " a week" : " · choose classes a week") : "Choose a course and classes a week.");
+      var std = standard();
+      sum("std", std === null ? "—" : B.money(std) + " a month");
+      var showAgreed = useAgreed.checked && agreed.value !== "" && !isNaN(Number(agreed.value)) && std !== null;
+      var a = showAgreed ? Math.round(Number(agreed.value) * 100) / 100 : 0;
+      sumRow("agreed", showAgreed);
+      sumRow("diff", showAgreed && a <= std);
+      if (showAgreed) {
+        sum("agreed", a === 0 ? "$0.00 — full scholarship" : B.money(a) + " a month");
+        sum("diff", "−" + B.money(Math.max(0, std - a)) + " a month");
+      }
+      sumRow("zakat", !!(zakat && zakat.checked));
+    }
+
+    // Same checks and words as the server (IQU_Billing_Add_Student::validate / prepare).
+    function validate() {
+      var bad = [];
+      var first = form.querySelector("#first_name"), last = form.querySelector("#last_name");
+      var names = first.value.trim() !== "" && last.value.trim() !== "";
+      setError("first_name", names ? "" : "Enter the student's first and last name.");
+      if (!last.value.trim()) last.setAttribute("aria-invalid", "true"); else last.removeAttribute("aria-invalid");
+      if (!names) bad.push(first.value.trim() ? last : first);
+      var mail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
+      setError("email", mail ? "" : "Enter a valid email address. Payment links and receipts go here.");
+      if (!mail) bad.push(email);
+      var wa = form.querySelector("#whatsapp");
+      var waOk = wa.value.replace(/\D/g, "").length >= 7;
+      setError("whatsapp", waOk ? "" : "Enter a WhatsApp number with country code.");
+      if (!waOk) bad.push(wa);
+      var course = val("course");
+      setError("course", course ? "" : "Choose a course.");
+      if (!course) bad.push(form.querySelector('input[name="course"]'));
+      var days = val("days");
+      setError("days", days ? "" : "Choose classes per week (1–7).");
+      if (!days) bad.push(form.querySelector('.iqu-chips--days input:not([disabled])'));
+      var fe = agreedError();
+      setError("agreed_fee", fe);
+      if (fe) bad.push(agreed);
+      return bad;
+    }
+
+    form.addEventListener("change", function (e) {
+      if (e.target.name === "course") { syncDays(); setError("course", ""); }
+      if (e.target.name === "days") setError("days", "");
+      if (e.target === useAgreed || e.target === zakat) syncPanel();
+      setError("agreed_fee", agreedError());
+      update();
+    });
+    form.addEventListener("input", function (e) {
+      if (e.target === email) syncFamily();
+      if (e.target === agreed) setError("agreed_fee", agreedError());
+      if (e.target.id && form.querySelector("#iqu-err-" + e.target.id) && e.target !== agreed && e.target.getAttribute("aria-invalid")) setError(e.target.id, "");
+      update();
+    });
+    form.addEventListener("submit", function (e) {
+      var bad = validate();
+      if (bad.length) {
+        e.preventDefault();
+        if (bad[0] && bad[0].focus) bad[0].focus();
+      }
+    });
+
+    syncDays();
+    syncPanel();
+    syncFamily();
+    update();
+  };
+
   B.init = function () {
     document.querySelectorAll("table.iqu-dt").forEach(function (t) { initSort(t); updateCount(t); });
     document.querySelectorAll("input[data-filter-for]").forEach(initFilter);
     document.querySelectorAll("button[data-csv-for]").forEach(initCsv);
     document.querySelectorAll("button[data-toggle-view]").forEach(initToggle);
+    var addForm = document.getElementById("iqu-add-student-form");
+    if (addForm) B.addStudent(addForm, root.IQU_BILLING_ADD || {});
     var data = root.IQU_BILLING || {};
     (data.charts || []).forEach(function (c) {
       try { renderChart(c); } catch (e) { /* the table view still shows the numbers */ }
