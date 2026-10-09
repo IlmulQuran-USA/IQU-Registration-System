@@ -877,3 +877,38 @@ th[aria-sort="descending"] .iqu-sort::after {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Enrollment card (Billing Settings) ─────────────────────── */
+.iqu-billing fieldset.iqu-fld {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.iqu-billing .iqu-enroll-choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: start;
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.iqu-billing .iqu-enroll-choice input {
+  margin: 2px 0 0;
+  grid-row: span 2;
+}
+
+.iqu-billing .iqu-enroll-choice .iqu-fld-hint {
+  margin: 0;
+}
+
+.iqu-billing .iqu-enroll-geo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+}

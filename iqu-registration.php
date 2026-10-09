@@ -108,6 +108,7 @@ require_once IQU_PLUGIN_DIR . 'includes/class-iqu-notifier.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-pricing.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-coupon-db.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-coupon.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-enrollment-settings.php';
 
 // 💳 Monthly tuition billing (Stripe) — see includes/billing/bootstrap.php
 require_once IQU_PLUGIN_DIR . 'includes/billing/bootstrap.php';
@@ -153,7 +154,9 @@ add_action('plugins_loaded', function () {
   if (is_admin()) {
     new IQU_Admin();
     new IQU_Zeffy_Admin();
-    new IQU_Coupon_Admin(); 
+    new IQU_Coupon_Admin();
+    require_once IQU_PLUGIN_DIR . 'admin/class-iqu-enrollment-admin.php';
+    IQU_Enrollment_Admin::init();
   }
 });
 

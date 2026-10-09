@@ -239,6 +239,8 @@ class IQU_Billing_Settings
                 </form>
             </div>
 
+            <?php if (class_exists('IQU_Enrollment_Admin')) IQU_Enrollment_Admin::render_card(); ?>
+
             <!-- ── Sync with Stripe ───────────────────────────── -->
             <div class="iqu-card">
                 <div class="iqu-card-head">

@@ -9,7 +9,7 @@ if (!defined('ABSPATH'))
  */
 class IQU_Admin
 {
-  private const ALLOWED_STATUSES = ['pending', 'confirmed', 'contacted', 'enrolled', 'cancelled'];
+  private const ALLOWED_STATUSES = IQU_Database::STATUSES;
   private const ALLOWED_BACK_PAGES = [
     'iqu-registrations',
     'iqu-list-free',

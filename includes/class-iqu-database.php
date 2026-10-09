@@ -26,6 +26,13 @@ class IQU_Database
     public const FORM_WEEKEND_EXISTING = 'weekend_existing';
     public const FORM_WEEKEND_NEW      = 'weekend_new';
 
+    /**
+     * Registration statuses. The first five are the original ones; 3.3.0 adds the
+     * enrollment flow: card_pending (sent to Stripe to add a card), pending_review (the team
+     * confirms the fee), expired (no card after 7 days), paid (Summer payment confirmed by Stripe).
+     */
+    public const STATUSES = ['pending', 'confirmed', 'contacted', 'enrolled', 'cancelled', 'card_pending', 'pending_review', 'expired', 'paid'];
+
     /** Weekend প্রোগ্রামের দুটো form_type একসাথে। */
     public static function weekend_types(): array
     {
@@ -122,17 +129,149 @@ class IQU_Database
             admin_note         TEXT,
             created_at         DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at         DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            review_reason      VARCHAR(100)        NOT NULL DEFAULT '',
+            country_ip         CHAR(2)             NOT NULL DEFAULT '',
+            fbp                VARCHAR(100)        NOT NULL DEFAULT '',
+            fbc                VARCHAR(255)        NOT NULL DEFAULT '',
+            pay_session_id     VARCHAR(100)        NOT NULL DEFAULT '',
+            billing_account_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+            reminders_sent     TINYINT(3) UNSIGNED NOT NULL DEFAULT 0,
             PRIMARY KEY        (id),
             KEY                email (email),
             KEY                form_type (form_type),
             KEY                status (status),
             KEY                created_at (created_at),
-            KEY                coupon_id (coupon_id)
+            KEY                coupon_id (coupon_id),
+            KEY                review_reason (review_reason)
         ) {$charset};";
 
         IQU_Database::apply_schema($table, $sql);
 
+        // Waitlist for families outside the US and Canada (3.3.0). No IP address is stored.
+        $waitlist = self::waitlist_table();
+        IQU_Database::apply_schema($waitlist, "CREATE TABLE {$waitlist} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            email VARCHAR(191) NOT NULL DEFAULT '',
+            name VARCHAR(150) NOT NULL DEFAULT '',
+            country CHAR(2) NOT NULL DEFAULT '',
+            program VARCHAR(20) NOT NULL DEFAULT '',
+            source VARCHAR(30) NOT NULL DEFAULT '',
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY email_program (email,program),
+            KEY country (country)
+        ) {$charset};");
+
+        $problem = self::verify_schema_330();
+        if ($problem !== '') {
+            // Leave the version behind so the next page load tries again.
+            error_log('[IQU] Registration table upgrade to ' . IQU_VERSION . ' not finished — ' . $problem);
+            return;
+        }
+
         update_option('iqu_db_version', IQU_VERSION);
+    }
+
+    /** Registration columns added in 3.3.0, with the definition used if dbDelta did not add one. */
+    private const COLUMNS_330 = [
+        'review_reason'      => "VARCHAR(100) NOT NULL DEFAULT ''",
+        'country_ip'         => "CHAR(2) NOT NULL DEFAULT ''",
+        'fbp'                => "VARCHAR(100) NOT NULL DEFAULT ''",
+        'fbc'                => "VARCHAR(255) NOT NULL DEFAULT ''",
+        'pay_session_id'     => "VARCHAR(100) NOT NULL DEFAULT ''",
+        'billing_account_id' => 'BIGINT(20) UNSIGNED NOT NULL DEFAULT 0',
+        'reminders_sent'     => 'TINYINT(3) UNSIGNED NOT NULL DEFAULT 0',
+    ];
+
+    public static function waitlist_table(): string
+    {
+        global $wpdb;
+        return $wpdb->prefix . 'iqu_waitlist';
+    }
+
+    /** Column metadata from SHOW COLUMNS, keyed by column name. */
+    private static function registration_columns(): array
+    {
+        global $wpdb;
+        $out = [];
+        foreach ((array) $wpdb->get_results('SHOW COLUMNS FROM ' . $wpdb->prefix . IQU_TABLE_NAME, ARRAY_A) as $c) {
+            $out[(string) $c['Field']] = $c;
+        }
+        return $out;
+    }
+
+    /**
+     * 3.3.0 check after apply_schema(): every new column exists and has a default, and the
+     * waitlist table exists. A column dbDelta did not add is added explicitly, once.
+     * @return string '' when ready, otherwise the reason.
+     */
+    private static function verify_schema_330(): string
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . IQU_TABLE_NAME;
+
+        $cols = self::registration_columns();
+        if (!$cols) return 'registrations table not readable';
+        foreach (self::COLUMNS_330 as $col => $def) {
+            if (!isset($cols[$col])) {
+                $wpdb->query("ALTER TABLE {$table} ADD COLUMN {$col} {$def}");
+            }
+        }
+
+        $cols    = self::registration_columns();
+        $missing = array_diff(array_keys(self::COLUMNS_330), array_keys($cols));
+        if ($missing) return 'missing columns: ' . implode(', ', $missing) . ' (' . $wpdb->last_error . ')';
+        foreach (array_keys(self::COLUMNS_330) as $col) {
+            if (strtoupper((string) $cols[$col]['Null']) === 'NO' && $cols[$col]['Default'] === null) {
+                return "column {$col} is NOT NULL without a default";
+            }
+        }
+
+        $waitlist = self::waitlist_table();
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $waitlist)) !== $waitlist) return 'waitlist table not created';
+        return '';
+    }
+
+    /**
+     * Set the status of one registration without touching its admin note
+     * (update_status() replaces the note). Used by the enrollment flow.
+     */
+    public static function set_status(int $id, string $status): bool
+    {
+        global $wpdb;
+        if (!in_array($status, self::STATUSES, true)) return false;
+        return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, ['status' => $status], ['id' => $id], ['%s'], ['%d']);
+    }
+
+    /** Update the 3.3.0 enrollment columns of one registration. Unknown keys are ignored. */
+    public static function update_enrollment(int $id, array $fields): bool
+    {
+        global $wpdb;
+        $formats = [
+            'review_reason' => '%s', 'country_ip' => '%s', 'fbp' => '%s', 'fbc' => '%s',
+            'pay_session_id' => '%s', 'billing_account_id' => '%d', 'reminders_sent' => '%d',
+        ];
+        $row = [];
+        $fmt = [];
+        foreach ($formats as $col => $f) {
+            if (array_key_exists($col, $fields)) {
+                $row[$col] = $fields[$col];
+                $fmt[]     = $f;
+            }
+        }
+        if (!$row) return false;
+        return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, $row, ['id' => $id], $fmt, ['%d']);
+    }
+
+    /** Add a review reason to a registration, keeping the ones it already has. */
+    public static function add_review_reason(int $id, string $reason): bool
+    {
+        $row = self::get_registration($id);
+        if (!$row) return false;
+        $have = array_filter(explode(',', (string) ($row['review_reason'] ?? '')));
+        if (in_array($reason, $have, true)) return true;
+        $have[] = $reason;
+        return self::update_enrollment($id, ['review_reason' => substr(implode(',', $have), 0, 100)]);
     }
 
 
@@ -431,8 +570,7 @@ class IQU_Database
         global $wpdb;
         $table = $wpdb->prefix . IQU_TABLE_NAME;
 
-        $allowed = ['pending', 'confirmed', 'contacted', 'enrolled', 'cancelled'];
-        if (! in_array($status, $allowed, true)) {
+        if (! in_array($status, self::STATUSES, true)) {
             return false;
         }
 
