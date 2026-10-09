@@ -18,6 +18,10 @@ class IQU_Enrollment_Settings
     public const OPT_FREE    = 'iqu_enroll_free_payment';
     public const OPT_SUMMER  = 'iqu_enroll_summer_payment';
 
+    public const OPT_SUMMER_FEE           = 'iqu_enroll_summer_fee';           // Standard, paid once for the whole program
+    public const OPT_SUMMER_FEE_SUPPORTED = 'iqu_enroll_summer_fee_supported'; // Supported Rate
+    public const SUMMER_FEE_DEFAULTS = [self::OPT_SUMMER_FEE => '40.00', self::OPT_SUMMER_FEE_SUPPORTED => '30.00'];
+
     public const COUNTRY_MODES = ['off', 'monitor', 'enforce'];
     public const FREE_MODES    = ['off', 'on'];
     public const SUMMER_MODES  = ['zeffy', 'stripe'];
@@ -101,8 +105,28 @@ class IQU_Enrollment_Settings
         return ['url' => IQU_MESSENGER_URL, 'label' => 'Live in the US or Canada and travelling? Message us on Facebook Messenger'];
     }
 
-    /** Save the switches from a posted form. Unknown values keep the current setting. */
-    public static function save(array $post): void
+    /** Summer fee in USD (Stripe mode): 'standard' or 'supported'. Always from the server, never the browser. */
+    public static function summer_fee(string $which = 'standard'): float
+    {
+        $opt = $which === 'supported' ? self::OPT_SUMMER_FEE_SUPPORTED : self::OPT_SUMMER_FEE;
+        $v = self::parse_amount((string) get_option($opt, self::SUMMER_FEE_DEFAULTS[$opt]));
+        return (float) ($v ?? self::SUMMER_FEE_DEFAULTS[$opt]);
+    }
+
+    /** "40", "40.5", "40.00", "$40" → "40.00"; null unless a positive amount with at most 2 decimals, at least 1.00. */
+    public static function parse_amount(string $raw): ?string
+    {
+        $raw = trim(str_replace(['$', ',', ' '], '', $raw));
+        if (!preg_match('/^\d{1,5}(\.\d{1,2})?$/', $raw)) return null;
+        $n = round((float) $raw, 2);
+        return $n >= 1.00 ? number_format($n, 2, '.', '') : null;
+    }
+
+    /**
+     * Save the switches and Summer fees from a posted form. Unknown values keep the current setting.
+     * @return string[] Problems to show (a fee that was not saved).
+     */
+    public static function save(array $post): array
     {
         $country = sanitize_key((string) ($post['country_check'] ?? ''));
         $free    = sanitize_key((string) ($post['free_payment'] ?? ''));
@@ -110,5 +134,17 @@ class IQU_Enrollment_Settings
         if (in_array($country, self::COUNTRY_MODES, true)) update_option(self::OPT_COUNTRY, $country, false);
         if (in_array($free, self::FREE_MODES, true)) update_option(self::OPT_FREE, $free, false);
         if (in_array($summer, self::SUMMER_MODES, true)) update_option(self::OPT_SUMMER, $summer, false);
+
+        $problems = [];
+        foreach (['summer_fee' => [self::OPT_SUMMER_FEE, 'Summer program fee'], 'summer_fee_supported' => [self::OPT_SUMMER_FEE_SUPPORTED, 'Summer supported rate']] as $field => [$opt, $label]) {
+            if (!array_key_exists($field, $post)) continue;
+            $v = self::parse_amount(sanitize_text_field((string) $post[$field]));
+            if ($v === null) {
+                $problems[] = $label . ' was not changed: enter an amount of at least 1.00 with up to 2 decimals.';
+            } else {
+                update_option($opt, $v, false);
+            }
+        }
+        return $problems;
     }
 }

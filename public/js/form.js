@@ -460,30 +460,7 @@
 
       function handleFreeSuccess(data) {
         // Payment step: straight to Stripe Checkout (the enrollment completes when Stripe confirms).
-        const checkoutUrl = String((data && data.checkout_url) || "");
-        if (/^https:\/\/checkout\.stripe\.com\//.test(checkoutUrl)) {
-          const card = document.createElement("div");
-          card.className = "iqu-to-stripe";
-          card.setAttribute("role", "status");
-          card.setAttribute("aria-live", "polite");
-          const spin = document.createElement("div");
-          spin.className = "iqu-to-stripe-spinner";
-          spin.setAttribute("aria-hidden", "true");
-          const msg = document.createElement("p");
-          msg.textContent = data.message || "Taking you to our secure payment page…";
-          const link = document.createElement("a");
-          link.href = checkoutUrl;
-          link.textContent = "Continue to the payment page";
-          card.append(spin, msg, link);
-          $form
-            .closest(".iqu-form-wrapper")
-            .find(".iqu-hero, .iqu-intro-card, .iqu-required-note")
-            .hide();
-          $form.replaceWith(card);
-          // A short pause lets the Lead pixel leave the browser first.
-          setTimeout(function () {
-            window.location.assign(checkoutUrl);
-          }, 300);
+        if (goToStripe($form, data && data.checkout_url, data && data.message, ".iqu-hero, .iqu-intro-card, .iqu-required-note")) {
           return;
         }
 
@@ -1032,6 +1009,10 @@
       const paymentOptionCards = summerFormEl.querySelectorAll(
         ".iqu-payment-option",
       );
+      // 3.3.0 Stripe mode: one "Card" option, rendered only when Summer payment is Stripe.
+      const stripeMode = !!summerFormEl.querySelector(
+        '.iqu-payment-option[data-provider="stripe"]',
+      );
 
       function getSelectedAdmissionFee() {
         const selected = summerFormEl.querySelector(
@@ -1080,6 +1061,11 @@
           flexiblePanel.hidden = true;
           if (flexibleInput) {
             flexibleInput.value = "";
+          }
+          // Stripe mode: the only option (Card) is selected for the family.
+          if (stripeMode && paymentInputs.length === 1) {
+            paymentInputs[0].checked = true;
+            updatePaymentCardState();
           }
         } else if (isComplimentary) {
           restorePaymentWrap();
@@ -1144,7 +1130,8 @@
           const isDollarAmount = /^\$?\d+(\.\d{1,2})?$/.test(val);
           const isFreeRequest = /requesting\s*free/i.test(val);
 
-          if (isDollarAmount && !isFreeRequest) {
+          // Stripe mode: Flexible / Free is reviewed by the team (no online payment).
+          if (isDollarAmount && !isFreeRequest && !stripeMode) {
             movePaymentWrapBelowFlexible();
             paymentFieldset.disabled = false;
             paymentWrap.classList.remove("is-disabled");
@@ -1284,6 +1271,11 @@
       function handleSummerSuccess(data) {
         const payment = data.payment || {};
         const details = [];
+
+        // Stripe mode: straight to Stripe Checkout (marked paid only when Stripe confirms).
+        if (goToStripe($form, payment.checkout_url, data.message, ".sc-hero, .sc-body, .iqu-required-note")) {
+          return;
+        }
 
         if (payment.method) {
           details.push({
@@ -1813,6 +1805,37 @@
       });
 
       paint();
+    }
+
+    /**
+     * 3.3.0: replace the form with "Taking you to our secure payment page…" and open Stripe
+     * Checkout. Only checkout.stripe.com URLs are followed. Returns false when not a Stripe URL.
+     */
+    function goToStripe($form, url, message, hideSelector) {
+      const checkoutUrl = String(url || "");
+      if (!/^https:\/\/checkout\.stripe\.com\//.test(checkoutUrl)) {
+        return false;
+      }
+      const card = document.createElement("div");
+      card.className = "iqu-to-stripe";
+      card.setAttribute("role", "status");
+      card.setAttribute("aria-live", "polite");
+      const spin = document.createElement("div");
+      spin.className = "iqu-to-stripe-spinner";
+      spin.setAttribute("aria-hidden", "true");
+      const msg = document.createElement("p");
+      msg.textContent = message || "Taking you to our secure payment page…";
+      const link = document.createElement("a");
+      link.href = checkoutUrl;
+      link.textContent = "Continue to the payment page";
+      card.append(spin, msg, link);
+      $form.closest(".iqu-form-wrapper").find(hideSelector).hide();
+      $form.replaceWith(card);
+      // A short pause lets the Lead pixel leave the browser first.
+      setTimeout(function () {
+        window.location.assign(checkoutUrl);
+      }, 300);
+      return true;
     }
 
     function iquGetFbclid() {

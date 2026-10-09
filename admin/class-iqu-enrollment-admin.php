@@ -35,8 +35,10 @@ class IQU_Enrollment_Admin
     {
         if (!current_user_can(self::CAP)) wp_die('You do not have permission to do this.', 403);
         check_admin_referer(self::A_SAVE);
-        IQU_Enrollment_Settings::save(wp_unslash($_POST));
-        self::back(['type' => 'success', 'text' => 'Enrollment settings saved.']);
+        $problems = IQU_Enrollment_Settings::save(wp_unslash($_POST));
+        self::back($problems
+            ? ['type' => 'error', 'text' => 'Saved, except: ' . implode(' ', $problems)]
+            : ['type' => 'success', 'text' => 'Enrollment settings saved.']);
     }
 
     private static function back(array $notice): void
@@ -103,6 +105,16 @@ class IQU_Enrollment_Admin
                             'stripe' => ['Stripe', 'One card payment through Stripe Checkout, confirmed by the Stripe webhook.'],
                         ]); ?>
                     </fieldset>
+                    <div class="iqu-fld">
+                        <label for="iqu_summer_fee">Summer program fee (USD)</label>
+                        <input id="iqu_summer_fee" type="text" inputmode="decimal" name="summer_fee" value="<?php echo esc_attr(number_format(IQU_Enrollment_Settings::summer_fee('standard'), 2, '.', '')); ?>">
+                        <p class="iqu-fld-hint">Paid once, at registration, for the whole program (Standard option). Used only when Summer payment is Stripe. At least 1.00.</p>
+                    </div>
+                    <div class="iqu-fld">
+                        <label for="iqu_summer_fee_supported">Summer supported rate (USD)</label>
+                        <input id="iqu_summer_fee_supported" type="text" inputmode="decimal" name="summer_fee_supported" value="<?php echo esc_attr(number_format(IQU_Enrollment_Settings::summer_fee('supported'), 2, '.', '')); ?>">
+                        <p class="iqu-fld-hint">The "Supported Rate" option, paid through Stripe the same way. "Flexible / Free" goes to Pending review; "Existing student" stays free.</p>
+                    </div>
                 </div>
                 <div class="iqu-cpn-actions">
                     <?php submit_button('Save enrollment settings', 'primary', 'submit', false); ?>

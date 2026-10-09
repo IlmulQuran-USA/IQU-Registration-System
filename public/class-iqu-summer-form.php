@@ -28,6 +28,9 @@ class IQU_Summer_Form
     // ════════════════════════════════════════════════════
     public function render_form(): string
     {
+        // Stripe mode (Billing Settings → Enrollment) changes only the fee labels and the payment
+        // options below; with Zeffy the HTML is exactly as before.
+        $stripe = IQU_Enrollment_Settings::summer_stripe_active();
         ob_start();
         if (isset($_GET['iqu_submitted']) && $_GET['iqu_submitted'] === 'summer') {
 ?>
@@ -532,13 +535,22 @@ class IQU_Summer_Form
                         <div class="iqu-radio-list iqu-radio-fee" id="iqu-admission-options">
                             <label class="iqu-radio-label iqu-radio-card">
                                 <input type="radio" name="admission_fee" value="50" required>
+<?php if ($stripe): ?>
+                                <?php echo esc_html(IQU_Pricing::format(IQU_Enrollment_Settings::summer_fee('standard'))); ?> — Standard Enrollment Fee
+                                <em>(Recommended)</em>
+<?php else: ?>
                                 $50 — Standard Enrollment Fee
                                 <em>(Recommended) (Already discounted with 75% subsidy)</em>
+<?php endif; ?>
                             </label>
 
                             <label class="iqu-radio-label iqu-radio-card">
                                 <input type="radio" name="admission_fee" value="30">
+<?php if ($stripe): ?>
+                                <?php echo esc_html(IQU_Pricing::format(IQU_Enrollment_Settings::summer_fee('supported'))); ?> — Supported Rate
+<?php else: ?>
                                 $30 — Supported Rate
+<?php endif; ?>
                                 <em>(Available for families who may need some financial assistance)</em>
                             </label>
 
@@ -568,6 +580,20 @@ class IQU_Summer_Form
                             <p class="iqu-help">Select your preferred payment option:</p>
 
                             <fieldset id="iqu-payment-method-fieldset" disabled>
+<?php if ($stripe): ?>
+                                <div class="iqu-payment-options">
+                                    <label class="iqu-radio-label iqu-payment-option" data-provider="stripe">
+                                        <div class="display-flex-payment">
+                                            <input type="radio" name="payment_method" value="zeffy">
+                                            <span class="iqu-payment-option-media" aria-hidden="true">💳</span>
+                                        </div>
+                                        <span class="iqu-payment-option-copy">
+                                            <strong>Card (secure online payment)</strong>
+                                            <small>Pay once for the whole program on Stripe's secure page. We never see your card details.</small>
+                                        </span>
+                                    </label>
+                                </div>
+<?php else: ?>
                                 <div class="iqu-payment-options">
                                     <label class="iqu-radio-label iqu-payment-option" data-provider="zelle">
                                         <div class="display-flex-payment">
@@ -597,6 +623,7 @@ class IQU_Summer_Form
                                         </span>
                                     </label>
                                 </div>
+<?php endif; ?>
                             </fieldset>
 
                             <span class="iqu-error" data-field="payment_method"></span>
@@ -616,6 +643,7 @@ class IQU_Summer_Form
                 <!-- Hidden fields that will be filled by the Zelle modal -->
                 <input type="hidden" name="transaction_id" id="iqu_transaction_id" value="">
                 <input type="hidden" name="payment_amount" id="iqu_payment_amount" value="">
+<?php if (!$stripe): ?>
                 <div class="iqu-zeffy-warning" id="iqu-zeffy-warning" style="display:none">
                     <strong>⚠ Please note:</strong> When completing your payment through Zeffy, they may ask for a
                     <em>small
@@ -626,6 +654,7 @@ class IQU_Summer_Form
                     <strong>leave the input field empty</strong>.
                     Your full payment will be processed normally with <em>no extra charge</em>.
                 </div>
+<?php endif; ?>
 
                 <div class="iqu-submit-area">
                     <div class="iqu-alert iqu-server-error" id="iqu-summer-server-error" style="display:none"></div>
@@ -644,6 +673,7 @@ class IQU_Summer_Form
     </div><!-- /.iqu-split-layout -->
 </div>
 
+<?php if (!$stripe): ?>
 <!-- ───────────────────────── Zelle Payment Modal ─────────────────────────
      ⚠️ মডালটি ইচ্ছাকৃতভাবে split layout-এর বাইরে। ভেতরে রাখলে sticky
         কলামের stacking context-এ আটকে যেত এবং ব্যাকড্রপ পুরো স্ক্রিন
@@ -702,6 +732,7 @@ class IQU_Summer_Form
         </div>
     </div>
 </div>
+<?php endif; ?>
 <?php
         return ob_get_clean();
     }
@@ -743,6 +774,12 @@ class IQU_Summer_Form
         $blocked = IQU_Eligibility::apply($clean, 'summer');
         if ($blocked) {
             wp_send_json_error($blocked);
+        }
+
+        // Summer → Stripe (Billing Settings → Enrollment → Summer payment). With Zeffy, nothing here runs.
+        $pay = null;
+        if (IQU_Enrollment_Settings::summer_stripe_active()) {
+            $pay = IQU_Summer_Pay::prepare($clean);
         }
 
         // Duplicate email check — scoped to this form_type
@@ -817,6 +854,11 @@ class IQU_Summer_Form
         $response['event_id']     = $event_id;
         $response['content_name'] = $content_name;
         $response['value']        = $payment_amount;
+
+        // Stripe mode: open the payment page, or confirm a "pending review" enrollment.
+        if ($pay) {
+            $response = IQU_Summer_Pay::start((int) $reg_id, $pay, $response);
+        }
 
         wp_send_json_success($response);
     }

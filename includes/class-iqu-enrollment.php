@@ -318,6 +318,9 @@ class IQU_Enrollment
                 IQU_Database::update_enrollment($id, ['reminders_sent' => $bits | self::BIT_24H]);
             }
         }
+
+        // Summer one-time payments not finished after 24 h (one reminder).
+        if (class_exists('IQU_Summer_Pay')) IQU_Summer_Pay::run_reminders($now);
     }
 
     private static function reminder_email(array $reg, array $acc, bool $last): void

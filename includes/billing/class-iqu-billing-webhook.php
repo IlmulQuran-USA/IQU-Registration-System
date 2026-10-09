@@ -106,6 +106,12 @@ class IQU_Billing_Webhook
     private static function process(array $event): array
     {
         $obj = (array) ($event['data']['object'] ?? []);
+
+        // Summer one-time payment (no billing account): handled on its own, read back from Stripe.
+        if ($event['type'] === 'checkout.session.completed' && ($obj['metadata']['iqu_kind'] ?? '') === 'summer' && class_exists('IQU_Summer_Pay')) {
+            return IQU_Summer_Pay::on_session_completed((string) ($obj['id'] ?? ''));
+        }
+
         $acc = self::account_for($obj);
         if (!$acc) return ['no_account', null, ''];
 
