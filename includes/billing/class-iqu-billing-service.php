@@ -244,9 +244,11 @@ class IQU_Billing_Service
     /**
      * Stripe Checkout in subscription mode. The family adds a bank or card;
      * the monthly subscription is created when they finish.
-     * @return array{ok:bool, url:string, error:string}
+     * @param array $opts success_args: extra query args on the success URL (enrollment flow:
+     *                    enrolled=1). Without it the session is exactly as before.
+     * @return array{ok:bool, url:string, error:string, id?:string}
      */
-    public static function create_checkout_session(array $acc): array
+    public static function create_checkout_session(array $acc, array $opts = []): array
     {
         $fail = fn(string $e) => ['ok' => false, 'url' => '', 'error' => $e];
 
@@ -306,7 +308,9 @@ class IQU_Billing_Service
             'subscription_data'      => $sub,
             'payment_method_options' => ['us_bank_account' => ['verification_method' => 'automatic']],
             'locale'                 => 'en',
-            'success_url'            => add_query_arg('setup', 'done', $link),
+            'success_url'            => empty($opts['success_args'])
+                ? add_query_arg('setup', 'done', $link)
+                : add_query_arg(array_merge(['setup' => 'done'], array_map('strval', (array) $opts['success_args'])), $link),
             'cancel_url'             => $link,
             'metadata'               => ['iqu_account_id' => (string) $acc['id'], 'iqu_mode' => (string) $acc['mode']],
             'managed_payments'       => ['enabled' => false], // tuition is never sold through Managed Payments
@@ -317,7 +321,7 @@ class IQU_Billing_Service
 
         $res = IQU_Stripe::post('/checkout/sessions', $params);
         if (!$res['ok'] || empty($res['data']['url'])) return $fail('Could not open the payment page: ' . $res['error']);
-        return ['ok' => true, 'url' => (string) $res['data']['url'], 'error' => ''];
+        return ['ok' => true, 'url' => (string) $res['data']['url'], 'error' => '', 'id' => (string) ($res['data']['id'] ?? '')];
     }
 
     /** Stripe customer portal: change bank or card, see invoices. */

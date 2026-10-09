@@ -121,6 +121,8 @@ class IQU_Billing_Webhook
                 if (!$had_method && in_array($sync['new'], ['free_month', 'waiting_first_charge', 'active'], true)) {
                     IQU_Billing_Notify::method_added($acc);
                 }
+                // Enroll for Free: Stripe has confirmed the card → registrations become "enrolled". Never throws.
+                if (class_exists('IQU_Enrollment')) IQU_Enrollment::on_checkout_completed($acc);
                 break;
 
             case 'invoice.paid':

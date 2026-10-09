@@ -45,6 +45,7 @@ class IQU_Enrollment_Settings
     public static function payments_allowed(): bool
     {
         if (!class_exists('IQU_Stripe') || !IQU_Stripe::is_ready()) return false;
+        if (!IQU_Database::schema_ready()) return false; // 3.3.0 columns not verified yet: forms as before
         return IQU_Stripe::expected_mode() === 'live' || current_user_can('manage_options');
     }
 

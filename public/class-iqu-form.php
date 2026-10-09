@@ -742,6 +742,17 @@ class IQU_Form
                         <span class="iqu-error" data-field="referral"></span>
                     </div>
                 </div>
+<?php if (IQU_Enrollment_Settings::free_payment_active()): ?>
+                <!-- ── Existing student? (only with the Stripe payment step) ── -->
+                <fieldset class="iqu-question iqu-existing-question">
+                    <legend>Are you already an Ilm-ul-Quran student? <span class="req">*</span></legend>
+                    <div class="iqu-existing-options">
+                        <label class="iqu-radio-card"><input type="radio" name="is_existing_student" value="yes" required> Yes</label>
+                        <label class="iqu-radio-card"><input type="radio" name="is_existing_student" value="no" required> No</label>
+                    </div>
+                    <span class="iqu-error" data-field="is_existing_student"></span>
+                </fieldset>
+<?php endif; ?>
 
                 <!-- ── Tuition Summary ──────────────────────── -->
                 <div class="iqu-question iqu-tuition-block" id="iqu-tuition-block">
@@ -1008,6 +1019,15 @@ class IQU_Form
 
         $clean['payment_status'] = 'pending';
 
+        // Enroll for Free → Stripe (Billing Settings → Enrollment). When Off, nothing here runs.
+        $enroll = null;
+        if (IQU_Enrollment_Settings::free_payment_active()) {
+            $enroll = IQU_Enrollment::prepare_free($clean, $_POST);
+            if (!empty($enroll['error'])) {
+                wp_send_json_error($enroll['error']);
+            }
+        }
+
         // Insert
         $reg_id = IQU_Database::insert_registration($clean);
         if (!$reg_id) {
@@ -1047,14 +1067,21 @@ class IQU_Form
             'value'        => $lead_value,
         ]);
 
-        wp_send_json_success([
+        $response = [
             'message' => "JazakAllahu Khairan! Your registration has been received. We will contact you via WhatsApp within 24–48 hours, in-sha'-Allah.",
             'reg_id' => $reg_id,
             'form' => 'free',
             'event_id'     => $event_id,
             'content_name' => $content_name,
             'value'        => $lead_value,
-        ]);
+        ];
+
+        // Payment step: send the family to Stripe, or confirm a "pending review" enrollment.
+        if ($enroll) {
+            $response = IQU_Enrollment::start_free((int) $reg_id, $clean, $enroll, $response);
+        }
+
+        wp_send_json_success($response);
     }
 
     // ════════════════════════════════════════════════════

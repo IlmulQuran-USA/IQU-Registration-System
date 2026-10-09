@@ -4287,3 +4287,64 @@ body.iqu-geo-open {
     animation: none;
   }
 }
+
+/* 3.3.0 — "Are you already an Ilm-ul-Quran student?" (only with the payment step) */
+.iqu-existing-question {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.iqu-existing-question legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-weight: 600;
+  color: #1a5276;
+}
+
+.iqu-existing-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.iqu-existing-options .iqu-radio-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+/* "Taking you to our secure payment page…" */
+.iqu-to-stripe {
+  max-width: 560px;
+  margin: 40px auto;
+  padding: 28px 22px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #dbe4ec;
+  border-radius: 16px;
+}
+
+.iqu-to-stripe-spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 14px;
+  border: 4px solid #dbe4ec;
+  border-top-color: #1a5276;
+  border-radius: 50%;
+  animation: iqu-spin 0.9s linear infinite;
+}
+
+@keyframes iqu-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iqu-to-stripe-spinner {
+    animation: none;
+  }
+}

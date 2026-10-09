@@ -28,6 +28,7 @@ class IQU_Billing_Portal
     private const RL_BAD      = 20;  // invalid token views per IP per 15 min
     private const RL_FIND_IP  = 5;   // link requests per IP per hour
     private const RL_FIND_EML = 3;   // link emails per address per hour
+    private const CONFIRM_TRIES = 6; // enrollment "confirming your card" refreshes (5 s apart)
 
     public static function init(): void
     {
@@ -228,8 +229,14 @@ class IQU_Billing_Portal
         $url      = esc_url(home_url('/' . self::PATH . '/'));
         $tok      = esc_attr($token);
 
-        $h = '';
-        if (isset($_GET['setup']) && $_GET['setup'] === 'done' && !$is_setup) {
+        // Enroll for Free, back from Stripe (enrolled=1): welcome once the webhook has confirmed,
+        // otherwise "confirming" with a plain meta refresh (no JavaScript; CSP unchanged).
+        [$enroll_box, $head] = (isset($_GET['enrolled']) && $_GET['enrolled'] === '1' && class_exists('IQU_Enrollment'))
+            ? self::enrollment_box($students, $token)
+            : ['', ''];
+
+        $h = $enroll_box;
+        if (isset($_GET['setup']) && $_GET['setup'] === 'done' && !$is_setup && $enroll_box === '') {
             $h .= '<div class="box good"><strong>All set.</strong> Tuition will now be taken automatically, and you will get a receipt by email each time.</div>';
         }
         if ($error) $h .= '<div class="box bad">' . esc_html($error) . '</div>';
@@ -254,7 +261,30 @@ class IQU_Billing_Portal
         $h .= '<section class="card help"><h2 class="label">Need help?</h2><p class="small">If the fee is a burden for your family right now, or you need to pause or stop classes, write to us at ' . self::contact_link() . '. No child\'s place is ever affected by cost.</p></section>';
         $h .= '<p class="muted small">This page is private to your family. If you think someone else has your link, tell us and we will send you a new one.</p>';
 
-        self::page('Monthly tuition', $h);
+        self::page('Monthly tuition', $h, $head);
+    }
+
+    /**
+     * Enrollment banner after Stripe.
+     * @return array{0:string,1:string} box HTML, extra <head> tags
+     */
+    private static function enrollment_box(array $students, string $token): array
+    {
+        $state = IQU_Enrollment::portal_state(array_column($students, 'reg'));
+        if ($state === 'complete') {
+            return ['<div class="box good" role="status"><strong>Welcome to Ilm-ul-Quran USA — enrollment complete.</strong> JazakAllahu Khairan! The first month is free. We will contact you on WhatsApp within 24–48 hours to arrange the class schedule, in-sha\'-Allah.</div>', ''];
+        }
+        if ($state !== 'confirming') return ['', ''];
+
+        $try = min(self::CONFIRM_TRIES, absint($_GET['w'] ?? 0));
+        if ($try >= self::CONFIRM_TRIES) {
+            return ['<div class="box good" role="status"><strong>We are still confirming your card with Stripe.</strong> You do not need to do anything — we will email you as soon as it is confirmed.</div>', ''];
+        }
+        $next = add_query_arg(['t' => $token, 'setup' => 'done', 'enrolled' => '1', 'w' => $try + 1], home_url('/' . self::PATH . '/'));
+        return [
+            '<div class="box good" role="status"><strong>We are confirming your card…</strong> This usually takes a few seconds. This page refreshes by itself.</div>',
+            '<meta http-equiv="refresh" content="5;url=' . esc_url($next) . '">',
+        ];
     }
 
     /** Status label and pill tone shown on the family page. */
@@ -488,8 +518,8 @@ class IQU_Billing_Portal
         return '<a href="mailto:' . esc_attr(self::CONTACT) . '">' . esc_html(self::CONTACT) . '</a>';
     }
 
-    /** Full HTML page, then stop. */
-    private static function page(string $title, string $body): void
+    /** Full HTML page, then stop. $head: extra tags for <head> (only the enrollment refresh uses it). */
+    private static function page(string $title, string $body, string $head = ''): void
     {
         $icon = get_site_icon_url(64);
         $logo = '';
@@ -508,7 +538,7 @@ class IQU_Billing_Portal
         status_header(http_response_code() ?: 200);
         header('Content-Type: text/html; charset=utf-8');
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            . '<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>' . esc_html($title) . ' — Ilm-ul-Quran USA</title>'
+            . '<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">' . $head . '<title>' . esc_html($title) . ' — Ilm-ul-Quran USA</title>'
             . ($icon ? '<link rel="icon" href="' . esc_url($icon) . '">' : '')
             . '<style>' . self::css() . '</style></head><body>'
             . '<header><div class="wrap head">' . $logo . '<span class="muted small">Private billing page</span></div></header>'

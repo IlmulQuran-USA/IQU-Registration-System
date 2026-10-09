@@ -122,6 +122,76 @@ class IQU_Pixel
         }
     }
 
+    /**
+     * fbp / fbc of the current visitor, saved with a registration at submit so a later
+     * server event (sent from the Stripe webhook, where there is no browser) can be matched.
+     * @return array{fbp:string, fbc:string}
+     */
+    public static function browser_ids(): array
+    {
+        return ['fbp' => substr(self::cookie('_fbp'), 0, 100), 'fbc' => substr(self::fbc(), 0, 255)];
+    }
+
+    /**
+     * Server-only event (CompleteRegistration, Purchase) for a saved registration row.
+     * Everything comes from the row: hashed email / phone / name / country, the fbp / fbc
+     * saved at submit, and the IP + user agent already stored on the row at submit
+     * (no new IP storage; nothing is read from the current request). Never throws.
+     *
+     * @param string $event_name e.g. CompleteRegistration, Purchase
+     * @param array  $row        registration row from IQU_Database::get_registration()
+     * @param string $event_id   deterministic id, e.g. enroll_{id}, so retries dedupe in Meta
+     * @param array  $custom     content_name, value, currency
+     */
+    public static function send_server_event(string $event_name, array $row, string $event_id, array $custom = []): void
+    {
+        if (!self::is_configured()) return;
+        try {
+            $ud = [];
+            self::maybe_set($ud, 'em', self::hash_email($row['email'] ?? ''));
+            self::maybe_set($ud, 'fn', self::hash_text($row['first_name'] ?? ''));
+            self::maybe_set($ud, 'ln', self::hash_text($row['last_name'] ?? ''));
+            $phone = ($row['whatsapp'] ?? '') ?: (($row['guardian_whatsapp'] ?? '') ?: ($row['guardian_contact'] ?? ''));
+            self::maybe_set($ud, 'ph', self::hash_phone($phone));
+            $country = (string) ($row['country_ip'] ?? '');
+            self::maybe_set($ud, 'country', $country !== '' ? hash('sha256', strtolower($country)) : self::hash_country($row['country_res'] ?? ''));
+            $ip = (string) ($row['ip_address'] ?? '');
+            if (filter_var($ip, FILTER_VALIDATE_IP) && $ip !== '0.0.0.0') $ud['client_ip_address'] = $ip;
+            self::maybe_set($ud, 'client_user_agent', (string) ($row['user_agent'] ?? ''));
+            self::maybe_set($ud, 'fbp', (string) ($row['fbp'] ?? ''));
+            self::maybe_set($ud, 'fbc', (string) ($row['fbc'] ?? ''));
+
+            $cd = ['currency' => $custom['currency'] ?? 'USD'];
+            if (isset($custom['content_name'])) $cd['content_name'] = (string) $custom['content_name'];
+            if (isset($custom['value']) && is_numeric($custom['value'])) $cd['value'] = (float) $custom['value'];
+
+            $body = [
+                'data' => wp_json_encode([[
+                    'event_name'       => $event_name,
+                    'event_time'       => time(),
+                    'event_id'         => $event_id,
+                    'action_source'    => 'website',
+                    'event_source_url' => home_url('/'),
+                    'user_data'        => $ud,
+                    'custom_data'      => $cd,
+                ]]),
+                'access_token' => IQU_FB_CAPI_TOKEN,
+            ];
+            if (defined('IQU_FB_TEST_EVENT_CODE') && IQU_FB_TEST_EVENT_CODE) {
+                $body['test_event_code'] = IQU_FB_TEST_EVENT_CODE;
+            }
+            $url = 'https://graph.facebook.com/' . self::API_VERSION . '/' . rawurlencode(IQU_FB_PIXEL_ID) . '/events';
+            $response = wp_remote_post($url, ['timeout' => 5, 'blocking' => true, 'body' => $body]);
+            if (is_wp_error($response)) {
+                error_log('[IQU Pixel] ' . $event_name . ' failed: ' . $response->get_error_message());
+            } elseif ((int) wp_remote_retrieve_response_code($response) !== 200) {
+                error_log('[IQU Pixel] ' . $event_name . ' HTTP ' . (int) wp_remote_retrieve_response_code($response));
+            }
+        } catch (\Throwable $e) {
+            error_log('[IQU Pixel] Unexpected error: ' . $e->getMessage());
+        }
+    }
+
     // ────────────────────────────────────────────────────
     // Internals
     // ────────────────────────────────────────────────────

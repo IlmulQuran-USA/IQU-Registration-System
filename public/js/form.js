@@ -413,6 +413,18 @@
           return;
         }
 
+        // Only present when the Stripe payment step is on.
+        const $existing = $form.find('input[name="is_existing_student"]');
+        if ($existing.length && !$existing.filter(":checked").length) {
+          showFieldError(
+            $form,
+            "is_existing_student",
+            "Please tell us whether your child is already an Ilm-ul-Quran student.",
+          );
+          scrollToFirstError($form);
+          return;
+        }
+
         setLoading($btn, $btnTxt, $btnLoad, true);
 
         getRecaptchaToken("iqu_free_form")
@@ -447,6 +459,34 @@
       });
 
       function handleFreeSuccess(data) {
+        // Payment step: straight to Stripe Checkout (the enrollment completes when Stripe confirms).
+        const checkoutUrl = String((data && data.checkout_url) || "");
+        if (/^https:\/\/checkout\.stripe\.com\//.test(checkoutUrl)) {
+          const card = document.createElement("div");
+          card.className = "iqu-to-stripe";
+          card.setAttribute("role", "status");
+          card.setAttribute("aria-live", "polite");
+          const spin = document.createElement("div");
+          spin.className = "iqu-to-stripe-spinner";
+          spin.setAttribute("aria-hidden", "true");
+          const msg = document.createElement("p");
+          msg.textContent = data.message || "Taking you to our secure payment page…";
+          const link = document.createElement("a");
+          link.href = checkoutUrl;
+          link.textContent = "Continue to the payment page";
+          card.append(spin, msg, link);
+          $form
+            .closest(".iqu-form-wrapper")
+            .find(".iqu-hero, .iqu-intro-card, .iqu-required-note")
+            .hide();
+          $form.replaceWith(card);
+          // A short pause lets the Lead pixel leave the browser first.
+          setTimeout(function () {
+            window.location.assign(checkoutUrl);
+          }, 300);
+          return;
+        }
+
         $form
           .closest(".iqu-form-wrapper")
           .find(".iqu-hero, .iqu-intro-card, .iqu-required-note")
