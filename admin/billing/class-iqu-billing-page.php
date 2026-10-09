@@ -65,7 +65,7 @@ class IQU_Billing_Page
     /** Only "Billing" shows in the menu; the rest are tabs inside it. */
     public static function hide_tab_pages(): void
     {
-        foreach ([self::PAYMENTS_SLUG, self::BULK_SLUG, 'iqu-billing-add-student', 'iqu-billing-import', 'iqu-billing-settings'] as $slug) {
+        foreach ([self::PAYMENTS_SLUG, self::BULK_SLUG, 'iqu-billing-add-student', 'iqu-billing-import', 'iqu-billing-settings', 'iqu-billing-reports'] as $slug) {
             remove_submenu_page('iqu-registrations', $slug);
         }
     }
@@ -76,6 +76,7 @@ class IQU_Billing_Page
         $tabs = [
             'students' => ['Students', self::SLUG],
             'payments' => ['Payments', self::PAYMENTS_SLUG],
+            'reports'  => ['Reports', 'iqu-billing-reports'],
             'add'      => ['Add Student', 'iqu-billing-add-student'],
             'import'   => ['Import', 'iqu-billing-import'],
             'settings' => ['Settings', 'iqu-billing-settings'],
@@ -236,6 +237,7 @@ class IQU_Billing_Page
                 <input id="iqu-q" type="search" name="q" value="<?php echo esc_attr($q); ?>" placeholder="Name, email or IQU number">
                 <?php submit_button('Search', 'secondary', '', false); ?>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>" class="iqu-export-btn">⬆ Import CSV</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-reports')); ?>" class="iqu-export-btn">⬇ Export</a>
                 <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-add-student')); ?>" class="button button-primary">+ Add existing student</a>
             </form>
 

@@ -47,10 +47,12 @@ add_action('plugins_loaded', function () {
         require_once $adm . 'class-iqu-billing-send.php';
         require_once $adm . 'class-iqu-billing-page.php';
         require_once $adm . 'class-iqu-billing-payments.php';
+        require_once $adm . 'class-iqu-billing-reports.php';
         IQU_Billing_Page::init();
         IQU_Billing_Settings::init();
         IQU_Billing_Add_Student::init();
         IQU_Billing_Import::init();
         IQU_Billing_Send::init();
+        IQU_Billing_Reports::init();
     }
 }, 20);
