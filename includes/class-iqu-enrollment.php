@@ -41,6 +41,33 @@ class IQU_Enrollment
     public static function init(): void
     {
         add_action(self::CRON, [__CLASS__, 'run_reminders']);
+        add_filter('iqu_daily_summary_rows', [__CLASS__, 'summary_rows'], 20, 2);
+    }
+
+    /**
+     * 9 PM Telegram summary: online enrollments started vs completed (last 24 h).
+     * Lines appear only when there is something to report.
+     */
+    public static function summary_rows(array $rows, int $since = 0): array
+    {
+        global $wpdb;
+        if (!IQU_Database::schema_ready()) return $rows;
+        $t   = $wpdb->prefix . IQU_TABLE_NAME;
+        $cut = gmdate('Y-m-d H:i:s', $since ?: time() - DAY_IN_SECONDS);
+        $n = fn(string $sql, array $args) => (int) $wpdb->get_var($wpdb->prepare($sql, $args));
+
+        $started   = $n("SELECT COUNT(*) FROM {$t} WHERE form_type = %s AND created_at >= %s AND (billing_account_id > 0 OR status = %s)", [IQU_Database::FORM_FREE, $cut, 'card_pending']);
+        $completed = $n("SELECT COUNT(*) FROM {$t} WHERE status = %s AND billing_account_id > 0 AND updated_at >= %s", ['enrolled', $cut]);
+        $review    = $n("SELECT COUNT(*) FROM {$t} WHERE status = %s AND created_at >= %s", ['pending_review', $cut]);
+        $paid      = $n("SELECT COUNT(*) FROM {$t} WHERE status = %s AND updated_at >= %s", ['paid', $cut]);
+        $waiting   = $n("SELECT COUNT(*) FROM {$t} WHERE status = %s", ['card_pending']);
+
+        if ($started)   $rows['Enrollments started'] = (string) $started;
+        if ($completed) $rows['Enrollments completed'] = $completed . ' (card confirmed by Stripe)';
+        if ($review)    $rows['New — pending review'] = (string) $review;
+        if ($paid)      $rows['Summer paid (Stripe)'] = (string) $paid;
+        if ($waiting)   $rows['Waiting for a card'] = (string) $waiting;
+        return $rows;
     }
 
     public static function schedule(): void

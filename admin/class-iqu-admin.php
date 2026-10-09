@@ -268,9 +268,41 @@ class IQU_Admin
       'enrolled' => 'iqu-sb-enrolled',
       'cancelled' => 'iqu-sb-cancelled',
       'contacted' => 'iqu-sb-contacted',
+      'card_pending' => 'iqu-sb-card_pending',
+      'pending_review' => 'iqu-sb-pending_review',
+      'expired' => 'iqu-sb-expired',
+      'paid' => 'iqu-sb-paid',
+      'stripe_pending' => 'iqu-sb-card_pending',
     ];
     $cls = $map[$status] ?? 'iqu-sb-pending';
-    return '<span class="iqu-status-badge ' . esc_attr($cls) . '">' . esc_html(ucfirst($status)) . '</span>';
+    return '<span class="iqu-status-badge ' . esc_attr($cls) . '">' . esc_html(self::status_label($status)) . '</span>';
+  }
+
+  /** Label for a status. The original five keep their old labels ("Pending", …). */
+  private static function status_label(string $status): string
+  {
+    $labels = [
+      'card_pending' => 'Card pending',
+      'pending_review' => 'Pending review',
+      'expired' => 'Expired',
+      'paid' => 'Paid',
+      'stripe_pending' => 'Card pending',
+      'needs_review' => 'Needs review',
+    ];
+    return $labels[$status] ?? ucfirst($status);
+  }
+
+  /** "Review: location" etc. for a registration with review reasons (3.3.0). */
+  private static function review_badges_html(array $row): string
+  {
+    $reasons = array_filter(explode(',', (string) ($row['review_reason'] ?? '')));
+    if (!$reasons) return '';
+    $out = '';
+    foreach ($reasons as $r) {
+      $label = class_exists('IQU_Enrollment') ? IQU_Enrollment::reason_label($r) : $r;
+      $out .= ' <span class="iqu-review-badge iqu-review-' . esc_attr(sanitize_key($r)) . '">Review: ' . esc_html(strtolower($label)) . '</span>';
+    }
+    return $out;
   }
 
   private static function type_chip_html(string $form_type): string
@@ -569,6 +601,13 @@ class IQU_Admin
       'enrolled' => IQU_Database::count_registrations(['status' => 'enrolled']),
       'contacted' => IQU_Database::count_registrations(['status' => 'contacted']),
       'cancelled' => IQU_Database::count_registrations(['status' => 'cancelled']),
+      // 3.3.0 online enrollment: started (waiting for the card) vs completed (confirmed by Stripe)
+      'card_pending' => IQU_Database::count_registrations(['status' => 'card_pending']),
+      'stripe_done' => IQU_Database::count_registrations(['status' => 'enrolled', 'stripe_flow' => true]),
+      'pending_review' => IQU_Database::count_registrations(['status' => 'pending_review']),
+      'expired' => IQU_Database::count_registrations(['status' => 'expired']),
+      'paid' => IQU_Database::count_registrations(['status' => 'paid']),
+      'needs_review' => IQU_Database::count_registrations(['review' => true]),
     ];
 
     $allowed_per_page = [10, 20, 30];
@@ -688,12 +727,36 @@ class IQU_Admin
               $pct = $total > 0 ? round(($cnt / $total) * 100) : 0; ?>
                 <div class="iqu-spill">
                     <div class="iqu-spill-dot iqu-spill-dot--<?php echo esc_attr($s); ?>"></div>
-                    <div class="iqu-spill-name"><?php echo esc_html(ucfirst($s)); ?></div>
+                    <div class="iqu-spill-name"><?php echo esc_html(self::status_label($s)); ?></div>
                     <div><span class="iqu-spill-count"><?php echo $cnt; ?></span><span
                             class="iqu-spill-pct"><?php echo $pct; ?>%</span></div>
                 </div>
                 <?php endforeach; ?>
             </div>
+        </div>
+    </div>
+
+    <!-- ── Online enrollment (3.3.0) ───────────────── -->
+    <div class="iqu-card iqu-enroll-overview">
+        <div class="iqu-card-head">
+            <span class="iqu-card-head-title">Online enrollment</span>
+            <span class="iqu-card-head-badge">Started and completed are counted separately</span>
+        </div>
+        <div class="iqu-status-pills">
+            <?php foreach ([
+              ['card_pending', 'Started — waiting for card'],
+              ['stripe_done', 'Completed — card confirmed by Stripe'],
+              ['pending_review', 'Pending review'],
+              ['expired', 'Expired (no card after 7 days)'],
+              ['paid', 'Summer paid by Stripe'],
+              ['needs_review', 'Needs review (any reason)'],
+            ] as [$k, $label]): ?>
+            <div class="iqu-spill">
+                <div class="iqu-spill-dot iqu-spill-dot--<?php echo esc_attr($k); ?>"></div>
+                <div class="iqu-spill-name"><?php echo esc_html($label); ?></div>
+                <div><span class="iqu-spill-count"><?php echo (int) ($counts[$k] ?? 0); ?></span></div>
+            </div>
+            <?php endforeach; ?>
         </div>
     </div>
 
@@ -775,7 +838,7 @@ class IQU_Admin
                     </td>
                     <td><?php echo self::type_chip_html($row['form_type']); ?></td>
                     <td class="iqu-td-email"><?php echo esc_html($row['email']); ?></td>
-                    <td><?php echo self::status_badge_html($row['status']); ?></td>
+                    <td><?php echo self::status_badge_html($row['status']) . self::review_badges_html($row); ?></td>
                     <td><?php echo self::referral_chip_html($row['referral'] ?? ''); ?></td>
                     <td><?php echo self::payment_cell_html($row); ?></td>
                     <td class="iqu-td-date"><?php
@@ -836,7 +899,9 @@ class IQU_Admin
     $perpage = max(1, $perpage);
     $page_slug = sanitize_key($_GET['page'] ?? '');
 
-    $args = ['form_type' => $form_type, 'status' => $status, 'search' => $search, 'page' => $page, 'per_page' => $perpage];
+    // "Needs review" (3.3.0) is a filter on review reasons, not a status.
+    $needs_review = ($status === 'needs_review');
+    $args = ['form_type' => $form_type, 'status' => $needs_review ? '' : $status, 'review' => $needs_review, 'search' => $search, 'page' => $page, 'per_page' => $perpage];
     $rows = IQU_Database::get_registrations($args);
     $total_rows = IQU_Database::count_registrations($args);
     $pages = (int) ceil($total_rows / $perpage);
@@ -868,8 +933,9 @@ class IQU_Admin
             <option value="">All statuses</option>
             <?php foreach (self::ALLOWED_STATUSES as $s): ?>
             <option value="<?php echo esc_attr($s); ?>" <?php selected($status, $s); ?>>
-                <?php echo esc_html(ucfirst($s)); ?></option>
+                <?php echo esc_html(self::status_label($s)); ?></option>
             <?php endforeach; ?>
+            <option value="needs_review" <?php selected($status, 'needs_review'); ?>>Needs review</option>
         </select>
         <select name="per_page" onchange="this.form.submit()">
             <?php foreach ([10, 20, 30] as $n): ?>
@@ -975,9 +1041,9 @@ class IQU_Admin
                         <select class="iqu-status-select" data-id="<?php echo (int) $row['id']; ?>">
                             <?php foreach (self::ALLOWED_STATUSES as $s): ?>
                             <option value="<?php echo esc_attr($s); ?>" <?php selected($row['status'], $s); ?>>
-                                <?php echo esc_html(ucfirst($s)); ?></option>
+                                <?php echo esc_html(self::status_label($s)); ?></option>
                             <?php endforeach; ?>
-                        </select>
+                        </select><?php echo self::review_badges_html($row); ?>
                     </td>
                     <td class="iqu-td-date"><?php
                                           $dt = new DateTime($row['created_at'], new DateTimeZone('UTC'));
@@ -1052,7 +1118,7 @@ class IQU_Admin
                     <div class="iqu-profile-name"><?php echo esc_html($full_name); ?></div>
                     <div class="iqu-profile-meta">
                         <?php echo self::type_chip_html($row['form_type']); ?>
-                        <?php echo self::status_badge_html($row['status']); ?>
+                        <?php echo self::status_badge_html($row['status']) . self::review_badges_html($row); ?>
                         <span style="font-size:11px;color:var(--iqu-text2)">Age <?php echo (int) $row['age']; ?></span>
                         <span style="font-size:11px;color:var(--iqu-text2)">#<?php echo (int) $row['id']; ?></span>
                     </div>
@@ -1397,6 +1463,22 @@ class IQU_Admin
                                                                   ?>
                     </div>
                 </div>
+                <?php if (!empty($row['country_ip']) || !empty($row['review_reason']) || !empty($row['billing_account_id'])): ?>
+                <div class="iqu-detail-item">
+                    <div class="iqu-detail-lbl">Country (from IP)</div>
+                    <div class="iqu-detail-val"><?php echo esc_html($row['country_ip'] ?: '—'); ?></div>
+                </div>
+                <div class="iqu-detail-item">
+                    <div class="iqu-detail-lbl">Needs review</div>
+                    <div class="iqu-detail-val"><?php echo self::review_badges_html($row) ?: '—'; ?></div>
+                </div>
+                <?php if (!empty($row['billing_account_id']) && class_exists('IQU_Billing_Page')): ?>
+                <div class="iqu-detail-item">
+                    <div class="iqu-detail-lbl">Monthly billing</div>
+                    <div class="iqu-detail-val"><a href="<?php echo esc_url(IQU_Billing_Page::family_url((int) $row['billing_account_id'])); ?>">Open family page →</a></div>
+                </div>
+                <?php endif; ?>
+                <?php endif; ?>
                 <?php if (!empty($row['admin_note'])): ?>
                 <div class="iqu-detail-item iqu-detail-full">
                     <div class="iqu-detail-lbl">Admin Note</div>
@@ -1412,7 +1494,7 @@ class IQU_Admin
             <select id="iqu-detail-status" data-id="<?php echo (int) $id; ?>">
                 <?php foreach (self::ALLOWED_STATUSES as $s): ?>
                 <option value="<?php echo esc_attr($s); ?>" <?php selected($row['status'], $s); ?>>
-                    <?php echo esc_html(ucfirst($s)); ?></option>
+                    <?php echo esc_html(self::status_label($s)); ?></option>
                 <?php endforeach; ?>
             </select>
             <h3 style="margin-top:18px">Admin Note</h3>

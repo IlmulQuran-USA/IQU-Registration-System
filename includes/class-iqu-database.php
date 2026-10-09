@@ -505,6 +505,13 @@ class IQU_Database
             $where   .= ' AND status = %s';
             $values[] = sanitize_text_field($args['status']);
         }
+        // 3.3.0: "Needs review" (any review reason) and enrollments that went through Stripe.
+        if (! empty($args['review']) && self::schema_ready()) {
+            $where .= " AND review_reason <> ''";
+        }
+        if (! empty($args['stripe_flow']) && self::schema_ready()) {
+            $where .= ' AND billing_account_id > 0';
+        }
 
         if (! empty($args['search'])) {
             $search   = '%' . $wpdb->esc_like(sanitize_text_field($args['search'])) . '%';
@@ -545,6 +552,13 @@ class IQU_Database
         if (! empty($args['status'])) {
             $where   .= ' AND status = %s';
             $values[] = sanitize_text_field($args['status']);
+        }
+        // 3.3.0: "Needs review" (any review reason) and enrollments that went through Stripe.
+        if (! empty($args['review']) && self::schema_ready()) {
+            $where .= " AND review_reason <> ''";
+        }
+        if (! empty($args['stripe_flow']) && self::schema_ready()) {
+            $where .= ' AND billing_account_id > 0';
         }
         if (! empty($args['search'])) {
             $search   = '%' . $wpdb->esc_like(sanitize_text_field($args['search'])) . '%';

@@ -1760,3 +1760,47 @@
   width: 100% !important;
   height: 100% !important;
 }
+/* ── 3.3.0 online enrollment: statuses and review badges ───── */
+.iqu-sb-card_pending {
+  background: #fff4e0;
+  color: #8a5a00;
+}
+
+.iqu-sb-pending_review {
+  background: #fdecea;
+  color: #a33a2c;
+}
+
+.iqu-sb-expired {
+  background: #eef0f3;
+  color: #4b5563;
+}
+
+.iqu-sb-paid {
+  background: #e6f6ec;
+  color: #146c38;
+}
+
+.iqu-review-badge {
+  display: inline-block;
+  margin: 2px 0 2px 4px;
+  padding: 1px 8px;
+  border: 1px solid #e7b9b1;
+  border-radius: 999px;
+  background: #fff;
+  color: #a33a2c;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.iqu-enroll-overview {
+  margin-bottom: 16px;
+}
+
+.iqu-spill-dot--card_pending { background: #f0b429; }
+.iqu-spill-dot--stripe_done { background: #1a8a45; }
+.iqu-spill-dot--pending_review { background: #c0392b; }
+.iqu-spill-dot--expired { background: #9aa3ad; }
+.iqu-spill-dot--paid { background: #0e9490; }
+.iqu-spill-dot--needs_review { background: #a33a2c; }
