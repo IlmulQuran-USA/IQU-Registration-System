@@ -400,7 +400,7 @@ class IQU_Billing_Payments_Screen
         echo '<div class="iqu-dt-toolbar"><label class="screen-reader-text" for="' . esc_attr($table_id) . '-q">Filter rows</label>'
             . '<input id="' . esc_attr($table_id) . '-q" type="search" placeholder="Filter…" data-filter-for="' . esc_attr($table_id) . '">'
             . '<span class="iqu-dt-count" data-count-for="' . esc_attr($table_id) . '" aria-live="polite"></span>'
-            . '<button type="button" class="iqu-export-btn" data-csv-for="' . esc_attr($table_id) . '" data-csv-name="' . esc_attr($csv_name) . '">⬇ Download CSV</button></div>';
+            . '<button type="button" class="iqu-export-btn" data-csv-for="' . esc_attr($table_id) . '" data-csv-name="' . esc_attr($csv_name) . '"><span class="dashicons dashicons-download" aria-hidden="true"></span>Download CSV</button></div>';
     }
 
     private static function no_match(int $cols): void

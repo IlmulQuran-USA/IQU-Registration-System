@@ -225,32 +225,40 @@ class IQU_Billing_Reports
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('reports'); ?>
+            <?php
+            // Page actions: Import CSV (secondary) and the Download CSV form (primary, same fields and nonce as before).
+            ob_start(); ?>
+                <a class="iqu-btn iqu-btn--secondary" href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>"><?php echo IQU_Billing_Page::icon('upload'); ?>Import CSV</a>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CSV); ?>">
+                    <input type="hidden" name="dataset" value="<?php echo esc_attr($key); ?>">
+                    <input type="hidden" name="month" value="<?php echo esc_attr($ym); ?>">
+                    <?php wp_nonce_field(self::A_CSV); ?>
+                    <button type="submit" class="iqu-btn iqu-btn--primary"><?php echo IQU_Billing_Page::icon('download'); ?>Download CSV</button>
+                </form>
+            <?php IQU_Billing_Page::page_header('Reports', 'Pick a month and a report, check it here, then download it as a CSV file.', ob_get_clean()); ?>
             <?php if (IQU_Stripe::expected_mode() === 'test'): ?><div class="notice notice-warning inline"><p><strong>Test mode.</strong> These reports show test data, not real money.</p></div><?php endif; ?>
 
             <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-period-bar">
                 <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
-                <label class="iqu-period-label" for="iqu-rep-month">Month</label>
-                <input id="iqu-rep-month" type="month" name="month" value="<?php echo esc_attr($ym); ?>">
-                <label class="iqu-period-label" for="iqu-rep-ds">Report</label>
-                <select id="iqu-rep-ds" name="dataset">
-                    <?php foreach (self::DATASETS as $k => $label): ?>
-                        <option value="<?php echo esc_attr($k); ?>" <?php selected($key, $k); ?>><?php echo esc_html($label); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <button type="submit" class="iqu-btn-ghost">Show</button>
-                <a class="iqu-export-btn" href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>">⬆ Import CSV</a>
+                <span class="iqu-period-field">
+                    <label class="iqu-period-label" for="iqu-rep-month">Month</label>
+                    <input id="iqu-rep-month" type="month" name="month" value="<?php echo esc_attr($ym); ?>">
+                </span>
+                <span class="iqu-period-field">
+                    <label class="iqu-period-label" for="iqu-rep-ds">Report</label>
+                    <select id="iqu-rep-ds" name="dataset">
+                        <?php foreach (self::DATASETS as $k => $label): ?>
+                            <option value="<?php echo esc_attr($k); ?>" <?php selected($key, $k); ?>><?php echo esc_html($label); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </span>
+                <button type="submit" class="iqu-btn iqu-btn--secondary">Show</button>
             </form>
 
             <div class="iqu-card">
                 <div class="iqu-card-head">
                     <span class="iqu-card-head-title"><?php echo esc_html(self::DATASETS[$key] . ' — ' . IQU_Billing_History::month_label($ym)); ?></span>
-                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                        <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CSV); ?>">
-                        <input type="hidden" name="dataset" value="<?php echo esc_attr($key); ?>">
-                        <input type="hidden" name="month" value="<?php echo esc_attr($ym); ?>">
-                        <?php wp_nonce_field(self::A_CSV); ?>
-                        <button type="submit" class="iqu-btn-primary">⬇ Download CSV</button>
-                    </form>
                 </div>
                 <div class="iqu-billing-body"><p class="iqu-fld-hint"><?php echo esc_html($ds['note']); ?></p></div>
 

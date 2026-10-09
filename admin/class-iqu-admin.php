@@ -945,7 +945,7 @@ class IQU_Admin
             <?php endforeach; ?>
         </select>
         <button type="submit" class="button">Filter</button>
-        <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn">⬇ Export CSV</a>
+        <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
     </form>
 
     <!-- ── Table ─────────────────────────────────────── -->

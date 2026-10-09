@@ -93,7 +93,11 @@ class IQU_Billing_Import
             a.id = 'iqu-import-btn';
             a.className = exp.className;
             a.href = <?php echo wp_json_encode($url); ?>;
-            a.textContent = '\u2B06 Import CSV';
+            var icon = document.createElement('span');
+            icon.className = 'dashicons dashicons-upload';
+            icon.setAttribute('aria-hidden', 'true');
+            a.appendChild(icon);
+            a.appendChild(document.createTextNode('Import CSV'));
             a.style.marginLeft = '6px';
             exp.parentNode.insertBefore(a, exp.nextSibling);
         })();

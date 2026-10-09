@@ -736,9 +736,9 @@
 
 .iqu-dt-toolbar .iqu-export-btn {
   margin-left: auto;
-  height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
   font-weight: 600;
   border-radius: var(--iqu-radius-md);
 }
@@ -983,4 +983,103 @@ th[aria-sort="descending"] .iqu-sort::after {
   flex-wrap: wrap;
   gap: 8px 16px;
   align-items: center;
+}
+
+/* ═════════════════════════════════════════════════════════════
+ * 3.3.1 — page header, toolbars and button groups on billing tabs
+ * ═════════════════════════════════════════════════════════════ */
+.iqu-billing .iqu-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin: 0 0 16px;
+}
+
+.iqu-billing .iqu-page-head-text {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.iqu-billing .iqu-page-head-title {
+  margin: 0;
+  padding: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--iqu-text1);
+}
+
+.iqu-billing .iqu-page-head-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--iqu-text2);
+}
+
+.iqu-billing .iqu-page-head-actions {
+  justify-content: flex-end;
+}
+
+.iqu-billing .iqu-page-head-actions form {
+  margin: 0;
+}
+
+/* Students: search on the left, actions on the right; actions wrap under the search when space runs out. */
+.iqu-billing-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+}
+
+.iqu-billing-toolbar .iqu-filter-bar {
+  flex: 1 1 380px;
+  margin-bottom: 0;
+}
+
+.iqu-billing-toolbar-actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 782px) {
+  .iqu-billing .iqu-page-head-actions,
+  .iqu-billing-toolbar-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .iqu-billing .iqu-page-head-actions > *,
+  .iqu-billing-toolbar-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .iqu-billing .iqu-page-head-actions form .iqu-btn {
+    width: 100%;
+  }
+}
+
+/* A label and its control wrap together in the period / filter row. */
+.iqu-period-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 782px) {
+  .iqu-period-field {
+    flex: 1 1 100%;
+  }
+
+  .iqu-period-field input,
+  .iqu-period-field select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .iqu-period-field .iqu-period-label {
+    flex: 0 0 56px;
+  }
 }

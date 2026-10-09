@@ -96,6 +96,26 @@ class IQU_Billing_Page
         echo '</nav></div></div><hr class="wp-header-end">';
     }
 
+    /**
+     * Page header under the tabs: title, one-line description, actions on the right
+     * (secondary buttons first, primary last). $actions is trusted HTML built by the caller.
+     */
+    public static function page_header(string $title, string $desc, string $actions = ''): void
+    {
+        echo '<div class="iqu-page-head"><div class="iqu-page-head-text">'
+            . '<h1 class="iqu-page-head-title">' . esc_html($title) . '</h1>'
+            . ($desc !== '' ? '<p class="iqu-page-head-desc">' . esc_html($desc) . '</p>' : '')
+            . '</div>'
+            . ($actions !== '' ? '<div class="iqu-page-head-actions iqu-btn-group">' . $actions . '</div>' : '')
+            . '</div>';
+    }
+
+    /** A Dashicon for a button label (decorative: the button text says what it does). */
+    public static function icon(string $name): string
+    {
+        return '<span class="dashicons dashicons-' . esc_attr($name) . '" aria-hidden="true"></span>';
+    }
+
     /** Chip colour for an account status: gold, green, red or neutral (see admin/css/billing.css). */
     public static function status_tone(string $status): string
     {
@@ -230,16 +250,20 @@ class IQU_Billing_Page
             </nav>
 
             <!-- ── Filter Bar ────────────────────────────────── -->
-            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-filter-bar">
-                <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
-                <input type="hidden" name="show" value="<?php echo esc_attr($filter); ?>">
-                <label class="screen-reader-text" for="iqu-q">Search students</label>
-                <input id="iqu-q" type="search" name="q" value="<?php echo esc_attr($q); ?>" placeholder="Name, email or IQU number">
-                <?php submit_button('Search', 'secondary', '', false); ?>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>" class="iqu-export-btn">⬆ Import CSV</a>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-reports')); ?>" class="iqu-export-btn">⬇ Export</a>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-add-student')); ?>" class="button button-primary">+ Add existing student</a>
-            </form>
+            <div class="iqu-billing-toolbar">
+                <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-filter-bar">
+                    <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
+                    <input type="hidden" name="show" value="<?php echo esc_attr($filter); ?>">
+                    <label class="screen-reader-text" for="iqu-q">Search students</label>
+                    <input id="iqu-q" type="search" name="q" value="<?php echo esc_attr($q); ?>" placeholder="Name, email or IQU number">
+                    <?php submit_button('Search', 'secondary', '', false); ?>
+                </form>
+                <div class="iqu-btn-group iqu-billing-toolbar-actions">
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>" class="iqu-btn iqu-btn--secondary"><?php echo self::icon('upload'); ?>Import CSV</a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-reports')); ?>" class="iqu-btn iqu-btn--secondary"><?php echo self::icon('download'); ?>Export</a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-add-student')); ?>" class="iqu-btn iqu-btn--primary"><?php echo self::icon('plus-alt2'); ?>Add existing student</a>
+                </div>
+            </div>
 
             <!-- ── Table ─────────────────────────────────────── -->
             <div class="iqu-card">

@@ -82,7 +82,7 @@ class IQU_Waitlist_Admin
         $export = wp_nonce_url(add_query_arg(array_filter(['action' => self::EXPORT, 'country' => $country, 'program' => $program]), admin_url('admin-post.php')), self::EXPORT);
         ?>
         <div class="wrap iqu-admin-wrap">
-            <h1>Waitlist</h1>
+            <h1 class="iqu-page-head-title">Waitlist</h1>
             <p>Families outside the United States and Canada who asked to be told when classes open in their country. Only the email, the optional name and a 2-letter country code are kept.</p>
 
             <form method="GET" class="iqu-filter-bar">
@@ -100,7 +100,7 @@ class IQU_Waitlist_Admin
                     <?php endforeach; ?>
                 </select>
                 <button type="submit" class="button">Filter</button>
-                <a href="<?php echo esc_url($export); ?>" class="iqu-export-btn">⬇ Export CSV</a>
+                <a href="<?php echo esc_url($export); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
             </form>
 
             <p><strong><?php echo (int) $total; ?></strong> <?php echo $total === 1 ? 'family' : 'families'; ?></p>
