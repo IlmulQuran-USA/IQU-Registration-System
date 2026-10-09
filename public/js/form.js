@@ -24,6 +24,24 @@
     const phoneInstances = new WeakMap();
     let preferredDaySelectionOrder = 0;
 
+    // ── 3.3.0: visitor country from GeoLite2 via the uncached REST route ──
+    // Not used when the country check is Off. The server check at submit is the one that counts.
+    const enrollCfg =
+      typeof IQU_ENROLL === "object" && IQU_ENROLL ? IQU_ENROLL : { check: "off" };
+    const geoReady =
+      enrollCfg.check !== "off" && enrollCfg.geo_url && window.fetch
+        ? fetch(enrollCfg.geo_url, { credentials: "omit", cache: "no-store" })
+            .then(function (r) {
+              return r.ok ? r.json() : null;
+            })
+            .then(function (d) {
+              return d && typeof d === "object" ? d : null;
+            })
+            .catch(function () {
+              return null;
+            })
+        : Promise.resolve(null);
+
     function getRecaptchaToken(action) {
       return new Promise(function (resolve, reject) {
         if (typeof grecaptcha === "undefined" || !grecaptcha.ready) {
@@ -108,6 +126,18 @@
         phoneInstances.set(input, iti);
         Promise.resolve(iti.promise).catch(function () {
           return null;
+        });
+
+        // Start the flag on the visitor's country (only while the field is still empty).
+        geoReady.then(function (geo) {
+          if (!geo || !/^[A-Za-z]{2}$/.test(geo.country || "") || input.value) {
+            return;
+          }
+          try {
+            iti.setCountry(String(geo.country).toLowerCase());
+          } catch (e) {
+            /* unknown country code: keep the default */
+          }
         });
 
         $(input).on("countrychange", function () {

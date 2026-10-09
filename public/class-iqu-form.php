@@ -87,13 +87,9 @@ class IQU_Form
             true
         );
 
+        // The phone field starts on "us"; form.js moves it to the visitor's country from the
+        // uncached /wp-json/iqu/v1/geo answer (GeoLite2), so a cached page never carries a country.
         $geoip_country = 'us';
-        if (!empty($_SERVER['HTTP_CF_IPCOUNTRY'])) {
-            $cf = strtolower(sanitize_text_field($_SERVER['HTTP_CF_IPCOUNTRY']));
-            if (strlen($cf) === 2 && $cf !== 'xx') {
-                $geoip_country = $cf;
-            }
-        }
 
         wp_localize_script('iqu-form-script', 'IQU_AJAX', [
             'ajax_url'       => esc_url(admin_url('admin-ajax.php')),
@@ -111,6 +107,9 @@ class IQU_Form
             'pricing'        => IQU_Pricing::js_config(),
             'messenger_url'  => IQU_MESSENGER_URL,
         ]);
+
+        // 3.3.0 enrollment settings for form.js (country check). Kept apart from IQU_AJAX.
+        wp_localize_script('iqu-form-script', 'IQU_ENROLL', IQU_Enrollment_Settings::js_config());
     }
 
     // ════════════════════════════════════════════════════

@@ -109,6 +109,7 @@ require_once IQU_PLUGIN_DIR . 'includes/class-iqu-pricing.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-coupon-db.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-coupon.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-enrollment-settings.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-geo.php';
 
 // 💳 Monthly tuition billing (Stripe) — see includes/billing/bootstrap.php
 require_once IQU_PLUGIN_DIR . 'includes/billing/bootstrap.php';
@@ -123,6 +124,7 @@ function iqu_on_activation(): void
   IQU_Coupon_DB::create_table();
   IQU_Zeffy_Sync::schedule();
   IQU_Notifier::schedule();
+  IQU_Geo::schedule();
 }
 
 function iqu_on_deactivation(): void
@@ -130,6 +132,7 @@ function iqu_on_deactivation(): void
   IQU_Database::on_deactivation();
   IQU_Zeffy_Sync::unschedule();
   IQU_Notifier::unschedule();
+  IQU_Geo::unschedule();
 }
 
 register_activation_hook(__FILE__, 'iqu_on_activation');
@@ -142,6 +145,8 @@ add_action('plugins_loaded', function () {
 
   IQU_Zeffy_Sync::schedule();
   IQU_Notifier::schedule();
+  IQU_Geo::schedule();
+  IQU_Geo::init();
 
   new IQU_Form();
   new IQU_Summer_Form();
@@ -165,42 +170,9 @@ add_action('wp_ajax_nopriv_iqu_geoip', 'iqu_geoip_callback');
 
 function iqu_geoip_callback()
 {
-  // 1. প্রথমে Cloudflare হেডারে থাকলে সেট ব্যবহার করুন
-  $country = '';
-  if (!empty($_SERVER['HTTP_CF_IPCOUNTRY']) && $_SERVER['HTTP_CF_IPCOUNTRY'] !== 'XX') {
-    $country = strtolower(sanitize_text_field($_SERVER['HTTP_CF_IPCOUNTRY']));
-  }
-
-  // 2. Cloudflare হেডার না থাকলে ক্লায়েন্ট IP বের করে GeoIP API কল করুন
-  if (!$country) {
-    // প্রক্সি থাকলে X-Forwarded-For থেকে প্রকৃত IP নিন, নইলে REMOTE_ADDR
-    $ip = '';
-    if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-      $ip = sanitize_text_field($_SERVER['HTTP_CF_CONNECTING_IP']);
-    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-      $ip_parts = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-      $ip = sanitize_text_field(trim($ip_parts[0]));
-    } elseif (!empty($_SERVER['REMOTE_ADDR'])) {
-      $ip = sanitize_text_field($_SERVER['REMOTE_ADDR']);
-    }
-
-    // IP থাকলে ipapi.co থেকে দেশ কোড আনুন
-    if ($ip) {
-      // এই এন্ডপয়েন্ট একটি IP‑এর দেশ কোড রিটার্ন করে:contentReference[oaicite:1]{index=1}
-      $response = wp_remote_get("https://ipapi.co/{$ip}/country/");
-      if (!is_wp_error($response)) {
-        $code = strtolower(trim(wp_remote_retrieve_body($response)));
-        if (preg_match('/^[a-z]{2}$/', $code)) {
-          $country = $code;
-        }
-      }
-    }
-
-    // API থেকে কিছু না পেলে fallback হিসাবে us দিন
-    if (!$country) {
-      $country = 'us';
-    }
-  }
-
-  wp_send_json(['countryCode' => $country]);
+  // Country from the local GeoLite2 database (IQU_Geo); "us" when unknown.
+  // No Cloudflare header and no third-party lookup — the IP address is not sent anywhere.
+  $country = strtolower(IQU_Geo::country());
+  nocache_headers();
+  wp_send_json(['countryCode' => $country !== '' ? $country : 'us']);
 }

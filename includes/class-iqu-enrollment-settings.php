@@ -60,6 +60,15 @@ class IQU_Enrollment_Settings
         return self::summer_mode() === 'stripe' && self::payments_allowed();
     }
 
+    /** Settings form.js needs (printed as IQU_ENROLL). Nothing visitor-specific, so cached pages stay correct. */
+    public static function js_config(): array
+    {
+        return [
+            'check'   => self::country_mode(),
+            'geo_url' => esc_url_raw(rest_url('iqu/v1/geo')),
+        ];
+    }
+
     /** Save the switches from a posted form. Unknown values keep the current setting. */
     public static function save(array $post): void
     {
