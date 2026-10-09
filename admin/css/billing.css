@@ -466,3 +466,387 @@
 #iqu-import-btn {
   margin-left: 0 !important;
 }
+
+/* ═════════════════════════════════════════════════════════════
+ * Billing 1.1 building blocks — KPI cards, chart cards, data
+ * tables, period controls, avatars. Tokens only (--iqu-*).
+ * Behaviour lives in admin/js/billing.js.
+ * ═════════════════════════════════════════════════════════════ */
+
+/* ── Keyboard focus ─────────────────────────────────────────── */
+.iqu-billing a:focus-visible,
+.iqu-billing button:focus-visible,
+.iqu-billing input:focus-visible,
+.iqu-billing select:focus-visible,
+.iqu-billing summary:focus-visible,
+.iqu-billing .iqu-segmented input:focus-visible + span {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* ── Period bar: month picker + segmented control ──────────── */
+.iqu-period-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 16px;
+}
+
+.iqu-period-bar label.iqu-period-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iqu-text2);
+}
+
+.iqu-period-bar input[type="month"],
+.iqu-period-bar select {
+  height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-family: var(--iqu-font-sans);
+  color: var(--iqu-text1);
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+}
+
+.iqu-segmented {
+  display: inline-flex;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  background: var(--iqu-bg1);
+  overflow: hidden;
+}
+
+.iqu-segmented label {
+  position: relative;
+  margin: 0;
+}
+
+.iqu-segmented input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.iqu-segmented span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iqu-text2);
+  cursor: pointer;
+}
+
+.iqu-segmented label + label span {
+  border-left: 1px solid var(--iqu-bdr);
+}
+
+.iqu-segmented input:checked + span {
+  color: var(--iqu-bg1);
+  background: var(--iqu-navy);
+}
+
+/* ── KPI cards (built on .iqu-metric) ───────────────────────── */
+.iqu-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.iqu-kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--iqu-text2);
+}
+
+.iqu-kpi-delta--up {
+  color: var(--iqu-green);
+}
+
+.iqu-kpi-delta--down {
+  color: var(--iqu-red);
+}
+
+/* ── Chart cards ────────────────────────────────────────────── */
+.iqu-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.iqu-chart-grid .iqu-card {
+  margin-bottom: 0;
+}
+
+.iqu-chart-grid .iqu-chart-wide {
+  grid-column: 1 / -1;
+}
+
+.iqu-chart-box {
+  position: relative;
+  height: 260px;
+  padding: 14px 16px 16px;
+}
+
+.iqu-chart-box--short {
+  height: 220px;
+}
+
+.iqu-chart-box canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.iqu-view-toggle {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--iqu-blue);
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  cursor: pointer;
+}
+
+.iqu-view-toggle:hover {
+  background: var(--iqu-bg2);
+}
+
+.iqu-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 13px;
+  color: var(--iqu-text2);
+  text-align: center;
+}
+
+/* ── Data tables (built on .iqu-tbl) ────────────────────────── */
+.iqu-dt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--iqu-bdr);
+}
+
+.iqu-dt-toolbar input[type="search"] {
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 340px;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--iqu-text1);
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+}
+
+.iqu-dt-count {
+  font-size: 12px;
+  color: var(--iqu-text2);
+}
+
+.iqu-dt-toolbar .iqu-export-btn {
+  margin-left: auto;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--iqu-radius-md);
+}
+
+.iqu-billing .iqu-card .iqu-dt-wrap {
+  max-height: 620px;
+  overflow: auto;
+}
+
+.iqu-dt thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.iqu-dt tbody tr:nth-child(even) td {
+  background: var(--iqu-bg2);
+  background: color-mix(in srgb, var(--iqu-bg2) 55%, var(--iqu-bg1));
+}
+
+.iqu-dt tbody tr:hover td {
+  background: var(--iqu-bg2);
+}
+
+.iqu-dt .is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.iqu-dt tfoot td,
+.iqu-dt tfoot th {
+  padding: 10px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+  text-transform: none;
+  letter-spacing: 0;
+  background: var(--iqu-bg2);
+  border-top: 2px solid var(--iqu-bdr);
+}
+
+.iqu-dt tr.iqu-dt-subtotal td {
+  font-weight: 600;
+  background: var(--iqu-bg2);
+  border-top: 1px solid var(--iqu-bdr);
+}
+
+.iqu-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.iqu-sort::after {
+  content: "↕";
+  font-size: 10px;
+  opacity: 0.45;
+}
+
+th[aria-sort="ascending"] .iqu-sort::after {
+  content: "↑";
+  opacity: 1;
+}
+
+th[aria-sort="descending"] .iqu-sort::after {
+  content: "↓";
+  opacity: 1;
+}
+
+.iqu-dt .is-num .iqu-sort {
+  flex-direction: row-reverse;
+}
+
+.iqu-dt-none {
+  display: none;
+}
+
+.iqu-dt-none.is-visible {
+  display: table-row;
+}
+
+/* ── Family links, avatars ──────────────────────────────────── */
+.iqu-family-link {
+  font-weight: 600;
+  color: var(--iqu-text1);
+  text-decoration: none;
+}
+
+.iqu-family-link:hover {
+  color: var(--iqu-blue);
+  text-decoration: underline;
+}
+
+.iqu-billing .iqu-avatar {
+  flex-shrink: 0;
+}
+
+.iqu-avatar--sm {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+/* ── "How these numbers work" ───────────────────────────────── */
+.iqu-howto {
+  margin: 0 0 16px;
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-lg);
+}
+
+.iqu-howto summary {
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iqu-blue);
+  cursor: pointer;
+}
+
+.iqu-howto dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 4px 16px 14px;
+  font-size: 12.5px;
+  color: var(--iqu-text1);
+}
+
+.iqu-howto dt {
+  font-weight: 600;
+}
+
+.iqu-howto dd {
+  margin: 0;
+  color: var(--iqu-text2);
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 960px) {
+  .iqu-chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 782px) {
+  .iqu-chart-box {
+    height: 240px;
+  }
+
+  .iqu-howto dl {
+    grid-template-columns: 1fr;
+  }
+
+  .iqu-howto dd {
+    margin-bottom: 6px;
+  }
+}
+
+@media (max-width: 600px) {
+  .iqu-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .iqu-dt-toolbar .iqu-export-btn {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 400px) {
+  .iqu-kpis {
+    grid-template-columns: 1fr;
+  }
+}

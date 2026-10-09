@@ -44,6 +44,15 @@ class IQU_Billing_Page
     {
         if (strpos($hook, 'iqu-billing') === false && strpos($hook, 'iqu-list-free') === false) return;
         wp_enqueue_style('iqu-billing-style', IQU_PLUGIN_URL . 'admin/css/billing.css', ['iqu-admin-style'], IQU_VERSION);
+        if (strpos($hook, 'iqu-billing') === false) return;
+        // Tables, CSV of what is shown, charts. Chart.js ("chartjs") is registered by IQU_Admin on every IQU screen.
+        wp_enqueue_script('iqu-billing-js', IQU_PLUGIN_URL . 'admin/js/billing.js', ['chartjs'], IQU_VERSION, true);
+    }
+
+    /** Hand chart definitions to admin/js/billing.js (call while rendering a billing screen). */
+    public static function chart_data(array $charts): void
+    {
+        wp_add_inline_script('iqu-billing-js', 'window.IQU_BILLING = ' . wp_json_encode(['charts' => array_values($charts)]) . ';', 'before');
     }
 
     public static function register(): void
