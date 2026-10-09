@@ -626,12 +626,84 @@
 
 .iqu-chart-empty {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
   align-items: center;
   justify-content: center;
   height: 100%;
   font-size: 13px;
   color: var(--iqu-text2);
   text-align: center;
+}
+
+.iqu-chart-empty .dashicons {
+  width: 28px;
+  height: 28px;
+  font-size: 28px;
+  color: var(--iqu-bdr);
+}
+
+/* Four small chart cards: one column on phones, 2 × 2 from 782px, one row of four from 1280px. */
+.iqu-chart-quad {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 782px) {
+  .iqu-chart-quad {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .iqu-chart-quad {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.iqu-billing .iqu-chart-quad .iqu-card {
+  margin-bottom: 0;
+}
+
+.iqu-chart-card--compact {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.iqu-chart-card--compact .iqu-card-head {
+  align-items: flex-start;
+  padding: 12px 14px;
+}
+
+.iqu-chart-card--compact .iqu-card-head-title {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+/* "View as table" sits at the bottom left of every compact card. */
+.iqu-chart-foot {
+  display: flex;
+  margin-top: auto;
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--iqu-bdr);
+}
+
+.iqu-chart-box.iqu-chart-box--compact {
+  height: 190px;
+  padding: 10px 12px 12px;
+}
+
+.iqu-chart-card--compact .iqu-chart-table {
+  max-height: 190px;
+  overflow: auto;
+}
+
+.iqu-view-toggle:focus-visible {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 2px;
 }
 
 /* ── Data tables (built on .iqu-tbl) ────────────────────────── */

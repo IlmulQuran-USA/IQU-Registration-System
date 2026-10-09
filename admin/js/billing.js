@@ -190,7 +190,10 @@
       maintainAspectRatio: false,
       animation: reduce ? false : { duration: 400 },
       plugins: {
-        legend: { position: round ? "right" : "bottom", labels: { boxWidth: 12, color: token("text1") } },
+        // Compact cards ask for the legend below, so it never squeezes the canvas.
+        legend: cfg.legend === "bottom"
+          ? { position: "bottom", labels: { boxWidth: 10, padding: 8, font: { size: 11 }, color: token("text1") } }
+          : { position: round ? "right" : "bottom", labels: { boxWidth: 12, color: token("text1") } },
         tooltip: { callbacks: { label: function (ctx) { return " " + (ctx.dataset.label ? ctx.dataset.label + ": " : ctx.label + ": ") + fmt(ctx.parsed.y !== undefined && !round ? ctx.parsed.y : ctx.parsed); } } }
       }
     };

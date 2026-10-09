@@ -110,25 +110,31 @@ class IQU_Billing_Payments_Screen
                 <?php
                 $mrows = array_map(fn($m) => [IQU_Billing_History::month_label($m['month']), IQU_Pricing::format($m['collected']), IQU_Pricing::format($m['billed'])], $months);
                 self::chart_card('iqu-ch-monthly', 'Monthly tuition, last ' . $range . ' months', 'Collected and billed per tuition month, last ' . $range . ' months. ' . $mlabel . ': collected ' . IQU_Pricing::format($cur['collected']) . ' of ' . IQU_Pricing::format($cur['billed']) . ' billed.', ['Month', 'Collected', 'Billed'], $mrows, true, array_sum(array_column($months, 'billed')) + array_sum(array_column($months, 'collected')) > 0);
+                ?>
+            </div>
+
+            <!-- Four small charts: one row of four on wide screens, 2 x 2 on medium, one column on narrow -->
+            <div class="iqu-chart-quad">
+                <?php
 
                 $crows = array_map(fn($m) => [IQU_Billing_History::month_label($m['month']), (string) $m['paid_count'], (string) $m['failed_count']], $months);
-                self::chart_card('iqu-ch-paidfail', 'Paid and failed payments', 'Number of paid and failed tuition invoices per month. ' . $mlabel . ': ' . $cur['paid_count'] . ' paid, ' . $cur['failed_count'] . ' failed.', ['Month', 'Paid', 'Failed'], $crows, false, array_sum(array_column($months, 'paid_count')) + array_sum(array_column($months, 'failed_count')) > 0);
+                self::chart_card('iqu-ch-paidfail', 'Paid and failed payments', 'Number of paid and failed tuition invoices per month. ' . $mlabel . ': ' . $cur['paid_count'] . ' paid, ' . $cur['failed_count'] . ' failed.', ['Month', 'Paid', 'Failed'], $crows, false, array_sum(array_column($months, 'paid_count')) + array_sum(array_column($months, 'failed_count')) > 0, true);
 
                 $counts = IQU_Billing_History::status_counts($accounts);
                 $srows = [];
                 foreach (self::STATUS_GROUPS as $label => [$statuses, $tone]) {
                     $srows[] = [$label, (string) array_sum(array_map(fn($s) => $counts[$s] ?? 0, $statuses))];
                 }
-                self::chart_card('iqu-ch-status', 'Billing status of families', 'Families by billing status: ' . implode(', ', array_map(fn($r) => $r[1] . ' ' . strtolower($r[0]), array_filter($srows, fn($r) => $r[1] !== '0'))) . '.', ['Status', 'Families'], $srows, false, count($accounts) > 0);
+                self::chart_card('iqu-ch-status', 'Billing status of families', 'Families by billing status: ' . implode(', ', array_map(fn($r) => $r[1] . ' ' . strtolower($r[0]), array_filter($srows, fn($r) => $r[1] !== '0'))) . '.', ['Status', 'Families'], $srows, false, count($accounts) > 0, true);
 
                 $split = IQU_Billing_History::method_split($rows);
                 $prows = [];
                 foreach ($split as $g => $amt) $prows[] = [$g, IQU_Pricing::format($amt)];
-                self::chart_card('iqu-ch-methods', 'Payment methods', 'Amount collected in the last ' . $range . ' months by payment method' . ($prows ? ': ' . implode(', ', array_map(fn($r) => $r[0] . ' ' . $r[1], $prows)) : '') . '.', ['Method', 'Collected'], $prows, false, (bool) $split);
+                self::chart_card('iqu-ch-methods', 'Payment methods', 'Amount collected in the last ' . $range . ' months by payment method' . ($prows ? ': ' . implode(', ', array_map(fn($r) => $r[0] . ' ' . $r[1], $prows)) : '') . '.', ['Method', 'Collected'], $prows, false, (bool) $split, true);
 
                 $weeks = self::weeks($upcoming, $tz);
                 $wrows = array_map(fn($w) => [$w['label'], IQU_Pricing::format($w['amount']), (string) $w['count']], $weeks);
-                self::chart_card('iqu-ch-upcoming', 'Upcoming charges, next 30 days', 'Charges expected in the next 30 days by week, total ' . IQU_Pricing::format(array_sum(array_column($weeks, 'amount'))) . '.', ['Week', 'Amount', 'Charges'], $wrows, true, (bool) $upcoming);
+                self::chart_card('iqu-ch-upcoming', 'Upcoming charges, next 30 days', 'Charges expected in the next 30 days by week, total ' . IQU_Pricing::format(array_sum(array_column($weeks, 'amount'))) . '.', ['Week', 'Amount', 'Charges'], $wrows, false, (bool) $upcoming, true);
                 ?>
             </div>
 
@@ -287,18 +293,20 @@ class IQU_Billing_Payments_Screen
      * A chart card: canvas (drawn by billing.js) + a table with the same numbers, behind a toggle.
      * @param string[][] $rows table rows (first cell = label)
      */
-    private static function chart_card(string $id, string $title, string $summary, array $head, array $rows, bool $wide, bool $has_data): void
+    private static function chart_card(string $id, string $title, string $summary, array $head, array $rows, bool $wide, bool $has_data, bool $compact = false): void
     {
         $card = $id . '-card';
-        echo '<div class="iqu-card' . ($wide ? ' iqu-chart-wide' : '') . '" id="' . esc_attr($card) . '">';
+        $box  = $compact ? 'iqu-chart-box iqu-chart-box--compact' : 'iqu-chart-box';
+        echo '<div class="iqu-card' . ($wide ? ' iqu-chart-wide' : '') . ($compact ? ' iqu-chart-card--compact' : '') . '" id="' . esc_attr($card) . '">';
         echo '<div class="iqu-card-head"><span class="iqu-card-head-title">' . esc_html($title) . '</span>';
-        if ($has_data) echo '<button type="button" class="iqu-view-toggle" data-toggle-view="' . esc_attr($card) . '" aria-expanded="false">View as table</button>';
+        $toggle = $has_data ? '<button type="button" class="iqu-view-toggle" data-toggle-view="' . esc_attr($card) . '" aria-expanded="false">View as table</button>' : '';
+        if (!$compact) echo $toggle; // compact cards: in the footer, the same place on every card
         echo '</div>';
         if (!$has_data) {
-            echo '<div class="iqu-chart-box iqu-chart-box--short"><div class="iqu-chart-empty">No data yet for this chart.</div></div></div>';
+            echo '<div class="' . ($compact ? $box : 'iqu-chart-box iqu-chart-box--short') . '"><div class="iqu-chart-empty"><span class="dashicons dashicons-chart-bar" aria-hidden="true"></span>No data yet for this chart.</div></div></div>';
             return;
         }
-        echo '<div class="iqu-chart-box"><canvas id="' . esc_attr($id) . '" role="img" aria-label="' . esc_attr($summary) . '"></canvas></div>';
+        echo '<div class="' . $box . '"><canvas id="' . esc_attr($id) . '" role="img" aria-label="' . esc_attr($summary) . '"></canvas></div>';
         echo '<div class="iqu-chart-table iqu-table-wrap" hidden><table class="iqu-tbl iqu-dt"><caption class="screen-reader-text">' . esc_html($title) . '</caption><thead><tr>';
         foreach ($head as $i => $h) echo '<th' . ($i ? ' class="is-num"' : '') . '>' . esc_html($h) . '</th>';
         echo '</tr></thead><tbody>';
@@ -307,7 +315,9 @@ class IQU_Billing_Payments_Screen
             foreach ($r as $i => $c) echo '<td' . ($i ? ' class="is-num"' : '') . '>' . esc_html($c) . '</td>';
             echo '</tr>';
         }
-        echo '</tbody></table></div></div>';
+        echo '</tbody></table></div>';
+        if ($compact) echo '<div class="iqu-chart-foot">' . $toggle . '</div>';
+        echo '</div>';
     }
 
     /** Chart definitions for admin/js/billing.js (numbers only; colours are --iqu-* token names). */
@@ -334,10 +344,10 @@ class IQU_Billing_Payments_Screen
                 ['label' => 'Paid', 'data' => array_column($months, 'paid_count'), 'tone' => 'green', 'stack' => 'n'],
                 ['label' => 'Failed', 'data' => array_column($months, 'failed_count'), 'tone' => 'red', 'stack' => 'n'],
             ]],
-            ['id' => 'iqu-ch-status', 'type' => 'doughnut', 'labels' => $status_labels, 'datasets' => [
+            ['id' => 'iqu-ch-status', 'type' => 'doughnut', 'legend' => 'bottom', 'labels' => $status_labels, 'datasets' => [
                 ['label' => 'Families', 'data' => $status_data, 'tones' => $status_tones],
             ]],
-            ['id' => 'iqu-ch-methods', 'type' => 'doughnut', 'money' => true, 'labels' => array_keys($split), 'datasets' => [
+            ['id' => 'iqu-ch-methods', 'type' => 'doughnut', 'legend' => 'bottom', 'money' => true, 'labels' => array_keys($split), 'datasets' => [
                 ['label' => 'Collected', 'data' => array_values($split), 'tones' => array_slice(array_merge($mtones, $mtones), 0, max(1, count($split)))],
             ]],
             ['id' => 'iqu-ch-upcoming', 'type' => 'bar', 'money' => true, 'labels' => array_column($weeks, 'label'), 'datasets' => [
