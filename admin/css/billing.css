@@ -1770,3 +1770,163 @@ th[aria-sort="descending"] .iqu-sort::after {
 .iqu-billing .iqu-back-row {
   margin: 0 0 12px;
 }
+
+/* ── Student Billing (3.4.0): segmented status filter ───────── */
+.iqu-billing .iqu-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.iqu-billing .iqu-seg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-height: 34px;
+  padding: 0 8px 0 12px;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: 999px;
+  background: var(--iqu-bg1);
+  color: var(--iqu-text1);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.iqu-billing .iqu-seg-pill:hover {
+  background: var(--iqu-bg2);
+  border-color: var(--iqu-navy);
+  color: var(--iqu-text1);
+}
+.iqu-billing .iqu-seg-pill:focus,
+.iqu-billing .iqu-seg-pill:focus-visible {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.iqu-billing .iqu-seg-pill.is-active {
+  background: var(--iqu-navy);
+  border-color: var(--iqu-navy);
+  color: var(--iqu-bg1);
+}
+.iqu-billing .iqu-seg-pill .iqu-billing-count {
+  margin-left: 2px;
+  min-width: 22px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--iqu-bg2);
+  color: var(--iqu-text1);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  opacity: 1;
+  box-sizing: border-box;
+}
+.iqu-billing .iqu-seg-pill.is-active .iqu-billing-count {
+  background: var(--iqu-bg1);
+  color: var(--iqu-navy);
+}
+.iqu-seg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--iqu-text2);
+}
+.iqu-seg-dot--navy { background: var(--iqu-navy); }
+.iqu-seg-dot--neutral { background: var(--iqu-text2); }
+.iqu-seg-dot--muted { background: var(--iqu-bdr); box-shadow: inset 0 0 0 1px var(--iqu-text2); }
+.iqu-seg-dot--blue { background: var(--iqu-blue); }
+.iqu-seg-dot--gold { background: var(--iqu-gold); }
+.iqu-seg-dot--green { background: var(--iqu-green); }
+.iqu-seg-dot--red { background: var(--iqu-red); }
+.iqu-billing .iqu-seg-pill.is-active .iqu-seg-dot {
+  box-shadow: 0 0 0 2px var(--iqu-bg1);
+}
+@media (max-width: 781px) {
+  .iqu-billing .iqu-seg {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 2px 2px 6px;
+    scrollbar-width: thin;
+  }
+  .iqu-billing .iqu-seg-pill {
+    flex: 0 0 auto;
+  }
+}
+
+/* ── Student Billing table ──────────────────────────────────── */
+.iqu-student-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.iqu-student-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.iqu-student-lines a {
+  color: var(--iqu-text1);
+  text-decoration: none;
+}
+.iqu-student-lines a:hover {
+  color: var(--iqu-blue);
+  text-decoration: underline;
+}
+.iqu-students-tbl .iqu-billing-sub {
+  display: block;
+}
+.iqu-course-name {
+  display: block;
+  font-weight: 600;
+}
+.iqu-billing .iqu-students-tbl th.is-num,
+.iqu-billing .iqu-students-tbl td.is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.iqu-billing .iqu-students-tbl tbody tr:nth-child(even) > * {
+  background: color-mix(in srgb, var(--iqu-bg2) 55%, var(--iqu-bg1));
+}
+.iqu-billing .iqu-students-tbl tbody tr:hover > * {
+  background: color-mix(in srgb, var(--iqu-blue) 7%, var(--iqu-bg1));
+}
+.iqu-billing .iqu-students-tbl tbody tr[data-href] {
+  cursor: pointer;
+}
+/* Sticky column headings: the card and table wrapper let the header stick to the window
+   (32px = the WordPress toolbar). Below 1024px the table scrolls sideways instead. */
+@media (min-width: 1024px) {
+  .iqu-billing .iqu-card.iqu-students-card,
+  .iqu-billing .iqu-students-card .iqu-table-wrap {
+    overflow: visible;
+  }
+  .iqu-billing .iqu-students-tbl thead th,
+  .iqu-billing .iqu-students-tbl thead td {
+    position: sticky;
+    top: 32px;
+    z-index: 2;
+    background: var(--iqu-bg2);
+    box-shadow: inset 0 -1px 0 var(--iqu-bdr);
+  }
+}
+/* Name, course and billing cells wrap so the table fits the page (the header can then stick). */
+.iqu-billing .iqu-students-tbl td {
+  white-space: normal;
+}
+.iqu-billing .iqu-students-tbl td.iqu-td-name {
+  min-width: 200px;
+}
+.iqu-billing .iqu-students-tbl td.iqu-monthly-cell,
+.iqu-billing .iqu-students-tbl td.iqu-td-actions {
+  white-space: nowrap;
+}
+/* The checkbox cell is a <th>: give it the row's background, not the heading grey. */
+.iqu-billing .iqu-students-tbl tbody tr:nth-child(odd) > th {
+  background: var(--iqu-bg1);
+}

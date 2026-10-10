@@ -169,6 +169,12 @@ class IQU_Billing_Page
         return 'not_billed';
     }
 
+    /** Dot colour of each status filter pill (the status chip tones; "All" is navy). */
+    private const GROUP_TONES = [
+        'all' => 'navy', 'not_set_up' => 'neutral', 'needs_course' => 'blue', 'link_sent' => 'gold',
+        'active' => 'green', 'failed' => 'red', 'not_billed' => 'muted',
+    ];
+
     private const GROUPS = [
         'all'          => 'All',
         'not_set_up'   => 'Not set up',
@@ -244,9 +250,9 @@ class IQU_Billing_Page
             </div>
 
             <!-- ── Status filter ────────────────────────────── -->
-            <nav class="iqu-tabs iqu-billing-filters" aria-label="Billing status">
+            <nav class="iqu-seg iqu-billing-filters" aria-label="Billing status">
                 <?php foreach (self::GROUPS as $key => $label): ?>
-                    <a href="<?php echo esc_url(add_query_arg(['page' => self::SLUG, 'show' => $key, 'q' => $q ?: null], admin_url('admin.php'))); ?>" class="iqu-tab<?php echo $filter === $key ? ' iqu-tab-active' : ''; ?>"><?php echo esc_html($label); ?><span class="iqu-billing-count"><?php echo (int) $counts[$key]; ?></span></a>
+                    <a href="<?php echo esc_url(add_query_arg(['page' => self::SLUG, 'show' => $key, 'q' => $q ?: null], admin_url('admin.php'))); ?>" class="iqu-seg-pill<?php echo $filter === $key ? ' is-active' : ''; ?>"<?php echo $filter === $key ? ' aria-current="page"' : ''; ?>><span class="iqu-seg-dot iqu-seg-dot--<?php echo esc_attr(self::GROUP_TONES[$key] ?? 'neutral'); ?>" aria-hidden="true"></span><?php echo esc_html($label); ?><span class="iqu-billing-count"><?php echo (int) $counts[$key]; ?></span></a>
                 <?php endforeach; ?>
             </nav>
 
@@ -257,7 +263,7 @@ class IQU_Billing_Page
                     <input type="hidden" name="show" value="<?php echo esc_attr($filter); ?>">
                     <label class="screen-reader-text" for="iqu-q">Search students</label>
                     <input id="iqu-q" type="search" name="q" value="<?php echo esc_attr($q); ?>" placeholder="Name, email or IQU number">
-                    <?php submit_button('Search', 'secondary', '', false); ?>
+                    <button type="submit" class="iqu-btn iqu-btn--secondary"><?php echo self::icon('search'); ?>Search</button>
                 </form>
                 <div class="iqu-btn-group iqu-billing-toolbar-actions">
                     <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>" class="iqu-btn iqu-btn--secondary"><?php echo self::icon('upload'); ?>Import CSV</a>
@@ -267,7 +273,7 @@ class IQU_Billing_Page
             </div>
 
             <!-- ── Table ─────────────────────────────────────── -->
-            <div class="iqu-card">
+            <div class="iqu-card iqu-students-card">
                 <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" id="iqu-bulk-form">
                     <input type="hidden" name="page" value="<?php echo esc_attr(self::BULK_SLUG); ?>">
                     <div class="iqu-card-head iqu-billing-bulkbar">
@@ -279,10 +285,11 @@ class IQU_Billing_Page
                     </div>
 
                     <div class="iqu-table-wrap">
-                    <table class="iqu-tbl iqu-billing-tbl">
+                    <table class="iqu-tbl iqu-billing-tbl iqu-students-tbl">
+                        <caption class="screen-reader-text">Students on monthly tuition. Select a row to open the family page.</caption>
                         <thead><tr>
                             <td class="check-column"><label class="screen-reader-text" for="iqu-all">Select all</label><input id="iqu-all" type="checkbox"></td>
-                            <th>Student and guardian</th><th>Program and course</th><th>Monthly</th><th>Billing</th><th>Actions</th>
+                            <th scope="col">Student and guardian</th><th scope="col">Course</th><th scope="col" class="is-num">Monthly</th><th scope="col">Billing</th><th scope="col">Actions</th>
                         </tr></thead>
                         <tbody>
                         <?php if (!$shown): ?>
@@ -333,8 +340,10 @@ class IQU_Billing_Page
         $pill = function (string $text, string $tone) {
             return '<span class="iqu-chip iqu-chip--' . $tone . '">' . esc_html($text) . '</span>';
         };
+        $open = $acc ? self::family_url((int) $acc['id']) : admin_url('admin.php?page=iqu-view-registration&id=' . $id);
+        $name = trim($reg['first_name'] . ' ' . $reg['last_name']);
         ?>
-        <tr>
+        <tr data-href="<?php echo esc_url($open); ?>">
             <th scope="row" class="check-column">
                 <?php if ($r['group'] === 'not_set_up'): ?>
                     <label class="screen-reader-text" for="s<?php echo $id; ?>">Select</label>
@@ -342,19 +351,25 @@ class IQU_Billing_Page
                 <?php endif; ?>
             </th>
             <td class="iqu-td-name">
-                <strong><a href="<?php echo esc_url($acc ? self::family_url((int) $acc['id']) : admin_url('admin.php?page=iqu-view-registration&id=' . $id)); ?>"><?php echo esc_html($reg['first_name'] . ' ' . $reg['last_name']); ?></a></strong>
-                <br><span class="iqu-billing-sub">IQU-<?php echo $id; ?><?php echo $reg['guardian_name'] ? ' · guardian ' . esc_html($reg['guardian_name']) : ''; ?></span>
-                <br><span class="iqu-billing-sub"><?php echo esc_html($reg['email']); ?></span>
+                <div class="iqu-student-cell">
+                    <span class="iqu-avatar iqu-avatar--sm" aria-hidden="true"><?php echo esc_html(self::initials($name)); ?></span>
+                    <div class="iqu-student-lines">
+                        <strong><a href="<?php echo esc_url($open); ?>"><?php echo esc_html($name); ?></a></strong>
+                        <span class="iqu-billing-sub">IQU-<?php echo $id; ?></span>
+                        <span class="iqu-billing-sub"><?php echo esc_html(implode(' · ', array_filter([$reg['guardian_name'] ? 'Guardian ' . $reg['guardian_name'] : '', $reg['email']]))); ?></span>
+                    </div>
+                </div>
             </td>
             <td>
-                Monthly classes
-                <br><span class="iqu-billing-sub">
-                    <?php echo esc_html($p['course_label'] ?: 'Course not set'); ?>
-                    <?php if ($p['days_per_week']): ?> · <?php echo (int) $p['days_per_week']; ?> days/week<?php endif; ?>
-                    <?php if (($reg['referral'] ?? '') === 'existing_student'): ?> · added from billing<?php endif; ?>
+                <span class="iqu-course-name"><?php echo esc_html($p['course_label'] ?: 'Course not set'); ?></span>
+                <span class="iqu-billing-sub">
+                    <?php echo esc_html(implode(' · ', array_filter([
+                        $p['days_per_week'] ? (int) $p['days_per_week'] . ' days/week' : '',
+                        ($reg['referral'] ?? '') === 'existing_student' ? 'added from billing' : '',
+                    ])) ?: 'Monthly classes'); ?>
                 </span>
             </td>
-            <td>
+            <td class="is-num iqu-monthly-cell">
                 <?php if ($p['billable']): ?>
                     <?php if ($p['discount'] > 0): ?>
                         <span class="iqu-billing-strike"><?php echo esc_html(IQU_Pricing::format($p['gross'])); ?></span>

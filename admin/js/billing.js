@@ -448,7 +448,27 @@
     apply();
   };
 
+  /**
+   * Whole-row links: a click anywhere on a tr[data-href] opens it, except on controls
+   * (links, buttons, checkboxes, labels, selects), while text is being selected, or with a
+   * modifier key (which opens a new tab). Keyboard users use the name link in the row.
+   */
+  B.rowLinks = function (table) {
+    table.addEventListener("click", function (e) {
+      var tr = e.target.closest ? e.target.closest("tr[data-href]") : null;
+      if (!tr || !table.contains(tr)) return;
+      if (e.target.closest("a, button, input, label, select, textarea, summary")) return;
+      var sel = root.getSelection ? String(root.getSelection()) : "";
+      if (sel !== "") return;
+      var href = tr.getAttribute("data-href");
+      if (!href) return;
+      if (e.ctrlKey || e.metaKey || e.button === 1) root.open(href, "_blank", "noopener");
+      else root.location.assign(href);
+    });
+  };
+
   B.init = function () {
+    document.querySelectorAll("table.iqu-students-tbl").forEach(B.rowLinks);
     document.querySelectorAll("table.iqu-dt").forEach(function (t) { initSort(t); updateCount(t); });
     document.querySelectorAll("input[data-filter-for]").forEach(initFilter);
     document.querySelectorAll("button[data-csv-for]").forEach(initCsv);
