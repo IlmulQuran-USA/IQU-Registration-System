@@ -798,6 +798,60 @@
   box-shadow: 0 0 0 2px rgba(30, 95, 160, 0.12);
 }
 
+/* ── Dropdowns: list status, detail status and the filter bar (3.4.0) ──
+   Same height, radius and border token as the filter / Export buttons, a custom
+   chevron and a clear focus ring. Selectors carry .iqu-admin-wrap so they beat
+   WordPress's .wp-core-ui select (min-height 40px, its own arrow and padding).
+   The chevron's fill is the --iqu-navy value (a data URI cannot read variables). */
+.iqu-admin-wrap select.iqu-status-select,
+.iqu-admin-wrap .iqu-status-panel select,
+.iqu-admin-wrap .iqu-filter-bar select {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 32px 0 12px;
+  border: 1px solid var(--iqu-navy);
+  border-radius: var(--iqu-radius-md);
+  background: var(--iqu-bg1)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%232f4b68' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 12px center / 12px 12px;
+  color: var(--iqu-text1);
+  font-size: 13px;
+  line-height: 34px;
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.iqu-admin-wrap select.iqu-status-select:hover,
+.iqu-admin-wrap .iqu-status-panel select:hover,
+.iqu-admin-wrap .iqu-filter-bar select:hover {
+  background-color: var(--iqu-bg2);
+  border-color: var(--iqu-navy);
+  color: var(--iqu-text1);
+}
+.iqu-admin-wrap select.iqu-status-select:focus,
+.iqu-admin-wrap .iqu-status-panel select:focus,
+.iqu-admin-wrap .iqu-filter-bar select:focus {
+  border-color: var(--iqu-blue);
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 1px;
+  box-shadow: none;
+  background-color: var(--iqu-bg1);
+}
+.iqu-admin-wrap select.iqu-status-select {
+  min-width: 132px;
+}
+.iqu-admin-wrap .iqu-status-panel select {
+  width: 100%;
+  margin-top: 4px;
+}
+
 /* ── Action Buttons ─────────────────────────────────────────── */
 .iqu-action-btn {
   padding: 4px 10px;
