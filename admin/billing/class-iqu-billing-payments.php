@@ -64,6 +64,7 @@ class IQU_Billing_Payments_Screen
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('payments'); ?>
+            <?php IQU_Billing_Page::page_header('Payments', 'Tuition collected and billed, payment problems and the charges coming up.'); ?>
             <?php if ($mode === 'test'): ?><div class="notice notice-warning inline"><p><strong>Test mode.</strong> These are test payments, not real money.</p></div><?php endif; ?>
 
             <!-- ── Period ────────────────────────────────────── -->
@@ -76,7 +77,7 @@ class IQU_Billing_Payments_Screen
                         <label><input type="radio" name="range" value="<?php echo (int) $n; ?>" <?php checked($range, $n); ?>><span><?php echo (int) $n; ?> months</span></label>
                     <?php endforeach; ?>
                 </div>
-                <button type="submit" class="iqu-btn-ghost">Show</button>
+                <button type="submit" class="iqu-btn iqu-btn--secondary">Show</button>
             </form>
 
             <details class="iqu-howto">

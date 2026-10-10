@@ -217,6 +217,7 @@ class IQU_Billing_Page
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php self::tabs('students'); ?>
+            <?php self::page_header('Students', 'Everyone on monthly tuition. Send payment links to families who are not set up yet, and follow up on payment problems.'); ?>
 
             <?php if (!IQU_Stripe::is_ready()): ?>
                 <div class="notice notice-error inline"><p><?php echo esc_html(IQU_Stripe::not_ready_reason()); ?></p></div>

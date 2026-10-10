@@ -1714,3 +1714,54 @@ th[aria-sort="descending"] .iqu-sort::after {
     width: 100%;
   }
 }
+
+/* ═════════════════════════════════════════════════════════════
+ * 3.3.1 — consistency pass: every button on billing screens has the
+ * .iqu-btn size and colours (older classes and WordPress buttons included).
+ * ═════════════════════════════════════════════════════════════ */
+.iqu-billing .iqu-btn-primary,
+.iqu-billing .iqu-btn-ghost,
+.wp-core-ui .iqu-billing .iqu-cpn-actions .button,
+.wp-core-ui .iqu-billing .iqu-filter-bar .button {
+  min-height: 36px;
+  height: auto;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: var(--iqu-radius-md);
+  box-shadow: none;
+}
+
+.iqu-billing .iqu-btn-ghost,
+.wp-core-ui .iqu-billing .iqu-cpn-actions .button:not(.button-primary),
+.wp-core-ui .iqu-billing .iqu-filter-bar .button {
+  color: var(--iqu-navy);
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-navy);
+}
+
+.iqu-billing .iqu-btn-ghost:hover,
+.wp-core-ui .iqu-billing .iqu-cpn-actions .button:not(.button-primary):hover,
+.wp-core-ui .iqu-billing .iqu-filter-bar .button:hover {
+  color: var(--iqu-navy);
+  background: var(--iqu-bg2);
+  border-color: var(--iqu-navy);
+}
+
+.iqu-billing .iqu-btn-primary:focus-visible,
+.iqu-billing .iqu-btn-ghost:focus-visible,
+.wp-core-ui .iqu-billing .iqu-cpn-actions .button:focus-visible,
+.wp-core-ui .iqu-billing .iqu-filter-bar .button:focus-visible {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* One empty-state look on every billing screen. */
+.iqu-billing .iqu-empty-state {
+  padding: 32px 20px;
+  font-size: 13px;
+  color: var(--iqu-text2);
+  text-align: center;
+}

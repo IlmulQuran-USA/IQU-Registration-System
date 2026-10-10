@@ -159,6 +159,7 @@ class IQU_Billing_Settings
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('settings'); ?>
+            <?php IQU_Billing_Page::page_header('Settings', 'Stripe connection, messages to families, enrollment switches and syncing with Stripe.'); ?>
 
             <?php if ($notice): ?>
                 <div class="notice notice-<?php echo esc_attr($notice['type']); ?> is-dismissible"><p><?php echo esc_html($notice['text']); ?></p></div>
