@@ -236,18 +236,21 @@ class IQU_Summer_Pay
         if (!is_email($to)) return;
         $kid = trim((string) $reg['first_name']);
         IQU_Billing_Email::send($to, 'Summer Ilm Camp — payment received', [
+            'title'     => 'Summer Ilm Camp — payment received',
             'preheader' => "We received your payment for {$kid}'s place in the Summer Ilm Camp.",
             'greeting'  => 'Assalamu alaikum,',
             'blocks'    => [
-                ['p', "JazakAllahu Khairan! We received your payment for {$kid}'s place in the Summer Ilm Camp. It covers the whole program."],
-                ['facts', [
-                    'Student'   => trim($reg['first_name'] . ' ' . $reg['last_name']),
-                    'Level'     => $reg['enrollment_level'] === 'level2' ? 'Level 2 (ages 11–15)' : 'Level 1 (ages 5–10)',
-                    'Amount'    => IQU_Pricing::format($amount),
-                    'Reference' => 'IQU-' . (int) $reg['id'],
+                ['p', "JazakAllahu khayran! We received your payment for {$kid}'s place in the Summer Ilm Camp. It covers the whole program."],
+                ['table', [
+                    ['Student', trim($reg['first_name'] . ' ' . $reg['last_name']) . ' (IQU-' . (int) $reg['id'] . ')'],
+                    ['Program', 'Summer Ilm Camp — ' . ($reg['enrollment_level'] === 'level2' ? 'Level 2 (ages 11–15)' : 'Level 1 (ages 5–10)')],
+                    ['Amount paid', IQU_Pricing::format($amount) . ' — the whole program'],
+                    ['Reference', 'IQU-' . (int) $reg['id']],
                 ]],
-                ['p', "Our team will contact you on WhatsApp with the class schedule, in-sha'-Allah."],
-                ['note', 'Keep this email as your confirmation. If you have a question, just reply here.'],
+                ['list', 'Good to know', [
+                    "Our team will contact you on WhatsApp with the class schedule, in-sha'-Allah.",
+                    'Please keep this email as your confirmation.',
+                ]],
             ],
         ]);
     }
@@ -351,12 +354,24 @@ class IQU_Summer_Pay
             $kid = trim((string) $reg['first_name']);
             if (is_email($to)) {
                 IQU_Billing_Email::send($to, "Finish {$kid}'s Summer Ilm Camp enrollment", [
+                    'title'     => 'One step left',
                     'preheader' => "One step left: the payment for {$kid}'s place.",
                     'greeting'  => 'Assalamu alaikum,',
+                    'private'   => true,
+                    'help'      => 'If the fee is a burden for your family, please talk to us — no child\'s place is ever affected by cost.',
                     'blocks'    => [
-                        ['p', "You started enrolling {$kid} in the Summer Ilm Camp. One step is left: the payment of " . IQU_Pricing::format((float) $reg['payment_amount']) . ' for the whole program, on Stripe\'s secure page.'],
+                        ['p', "You started enrolling {$kid} in the Summer Ilm Camp. One step is left: the payment."],
+                        ['table', [
+                            ['Student', trim($reg['first_name'] . ' ' . $reg['last_name'])],
+                            ['Program', 'Summer Ilm Camp'],
+                            ['Amount', IQU_Pricing::format((float) $reg['payment_amount']) . ' — once, for the whole program'],
+                        ]],
+                        ['steps', 'What you need to do', [
+                            'Press "Pay now" below.',
+                            'Pay on Stripe\'s secure page (about 2 minutes).',
+                            'That\'s all — you will receive a confirmation by email.',
+                        ]],
                         ['button', 'Pay now', self::link_for((int) $reg['id'])],
-                        ['note', 'If the fee is a burden for your family, just reply here — no child\'s place is ever affected by cost.'],
                     ],
                 ]);
             }

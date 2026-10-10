@@ -285,26 +285,27 @@ class IQU_Enrollment
         $to = (string) $acc['contact_email'];
         if (!is_email($to)) return;
         $kids = implode(', ', array_map(fn($r) => trim((string) $r['first_name']), $regs));
-        $facts = [];
-        foreach ($regs as $r) {
-            $p = IQU_Billing_Pricing::for_registration($r);
-            $facts[trim($r['first_name'] . ' ' . $r['last_name'])] = ($p['course_label'] ?: 'Classes')
-                . ($p['days_per_week'] ? ' · ' . $p['days_per_week'] . ' classes a week' : '');
-        }
         $first = $acc['first_charge_date'] ? wp_date('j F Y', (int) strtotime($acc['first_charge_date'] . ' 15:00:00 UTC')) : '';
-        $facts['Monthly tuition'] = IQU_Pricing::format((float) $acc['net_amount']);
-        if ($first !== '') $facts['First payment'] = $first . ' (after the free first month)';
+        $guardian = trim((string) ($acc['guardian_name'] ?? ''));
+        $table = array_merge(IQU_Billing_Email::student_rows($acc), IQU_Billing_Email::tuition_rows($acc),
+            [['First payment', $first !== '' ? $first . ' (after the free first month)' : ''], ['Paying with', (string) ($acc['payment_method_label'] ?? '')]]);
 
         IQU_Billing_Email::send($to, 'Welcome to Ilm-ul-Quran USA — enrollment complete', [
+            'title'     => 'Enrollment complete',
             'preheader' => "{$kids}'s enrollment is complete. The first month is free.",
-            'greeting'  => 'Assalamu alaikum,',
+            'greeting'  => 'Assalamu alaikum' . ($guardian !== '' ? ' ' . explode(' ', $guardian)[0] : '') . ',',
+            'private'   => true,
+            'help'      => 'If the fee ever becomes a burden, please talk to us — no child\'s place is ever affected by cost.',
             'blocks'    => [
-                ['p', "JazakAllahu Khairan! {$kids}'s enrollment at Ilm-ul-Quran USA is complete, and your payment method is saved securely with Stripe."],
-                ['facts', $facts],
-                ['p', 'Nothing is charged during the free first month. After that, tuition is taken automatically on the same date every month, and you will get a receipt by email each time.'],
-                ['p', "Our team will contact you on WhatsApp within 24–48 hours to arrange the class schedule, in-sha'-Allah."],
+                ['p', "JazakAllahu khayran! {$kids}'s enrollment at Ilm-ul-Quran USA is complete, and your payment method is saved securely with Stripe."],
+                ['table', $table],
                 ['button', 'Open my billing page', IQU_Billing_Service::link_for($acc)],
-                ['note', 'Please keep this link private. If the fee ever becomes a burden, just reply here — no child\'s place is ever affected by cost.'],
+                ['list', 'Good to know', [
+                    'Nothing is charged during the free first month.',
+                    'After that, tuition is taken automatically on the same date every month, and you will receive a receipt by email each time.',
+                    "Our team will contact you on WhatsApp within 24–48 hours to arrange the class schedule, in-sha'-Allah.",
+                    'You can change your bank account or card at any time from your private billing page.',
+                ]],
             ],
         ]);
     }
@@ -356,15 +357,23 @@ class IQU_Enrollment
         if (!is_email($to)) return;
         $kid = trim((string) $reg['first_name']);
         IQU_Billing_Email::send($to, $last ? "Last reminder: finish {$kid}'s enrollment" : "One step left to enroll {$kid}", [
+            'title'     => $last ? 'Last reminder: one step left' : 'One step left',
             'preheader' => "Add a card or US bank account to finish {$kid}'s enrollment. The first month is free.",
             'greeting'  => 'Assalamu alaikum,',
+            'private'   => true,
+            'help'      => 'If you have a question, or the fee is a burden for your family, please talk to us — no child\'s place is ever affected by cost.',
             'blocks'    => [
-                ['p', "You started enrolling {$kid} at Ilm-ul-Quran USA. There is one step left: add a card or US bank account on Stripe's secure page."],
-                ['p', 'Nothing is charged today — the first month is free.'],
+                ['p', "You started enrolling {$kid} at Ilm-ul-Quran USA. There is one step left."],
+                ['steps', 'What you need to do', [
+                    'Press "Finish enrollment" below.',
+                    'Add a card or US bank account on Stripe\'s secure page (about 2 minutes).',
+                    'That\'s all — we will confirm by email.',
+                ]],
                 ['button', 'Finish enrollment', IQU_Billing_Service::link_for($acc)],
-                ['note', $last
-                    ? 'If we do not hear from you, this enrollment will close in a few days. You can enroll again at any time. If the fee is a burden, just reply here — no child\'s place is ever affected by cost.'
-                    : 'If you have a question, or the fee is a burden for your family, just reply here — no child\'s place is ever affected by cost.'],
+                ['list', 'Good to know', [
+                    'Nothing is charged today — the first month is free.',
+                    $last ? 'If we do not hear from you, this enrollment will close in a few days. You can enroll again at any time.' : '',
+                ]],
             ],
         ]);
     }

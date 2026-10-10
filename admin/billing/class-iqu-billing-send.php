@@ -695,47 +695,6 @@ class IQU_Billing_Send
         return 'account';
     }
 
-    /** Wording of the 'account', 'problem' and 'stopped' messages, shared by the text and the email. */
-    private static function followup(array $acc, string $kind, string $kids, string $amount): array
-    {
-        if ($kind === 'stopped') {
-            return [
-                'subject'     => 'Your tuition billing has stopped — Ilm-ul-Quran USA',
-                'button'      => 'See my payments',
-                'lead'        => "Monthly tuition billing for {$kids} has stopped, and nothing more will be charged.",
-                'before_link' => 'You can still see your past payments and receipts here:',
-                'facts'       => [],
-                'close'       => 'If you would like to restart classes, or if this is a mistake, just reply here.',
-            ];
-        }
-
-        if ($kind === 'problem') {
-            return [
-                'subject'     => 'Tuition payment did not go through — Ilm-ul-Quran USA',
-                'button'      => 'Pay or update my card',
-                'lead'        => "The tuition payment of {$amount} for {$kids} did not go through.",
-                'before_link' => $acc['status'] === 'past_due'
-                    ? 'We will try again automatically, but you can also pay now or switch to a different bank account or card here:'
-                    : 'You can pay it, or switch to a different bank account or card, on your private billing page:',
-                'facts'       => [],
-                'close'       => 'If paying is difficult right now, or the fee is a burden, just reply here and we will sort it out together. No child\'s place is ever affected by cost.',
-            ];
-        }
-
-        $facts = ['Monthly tuition' => $amount];
-        if (!empty($acc['next_charge_at'])) {
-            $facts['Next payment'] = self::nice_utc((string) $acc['next_charge_at']);
-        }
-        return [
-            'subject'     => 'Your billing page — Ilm-ul-Quran USA',
-            'button'      => 'Open my billing page',
-            'lead'        => '',
-            'before_link' => "Here is the private billing page for {$kids}. You can see every payment and receipt, and change your bank account or card at any time:",
-            'facts'       => $facts,
-            'close'       => 'If you have any questions, just reply here.',
-        ];
-    }
-
     /**
      * Plain-text message for WhatsApp, SMS or Messenger, by kind (see message_kind()):
      * setup, account, problem or stopped. The "Need help?" lines come from IQU_Contact
@@ -802,59 +761,129 @@ class IQU_Billing_Send
         return '';
     }
 
-    /** HTML email (shared billing layout, IQU_Billing_Email) with the same sentences as the message, and a button. */
+    /**
+     * Subject and content of the family email for one kind (see message_kind()), in the shared
+     * formal layout (IQU_Billing_Email). Local database only.
+     * @return array{0:string, 1:array} [subject, IQU_Billing_Email::render() options]
+     */
+    public static function email_content(array $acc): array
+    {
+        $name   = self::greeting_name($acc);
+        $kids   = self::first_names($acc);
+        $amount = IQU_Pricing::format((float) $acc['net_amount']);
+        $link   = IQU_Billing_Service::link_for($acc);
+        $kind   = self::message_kind($acc);
+        $method = trim((string) ($acc['payment_method_label'] ?? ''));
+        $rows   = IQU_Billing_Email::student_rows($acc);
+        $base   = ['greeting' => 'Assalamu alaikum' . ($name !== '' ? ' ' . $name : '') . ',', 'private' => true];
+        $burden = 'If paying online is difficult, or the fee is a burden right now, please talk to us — no child\'s place is ever affected by cost.';
+
+        if ($kind === 'setup') {
+            $first = self::nice_date($acc['first_charge_date']);
+            $ts    = $acc['first_charge_date'] ? (int) strtotime($acc['first_charge_date'] . ' 12:00:00 UTC') : 0;
+            $zelle = (string) get_option(self::OPT_ZELLE, '');
+            $table = array_merge($rows, IQU_Billing_Email::tuition_rows($acc), [
+                ['First payment', $first . ($ts ? ' (' . gmdate('F', $ts) . ' tuition)' : '')],
+                ['After that', $ts ? $amount . ' on the ' . IQU_Billing_Email::ordinal((int) gmdate('j', $ts)) . ' of each month' : ''],
+                ['Pay with', 'US bank account (ACH) or card — your choice'],
+            ]);
+            return ["Action needed: set up {$kids}'s monthly tuition — Ilm-ul-Quran USA", $base + [
+                'title'     => 'Monthly tuition set-up',
+                'preheader' => "Add a US bank account or card once. Nothing is charged before {$first}.",
+                'help'      => $burden,
+                'blocks'    => [
+                    ['p', 'We hope you and your family are well.'],
+                    ['p', "Starting this month, tuition for {$kids} will be collected automatically each month — no reminders and no transfers."],
+                    ['table', $table],
+                    ['steps', 'What you need to do', [
+                        'Press "Set up monthly tuition" below.',
+                        'Add a US bank account or card on Stripe\'s secure page (about 2 minutes).',
+                        'That\'s all — you will receive a receipt by email after every payment.',
+                    ]],
+                    ['button', 'Set up monthly tuition', $link],
+                    ['list', 'Good to know', [
+                        "Nothing is charged before {$first}.",
+                        'You can change your bank account or card at any time from your private billing page.',
+                        'To pause or stop classes, please tell us at least 7 days before the next payment.',
+                        $zelle !== '' ? 'From ' . self::nice_date($zelle) . ', tuition can no longer be sent by Zelle.' : '',
+                    ]],
+                ],
+            ]];
+        }
+
+        if ($kind === 'problem') {
+            $past_due = $acc['status'] === 'past_due';
+            return ["Action needed: {$kids}'s tuition payment did not go through — Ilm-ul-Quran USA", $base + [
+                'title'     => 'Tuition payment did not go through',
+                'preheader' => "The tuition payment of {$amount} for {$kids} did not go through.",
+                'help'      => 'If paying is difficult right now, or the fee is a burden, please reply and we will sort it out together. No child\'s place is ever affected by cost.',
+                'blocks'    => [
+                    ['p', "We wanted to let you know that the tuition payment of {$amount} for {$kids} did not go through."],
+                    ['table', array_merge($rows, [
+                        ['Amount', $amount],
+                        ['Paying with', $method],
+                        ['Status', $past_due ? 'Not paid yet — we will try again automatically' : 'Not paid yet'],
+                    ])],
+                    ['steps', 'What you need to do', [
+                        'Press "Pay or update my card" below.',
+                        'Pay the amount now, or switch to a different US bank account or card.',
+                        'That\'s all — you will receive a receipt by email once it is paid.',
+                    ]],
+                    ['button', 'Pay or update my card', $link],
+                    ['list', 'Good to know', [
+                        $past_due ? 'We will try again automatically, so if the account now has enough money you do not need to do anything.' : '',
+                        'You can change your bank account or card at any time from your private billing page.',
+                    ]],
+                ],
+            ]];
+        }
+
+        if ($kind === 'stopped') {
+            return ["Monthly tuition for {$kids} has stopped — Ilm-ul-Quran USA", $base + [
+                'title'     => 'Monthly tuition stopped',
+                'preheader' => "Monthly tuition billing for {$kids} has stopped. Nothing more will be charged.",
+                'help'      => 'If you would like to restart classes, or if this was a mistake, please contact us.',
+                'blocks'    => [
+                    ['p', "Monthly tuition billing for {$kids} has now stopped, and nothing more will be charged."],
+                    ['table', array_merge($rows, [['Status', 'Stopped — nothing more will be charged']])],
+                    ['button', 'See my payments', $link],
+                    ['list', 'Good to know', [
+                        'You can still see your past payments and download receipts on your private billing page.',
+                    ]],
+                ],
+            ]];
+        }
+
+        // account: the billing page
+        $next = !empty($acc['next_charge_at']) && $acc['status'] !== 'canceled' ? self::nice_utc((string) $acc['next_charge_at']) : '';
+        return ["Your family's billing page — Ilm-ul-Quran USA", $base + [
+            'title'     => 'Your billing page',
+            'preheader' => "Your family's private billing page for {$kids}.",
+            'help'      => $burden,
+            'blocks'    => [
+                ['p', "Here is your family's private billing page for {$kids}."],
+                ['p', 'On this page you can see every payment, download receipts, and change your bank account or card at any time.'],
+                ['table', array_merge($rows, IQU_Billing_Email::tuition_rows($acc), [
+                    ['Next payment', $next],
+                    ['Paying with', $method],
+                ])],
+                ['button', 'Open my billing page', $link],
+                ['list', 'Good to know', [
+                    'You can change your bank account or card at any time from your private billing page.',
+                    'To pause or stop classes, please tell us at least 7 days before the next payment.',
+                ]],
+            ],
+        ]];
+    }
+
+    /** Send the family email for its kind (email_content()). */
     public static function send_email(array $acc): bool
     {
         if (!is_email($acc['contact_email'])) return false;
         if (IQU_Stripe::expected_mode() === 'test' && !self::test_email_allowed($acc['contact_email'])) return false;
 
-        $name   = self::greeting_name($acc);
-        $kids   = self::first_names($acc);
-        $amount = IQU_Pricing::format((float) $acc['net_amount']);
-        $first  = self::nice_date($acc['first_charge_date']);
-        $link   = IQU_Billing_Service::link_for($acc);
-        $zelle  = (string) get_option(self::OPT_ZELLE, '');
-        $new    = ($acc['student_type'] ?? '') === 'new';
-        $kind   = self::message_kind($acc);
-        $who    = implode(', ', self::students($acc));
-        $method = (string) ($acc['payment_method_label'] ?? '');
-
-        if ($kind === 'setup') {
-            $subject = 'Set up monthly tuition for ' . $kids . ' — one time only';
-            $intro   = $new
-                ? "Tuition for {$kids} will be collected automatically each month after the free first month, so there is nothing to remember and nothing to transfer."
-                : "From this month, tuition for {$kids} will be collected automatically, so there is nothing to remember and nothing to transfer.";
-            $charge  = 'You add a bank account or card once. Nothing is charged before ' . $first . '.'
-                . ($zelle !== '' ? ' From ' . self::nice_date($zelle) . ', tuition can no longer be sent by Zelle.' : '');
-            $preheader = 'You add a bank account or card once. Nothing is charged before ' . $first . '.';
-            $blocks = [
-                ['p', $intro],
-                ['facts', ['Students' => $who, 'Monthly tuition' => $amount, 'First payment' => $first . ($new ? ' (after the free first month)' : '')]],
-                ['button', 'Set up monthly tuition', $link],
-                ['note', $charge],
-                ['note', 'If paying online is difficult, or the fee is a burden right now, just reply to this email. No child\'s place is ever affected by cost.'],
-            ];
-        } else {
-            $f       = self::followup($acc, $kind, $kids, $amount);
-            $subject = $f['subject'];
-            $preheader = $f['lead'] !== '' ? $f['lead'] : $f['before_link'];
-            $facts   = ['Students' => $who] + $f['facts'];
-            if ($kind === 'problem') $facts['Monthly tuition'] = $amount;
-            if (in_array($kind, ['account', 'problem'], true)) $facts['Paying from'] = $method;
-            $blocks = [];
-            if ($f['lead'] !== '') $blocks[] = ['p', $f['lead']];
-            $blocks[] = ['p', $f['before_link']];
-            $blocks[] = ['button', $f['button'], $link];
-            $blocks[] = ['facts', $facts];
-            $blocks[] = ['note', $f['close']];
-        }
-
-        $ok = IQU_Billing_Email::send($acc['contact_email'], $subject, [
-            'preheader'   => $preheader,
-            'greeting'    => 'Assalamu alaikum' . ($name !== '' ? ' ' . $name : '') . ',',
-            'blocks'      => $blocks,
-            'footer_note' => 'This link is private to your family. Please do not forward it.',
-        ]);
+        [$subject, $content] = self::email_content($acc);
+        $ok = IQU_Billing_Email::send($acc['contact_email'], $subject, $content);
         if ($ok) {
             $upd = ['email_sent_at' => current_time('mysql', true)];
             if ($acc['status'] === 'not_sent') $upd['status'] = 'link_sent';

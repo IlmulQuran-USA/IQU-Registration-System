@@ -178,14 +178,20 @@ class IQU_Billing_Portal
         if (!is_email($acc['contact_email'])) return;
         if (IQU_Stripe::expected_mode() === 'test' && !self::test_email_allowed($acc['contact_email'])) return;
 
-        // Shared billing email layout (IQU_Billing_Email); same sentences as before.
+        // Shared formal email layout (IQU_Billing_Email).
         IQU_Billing_Email::send($acc['contact_email'], 'Your billing page — Ilm-ul-Quran USA', [
+            'title'     => 'Your private billing page',
             'preheader' => 'Here is your private billing page for Ilm-ul-Quran USA.',
             'greeting'  => 'Assalamu alaikum,',
+            'private'   => true,
             'blocks'    => [
-                ['p', 'Here is your private billing page for Ilm-ul-Quran USA:'],
+                ['p', 'You asked for your family\'s billing page on our website. Here is your private link.'],
+                ['table', IQU_Billing_Email::student_rows($acc)],
                 ['button', 'Open my billing page', IQU_Billing_Service::link_for($acc)],
-                ['note', 'You asked for this link on our website. If you did not, you can ignore this email. Please do not forward it.'],
+                ['list', 'Good to know', [
+                    'If you did not ask for this link, you can ignore this email — nothing changes.',
+                    'The page opens without a password, so please keep the link private.',
+                ]],
             ],
         ]);
     }
