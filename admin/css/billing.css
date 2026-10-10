@@ -1384,3 +1384,333 @@ th[aria-sort="descending"] .iqu-sort::after {
     margin-left: 0;
   }
 }
+
+/* ═════════════════════════════════════════════════════════════
+ * 3.3.1 — Import: steps, drop zone, preview chips, sticky bar
+ * ═════════════════════════════════════════════════════════════ */
+.iqu-steps ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 0;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.iqu-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--iqu-text2);
+}
+
+.iqu-steps li + li::before {
+  content: "";
+  width: 32px;
+  height: 2px;
+  margin: 0 10px;
+  background: var(--iqu-bdr);
+}
+
+.iqu-steps-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--iqu-text2);
+  background: var(--iqu-bg1);
+  border: 2px solid var(--iqu-bdr);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.iqu-steps li.is-current {
+  font-weight: 600;
+  color: var(--iqu-text1);
+}
+
+.iqu-steps li.is-current .iqu-steps-n {
+  color: var(--iqu-bg1);
+  background: var(--iqu-navy);
+  border-color: var(--iqu-navy);
+}
+
+.iqu-steps li.is-done {
+  color: var(--iqu-text1);
+}
+
+.iqu-steps li.is-done .iqu-steps-n {
+  color: var(--iqu-bg1);
+  background: var(--iqu-green);
+  border-color: var(--iqu-green);
+}
+
+.iqu-import-sample {
+  margin: 0 0 14px;
+}
+
+/* Column guide */
+.iqu-columns-guide {
+  border-top: 1px solid var(--iqu-bdr);
+  padding-top: 10px;
+}
+
+.iqu-columns-guide summary {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--iqu-navy);
+  cursor: pointer;
+}
+
+.iqu-columns-guide summary:focus-visible {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 2px;
+}
+
+.iqu-column-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.iqu-column-chips li {
+  margin: 0;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iqu-navy);
+  background: var(--iqu-bg2);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: 999px;
+}
+
+/* Drop zone: the real file input covers the whole zone (click, keyboard and drop work natively). */
+.iqu-dropzone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  padding: 20px;
+  text-align: center;
+  background: var(--iqu-bg2);
+  border: 2px dashed var(--iqu-text2);
+  border-radius: var(--iqu-radius-lg);
+  box-sizing: border-box;
+}
+
+.iqu-dropzone-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.iqu-dropzone-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.iqu-dropzone-inner .dashicons {
+  width: 36px;
+  height: 36px;
+  font-size: 36px;
+  color: var(--iqu-navy);
+}
+
+.iqu-dropzone-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+}
+
+.iqu-dropzone-link {
+  color: var(--iqu-blue);
+  text-decoration: underline;
+}
+
+.iqu-dropzone:focus-within {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 3px;
+}
+
+.iqu-dropzone.is-drag {
+  border-color: var(--iqu-blue);
+  background: var(--iqu-bg1);
+}
+
+.iqu-dropzone.has-file {
+  border-style: solid;
+  border-color: var(--iqu-green);
+}
+
+.iqu-dropzone.is-warn {
+  border-color: var(--iqu-orange);
+}
+
+.iqu-dropzone-status {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--iqu-green);
+}
+
+.iqu-dropzone-status.is-warn {
+  color: var(--iqu-orange);
+}
+
+/* Preview */
+.iqu-import-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.iqu-ichip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--iqu-text1);
+  background: var(--iqu-bg2);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: 999px;
+}
+
+.iqu-ichip .dashicons {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.iqu-ichip--ok .dashicons {
+  color: var(--iqu-green);
+}
+
+.iqu-ichip--warn .dashicons {
+  color: var(--iqu-gold);
+}
+
+.iqu-ichip--bad .dashicons,
+.iqu-ichip--bad strong {
+  color: var(--iqu-red);
+}
+
+.iqu-import-wrap {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.iqu-import-tbl thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--iqu-bg2);
+}
+
+.iqu-import-tbl tr.is-problem td {
+  background: var(--iqu-bg2);
+}
+
+.iqu-problem-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--iqu-red);
+  white-space: normal;
+}
+
+.iqu-problem-list li {
+  margin: 0 0 2px;
+}
+
+.iqu-problem-list strong {
+  color: var(--iqu-text1);
+}
+
+/* Confirm / Cancel stay in view at the bottom of the screen while scrolling the rows. */
+/* (position: sticky needs every ancestor to let it overflow, so the preview card does.) */
+.iqu-billing .iqu-import-preview {
+  overflow: visible;
+}
+
+.iqu-sticky-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 20px;
+  background: var(--iqu-bg1);
+  border-top: 1px solid var(--iqu-bdr);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+  border-radius: 0 0 var(--iqu-radius-lg) var(--iqu-radius-lg);
+}
+
+.iqu-sticky-bar-note {
+  flex: 1 1 320px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--iqu-text2);
+}
+
+.iqu-sticky-bar form {
+  margin: 0;
+}
+
+/* Result */
+.iqu-result-sub {
+  margin: 4px 0 6px;
+  font-weight: 600;
+}
+
+.iqu-result-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+@media (max-width: 782px) {
+  .iqu-steps li + li::before {
+    width: 14px;
+    margin: 0 6px;
+  }
+
+  .iqu-sticky-bar {
+    padding: 12px 14px;
+  }
+
+  .iqu-sticky-bar .iqu-btn-group,
+  .iqu-sticky-bar .iqu-btn-group form,
+  .iqu-sticky-bar .iqu-btn {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}

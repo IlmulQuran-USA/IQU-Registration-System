@@ -266,8 +266,12 @@ class IQU_Billing_Import
         }
 
         $added = 0; $billed = 0; $failed = [];
+        $skipped = []; // for the result card only: rows the preview already marked as skipped, with their reasons
         foreach ($state['preview'] as $r) {
-            if ($r['errors']) continue;
+            if ($r['errors']) {
+                $skipped[] = ['line' => (int) $r['line'], 'name' => trim(($r['in']['first_name'] ?? '') . ' ' . ($r['in']['last_name'] ?? '')), 'errors' => $r['errors']];
+                continue;
+            }
             $prep = IQU_Billing_Add_Student::prepare($r['in']); // check again: records may have changed
             if ($prep['errors']) { $failed[] = 'Row ' . $r['line'] . ': ' . implode(' ', $prep['errors']); continue; }
             $id = IQU_Database::insert_registration($prep['row']);
@@ -276,7 +280,7 @@ class IQU_Billing_Import
             if ($prep['net'] > 0) $billed++;
         }
 
-        self::store(['done' => ['added' => $added, 'billed' => $billed, 'failed' => $failed]]);
+        self::store(['done' => ['added' => $added, 'billed' => $billed, 'failed' => $failed, 'skipped' => $skipped]]);
         self::back();
     }
 
@@ -322,102 +326,123 @@ class IQU_Billing_Import
             delete_transient(self::TX . get_current_user_id());
         }
         $post = esc_url(admin_url('admin-post.php'));
+        $step = !empty($state['done']) ? 4 : (!empty($state['preview']) ? 3 : 1);
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('import'); ?>
+            <?php IQU_Billing_Page::page_header('Import students', 'Add many existing students at once from a spreadsheet. They are billed as current students (no free month). Nothing is saved until you check the rows and press Import.'); ?>
+            <?php self::steps($step); ?>
 
             <?php if (!empty($state['error'])): ?>
                 <div class="notice notice-error"><p><?php echo esc_html($state['error']); ?></p></div>
             <?php endif; ?>
 
-            <?php if (!empty($state['done'])): $d = $state['done']; ?>
-                <div class="notice notice-success"><p>
-                    <strong><?php echo (int) $d['added']; ?> students added.</strong>
-                    <?php echo (int) $d['billed']; ?> will be billed, <?php echo (int) ($d['added'] - $d['billed']); ?> on full scholarship.
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-list-free')); ?>">See them in Enroll for Free</a>
-                </p></div>
-                <?php if (!empty($d['failed'])): ?>
-                    <div class="notice notice-warning"><p><strong>Not added:</strong></p><ul class="iqu-billing-notice-list">
-                        <?php foreach ($d['failed'] as $f): ?><li><?php echo esc_html($f); ?></li><?php endforeach; ?>
-                    </ul></div>
-                <?php endif; ?>
-            <?php endif; ?>
+            <?php if (!empty($state['done'])): self::render_result($state['done']); ?>
+            <?php elseif (!empty($state['preview'])): self::render_preview($state); else: ?>
 
-            <div class="iqu-card">
+            <!-- ── Step 1: prepare the file ─────────────────── -->
+            <section class="iqu-card iqu-import-step" aria-labelledby="iqu-step1-title">
                 <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">Import students</span>
-                    <span class="iqu-card-head-badge">CSV · nothing saved until you confirm</span>
+                    <span class="iqu-card-head-title" id="iqu-step1-title">1 · Prepare your file</span>
                 </div>
                 <div class="iqu-billing-body">
-                    <p class="iqu-billing-intro">Add many existing students at once from a spreadsheet. They are added to the enrollment records like any other student, and billed as current students (no free month). Nothing is saved until you check the preview and press Import.</p>
+                    <p class="iqu-billing-intro">Fill in the sample with Excel or Google Sheets, one student per row, then save it as CSV. A file from <strong>Export CSV</strong> works too: the column names are the same.</p>
+                    <form method="post" action="<?php echo $post; ?>" class="iqu-import-sample">
+                        <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SAMPLE); ?>">
+                        <?php wp_nonce_field(self::A_SAMPLE); ?>
+                        <button type="submit" name="submit" value="Download sample CSV" class="iqu-btn iqu-btn--secondary"><?php echo IQU_Billing_Page::icon('download'); ?>Download sample CSV</button>
+                    </form>
+                    <details class="iqu-columns-guide">
+                        <summary>Which columns do I need?</summary>
+                        <p class="iqu-fld-hint">Required columns:</p>
+                        <ul class="iqu-column-chips" aria-label="Required columns">
+                            <?php foreach (self::COLUMNS as $c): if (!$c[1]) continue; ?>
+                                <li><?php echo esc_html($c[0]); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                        <div class="iqu-table-wrap">
+                        <table class="iqu-tbl iqu-billing-tbl">
+                            <caption class="screen-reader-text">All columns</caption>
+                            <thead><tr><th>Column</th><th>Required</th><th>What to enter</th><th>Example</th></tr></thead>
+                            <tbody>
+                            <?php foreach (self::COLUMNS as $c): ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($c[0]); ?></strong></td>
+                                    <td><?php echo $c[1] ? 'Yes' : '—'; ?></td>
+                                    <td class="iqu-billing-wrap"><?php echo esc_html($c[2]); ?></td>
+                                    <td><code><?php echo esc_html($c[3] !== '' ? $c[3] : '(empty)'); ?></code></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        </div>
+                        <p class="iqu-fld-hint">The monthly fee is not a column on purpose. It is always worked out from Course and Days/Week using the pricing rules. Use Agreed Monthly Fee only for families who pay less.</p>
+                    </details>
                 </div>
-            </div>
+            </section>
 
-            <?php if (!empty($state['preview'])): self::render_preview($state); else: ?>
-
-            <!-- ── 1. Sample ─────────────────────────────────── -->
-            <div class="iqu-card">
+            <!-- ── Step 2: upload ───────────────────────────── -->
+            <section class="iqu-card iqu-import-step" aria-labelledby="iqu-step2-title">
                 <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">1. Download the sample file</span>
+                    <span class="iqu-card-head-title" id="iqu-step2-title">2 · Upload it</span>
                 </div>
-                <div class="iqu-billing-body">
-                    <p class="iqu-billing-intro">Fill it in with Excel or Google Sheets, one student per row, then save it as CSV. You can also use a file from <strong>Export CSV</strong> — the column names are the same, and columns the system calculates itself are ignored.</p>
-                </div>
-                <form method="post" action="<?php echo $post; ?>" class="iqu-cpn-actions">
-                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SAMPLE); ?>">
-                    <?php wp_nonce_field(self::A_SAMPLE); ?>
-                    <?php submit_button('Download sample CSV', 'secondary', 'submit', false); ?>
-                </form>
-            </div>
-
-            <!-- ── 2. Columns ────────────────────────────────── -->
-            <div class="iqu-card">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">2. What goes in each column</span>
-                </div>
-                <div class="iqu-table-wrap">
-                <table class="iqu-tbl iqu-billing-tbl">
-                    <thead><tr><th>Column</th><th>Required</th><th>What to enter</th><th>Example</th></tr></thead>
-                    <tbody>
-                    <?php foreach (self::COLUMNS as $c): ?>
-                        <tr>
-                            <td><strong><?php echo esc_html($c[0]); ?></strong></td>
-                            <td><?php echo $c[1] ? 'Yes' : '—'; ?></td>
-                            <td class="iqu-billing-wrap"><?php echo esc_html($c[2]); ?></td>
-                            <td><code><?php echo esc_html($c[3] !== '' ? $c[3] : '(empty)'); ?></code></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-                </div>
-                <div class="iqu-billing-body">
-                    <p class="iqu-fld-hint">The monthly fee is not a column on purpose. It is always worked out from Course and Days/Week using the pricing rules. Use Agreed Monthly Fee only for families who pay less.</p>
-                </div>
-            </div>
-
-            <!-- ── 3. Upload ─────────────────────────────────── -->
-            <div class="iqu-card">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">3. Upload and check</span>
-                </div>
-                <form method="post" action="<?php echo $post; ?>" enctype="multipart/form-data" class="iqu-cpn-form">
+                <form method="post" action="<?php echo $post; ?>" enctype="multipart/form-data" class="iqu-import-upload" id="iqu-import-upload">
                     <input type="hidden" name="action" value="<?php echo esc_attr(self::A_UPLOAD); ?>">
                     <?php wp_nonce_field(self::A_UPLOAD); ?>
-                    <div class="iqu-fld-grid">
-                        <div class="iqu-fld iqu-fld--full">
-                            <label for="iqu-csv">CSV file <em>*</em></label>
-                            <input id="iqu-csv" type="file" name="csv" accept=".csv,text/csv" required>
-                            <p class="iqu-fld-hint">CSV only, up to 1 MB and <?php echo (int) self::MAX_ROWS; ?> students. The file is checked and then discarded; it is not stored on the server.</p>
+                    <div class="iqu-billing-body">
+                        <div class="iqu-dropzone" data-dropzone>
+                            <input id="iqu-csv" class="iqu-dropzone-input" type="file" name="csv" accept=".csv,text/csv" required aria-describedby="iqu-csv-hint iqu-csv-status">
+                            <div class="iqu-dropzone-inner" aria-hidden="true">
+                                <span class="dashicons dashicons-upload"></span>
+                                <span class="iqu-dropzone-title">Drag your CSV file here, or <span class="iqu-dropzone-link">choose a file</span></span>
+                            </div>
+                            <label for="iqu-csv" class="screen-reader-text">CSV file (required)</label>
                         </div>
+                        <p class="iqu-fld-hint" id="iqu-csv-hint">CSV only, up to 1 MB and <?php echo (int) self::MAX_ROWS; ?> students. The file is checked and then discarded; it is not stored on the server.</p>
+                        <p class="iqu-dropzone-status" id="iqu-csv-status" role="status" aria-live="polite"></p>
                     </div>
-                    <div class="iqu-cpn-actions">
-                        <?php submit_button('Upload and preview', 'primary', 'submit', false); ?>
+                    <div class="iqu-form-actions iqu-btn-group">
+                        <button type="submit" name="submit" value="Upload and check" class="iqu-btn iqu-btn--primary"><?php echo IQU_Billing_Page::icon('upload'); ?>Upload and check</button>
                     </div>
                 </form>
-            </div>
+            </section>
             <?php endif; ?>
         </div>
         <?php
+    }
+
+    /** Step indicator: 1 Prepare file → 2 Upload → 3 Check and import. $current 4 = all done. */
+    private static function steps(int $current): void
+    {
+        $steps = [1 => 'Prepare file', 2 => 'Upload', 3 => 'Check and import'];
+        echo '<nav class="iqu-steps" aria-label="Import steps"><ol data-steps>';
+        foreach ($steps as $n => $label) {
+            $done = $n < $current;
+            $now  = $n === $current;
+            echo '<li class="' . ($done ? 'is-done' : ($now ? 'is-current' : '')) . '" data-step="' . (int) $n . '"' . ($now ? ' aria-current="step"' : '') . '>'
+                . '<span class="iqu-steps-n" aria-hidden="true">' . (int) $n . '</span>'
+                . '<span class="iqu-steps-label">' . esc_html($label) . '<span class="screen-reader-text iqu-steps-done">' . ($done ? ' (done)' : '') . '</span></span></li>';
+        }
+        echo '</ol></nav>';
+    }
+
+    /** Plain-English column for a problem message (presentation only). */
+    private static function problem_column(string $msg): string
+    {
+        $labels = [
+            'first_name' => 'Student name', 'email' => 'Email', 'whatsapp' => 'WhatsApp',
+            'course' => 'Course', 'days' => 'Days/Week', 'agreed_fee' => 'Agreed Monthly Fee',
+        ];
+        return $labels[IQU_Billing_Add_Student::error_field($msg)] ?? 'Row';
+    }
+
+    private static function problem_list(array $errors): string
+    {
+        $out = '<ul class="iqu-problem-list">';
+        foreach ($errors as $e) {
+            $out .= '<li><strong>' . esc_html(self::problem_column((string) $e)) . '</strong> — ' . esc_html((string) $e) . '</li>';
+        }
+        return $out . '</ul>';
     }
 
     private static function render_preview(array $state): void
@@ -425,41 +450,33 @@ class IQU_Billing_Import
         $rows  = $state['preview'];
         $ok    = array_filter($rows, fn($r) => !$r['errors']);
         $bad   = count($rows) - count($ok);
+        $free  = count(array_filter($ok, fn($r) => (float) $r['net'] <= 0));
         $total = array_sum(array_map(fn($r) => (float) $r['net'], $ok));
         $post  = esc_url(admin_url('admin-post.php'));
         ?>
-        <!-- ── Preview summary ──────────────────────────── -->
-        <div class="iqu-metrics">
-            <div class="iqu-metric">
-                <div class="iqu-metric-accent iqu-metric-accent--l1"></div>
-                <div class="iqu-metric-num"><?php echo count($ok); ?></div>
-                <div class="iqu-metric-lbl">Ready to add</div>
-            </div>
-            <div class="iqu-metric">
-                <div class="iqu-metric-accent iqu-metric-accent--problem"></div>
-                <div class="iqu-metric-num"><?php echo (int) $bad; ?></div>
-                <div class="iqu-metric-lbl">With problems</div>
-                <div class="iqu-metric-sub">These will be skipped</div>
-            </div>
-            <div class="iqu-metric">
-                <div class="iqu-metric-accent iqu-metric-accent--revenue"></div>
-                <div class="iqu-metric-num"><?php echo esc_html(IQU_Pricing::format($total)); ?></div>
-                <div class="iqu-metric-lbl">Monthly tuition</div>
-                <div class="iqu-metric-sub">From the new students</div>
-            </div>
-        </div>
-
-        <div class="iqu-card">
+        <section class="iqu-card iqu-import-preview" aria-labelledby="iqu-step3-title">
             <div class="iqu-card-head">
-                <span class="iqu-card-head-title">Preview — <?php echo esc_html((string) $state['file']); ?></span>
+                <span class="iqu-card-head-title" id="iqu-step3-title">3 · Check and import — <?php echo esc_html((string) $state['file']); ?></span>
                 <span class="iqu-card-head-badge"><?php echo count($rows); ?> rows</span>
             </div>
-            <div class="iqu-table-wrap">
-            <table class="iqu-tbl iqu-billing-tbl">
-                <thead><tr><th>Row</th><th>Student</th><th>Email</th><th>Course</th><th>Standard</th><th>Monthly</th><th>Result</th></tr></thead>
+            <div class="iqu-billing-body">
+                <ul class="iqu-import-chips" aria-label="Summary">
+                    <li class="iqu-ichip iqu-ichip--ok"><span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>Ready <strong><?php echo count($ok); ?></strong></li>
+                    <li class="iqu-ichip iqu-ichip--warn"><span class="dashicons dashicons-info" aria-hidden="true"></span>Full scholarship <strong><?php echo (int) $free; ?></strong></li>
+                    <li class="iqu-ichip iqu-ichip--bad"><span class="dashicons dashicons-dismiss" aria-hidden="true"></span>Will be skipped <strong><?php echo (int) $bad; ?></strong></li>
+                    <li class="iqu-ichip"><span class="dashicons dashicons-money-alt" aria-hidden="true"></span>Monthly tuition <strong><?php echo esc_html(IQU_Pricing::format($total)); ?></strong></li>
+                </ul>
+                <?php if ($bad): ?>
+                    <label class="iqu-billing-check-label"><input type="checkbox" id="iqu-only-problems" data-only-problems="iqu-import-tbl"> Show only rows with problems</label>
+                <?php endif; ?>
+            </div>
+            <div class="iqu-table-wrap iqu-import-wrap">
+            <table class="iqu-tbl iqu-billing-tbl iqu-import-tbl" id="iqu-import-tbl">
+                <caption class="screen-reader-text">Rows in the file and what will happen to each</caption>
+                <thead><tr><th scope="col">Row</th><th scope="col">Student</th><th scope="col">Email</th><th scope="col">Course</th><th scope="col">Standard</th><th scope="col">Monthly</th><th scope="col">Result</th></tr></thead>
                 <tbody>
                 <?php foreach ($rows as $r): $in = $r['in']; ?>
-                    <tr>
+                    <tr<?php echo $r['errors'] ? ' data-problem="1" class="is-problem"' : ''; ?>>
                         <td class="iqu-td-id"><?php echo (int) $r['line']; ?></td>
                         <td><?php echo esc_html(trim($in['first_name'] . ' ' . $in['last_name'])); ?>
                             <?php if ($in['guardian_name'] !== ''): ?><br><span class="iqu-billing-sub">Guardian: <?php echo esc_html($in['guardian_name']); ?></span><?php endif; ?></td>
@@ -470,7 +487,8 @@ class IQU_Billing_Import
                         <td><?php echo !$r['errors'] ? esc_html(IQU_Pricing::format((float) $r['net'])) : '—'; ?></td>
                         <td class="iqu-billing-wrap">
                             <?php if ($r['errors']): ?>
-                                <span class="iqu-billing-error"><strong>Skipped:</strong> <?php echo esc_html(implode(' ', $r['errors'])); ?></span>
+                                <span class="iqu-billing-error"><strong>Will be skipped:</strong></span>
+                                <?php echo self::problem_list($r['errors']); ?>
                             <?php elseif ($r['net'] <= 0): ?>
                                 <span class="iqu-chip iqu-chip--neutral">Will be added — full scholarship, not billed</span>
                             <?php else: ?>
@@ -479,29 +497,75 @@ class IQU_Billing_Import
                         </td>
                     </tr>
                 <?php endforeach; ?>
+                <tr class="iqu-import-none" hidden><td colspan="7" class="iqu-empty-state">No rows with problems.</td></tr>
                 </tbody>
             </table>
             </div>
 
-            <div class="iqu-cpn-actions">
-                <?php if ($ok): ?>
-                <form method="post" action="<?php echo $post; ?>">
-                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CONFIRM); ?>">
-                    <input type="hidden" name="key" value="<?php echo esc_attr((string) $state['key']); ?>">
-                    <?php wp_nonce_field(self::A_CONFIRM); ?>
-                    <?php submit_button('Import ' . count($ok) . ' students', 'primary', 'submit', false); ?>
-                </form>
+            <div class="iqu-sticky-bar">
+                <p class="iqu-sticky-bar-note">
+                    <?php if (!$ok): ?>
+                        No rows are ready to import. Fix the file and upload it again.
+                    <?php elseif ($bad): ?>
+                        <?php echo (int) $bad; ?> <?php echo $bad === 1 ? 'row has problems and will be skipped' : 'rows with problems will be skipped'; ?>; fix them in your spreadsheet and upload them again later (students already added are recognised).
+                    <?php else: ?>
+                        All rows are ready.
+                    <?php endif; ?>
+                </p>
+                <div class="iqu-btn-group">
+                    <form method="post" action="<?php echo $post; ?>">
+                        <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CANCEL); ?>">
+                        <?php wp_nonce_field(self::A_CANCEL); ?>
+                        <button type="submit" name="submit" value="Cancel" class="iqu-btn iqu-btn--secondary">Cancel</button>
+                    </form>
+                    <?php if ($ok): ?>
+                    <form method="post" action="<?php echo $post; ?>">
+                        <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CONFIRM); ?>">
+                        <input type="hidden" name="key" value="<?php echo esc_attr((string) $state['key']); ?>">
+                        <?php wp_nonce_field(self::A_CONFIRM); ?>
+                        <button type="submit" name="submit" value="<?php echo esc_attr('Import ' . count($ok) . ' students'); ?>" class="iqu-btn iqu-btn--primary"><?php echo esc_html('Import ' . count($ok) . ' students'); ?></button>
+                    </form>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </section>
+        <?php
+    }
+
+    /** After Import: what was added, what was skipped and why, and where to go next. */
+    private static function render_result(array $d): void
+    {
+        $added   = (int) $d['added'];
+        $billed  = (int) $d['billed'];
+        $skipped = (array) ($d['skipped'] ?? []);
+        $failed  = (array) ($d['failed'] ?? []);
+        ?>
+        <section class="iqu-card iqu-import-result" aria-labelledby="iqu-result-title">
+            <div class="iqu-card-head">
+                <span class="iqu-card-head-title" id="iqu-result-title">Import finished</span>
+            </div>
+            <div class="iqu-billing-body" role="status">
+                <ul class="iqu-import-chips">
+                    <li class="iqu-ichip iqu-ichip--ok"><span class="dashicons dashicons-yes-alt" aria-hidden="true"></span><strong><?php echo $added; ?></strong> <?php echo $added === 1 ? 'student added' : 'students added'; ?></li>
+                    <li class="iqu-ichip"><?php echo $billed; ?> will be billed · <?php echo $added - $billed; ?> on full scholarship</li>
+                    <li class="iqu-ichip<?php echo ($skipped || $failed) ? ' iqu-ichip--bad' : ''; ?>"><strong><?php echo count($skipped) + count($failed); ?></strong> skipped</li>
+                </ul>
+                <?php if ($skipped || $failed): ?>
+                    <p class="iqu-result-sub">Skipped, with the reason:</p>
+                    <ul class="iqu-result-list">
+                        <?php foreach ($skipped as $s): ?>
+                            <li><strong>Row <?php echo (int) $s['line']; ?><?php echo $s['name'] !== '' ? ' — ' . esc_html($s['name']) : ''; ?></strong><?php echo self::problem_list((array) $s['errors']); ?></li>
+                        <?php endforeach; ?>
+                        <?php foreach ($failed as $f): ?><li><?php echo esc_html((string) $f); ?></li><?php endforeach; ?>
+                    </ul>
                 <?php endif; ?>
-                <form method="post" action="<?php echo $post; ?>">
-                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CANCEL); ?>">
-                    <?php wp_nonce_field(self::A_CANCEL); ?>
-                    <?php submit_button('Cancel', 'secondary', 'submit', false); ?>
-                </form>
+                <p class="iqu-fld-hint">The new students are also listed in <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-list-free')); ?>">Enroll for Free</a>.</p>
             </div>
-            <div class="iqu-billing-body">
-                <p class="iqu-fld-hint">Fix skipped rows in your spreadsheet and upload them again later — students already added are recognised and will not be added twice.</p>
+            <div class="iqu-form-actions iqu-btn-group">
+                <a class="iqu-btn iqu-btn--secondary" href="<?php echo esc_url(admin_url('admin.php?page=' . IQU_Billing_Page::SLUG)); ?>">Go to Students</a>
+                <a class="iqu-btn iqu-btn--primary" href="<?php echo esc_url(admin_url('admin.php?page=' . IQU_Billing_Page::SLUG . '&show=not_set_up')); ?>"><?php echo IQU_Billing_Page::icon('email-alt'); ?>Send payment links</a>
             </div>
-        </div>
+        </section>
         <?php
     }
 }

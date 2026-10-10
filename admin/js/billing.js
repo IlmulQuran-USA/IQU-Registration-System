@@ -378,6 +378,76 @@
     update();
   };
 
+  /** Human file size: "12.3 KB". */
+  B.fileSize = function (n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + " bytes";
+    if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+    return (n / 1048576).toFixed(1) + " MB";
+  };
+
+  /**
+   * Import drop zone ([data-dropzone]): the real file input covers the zone, so clicking,
+   * keyboard (Enter / Space on the focused input) and dropping a file all work natively.
+   * Shows the file name and size, warns about a non-.csv or too-large file (the server checks again).
+   */
+  B.importDrop = function (zone) {
+    var input = zone.querySelector('input[type="file"]');
+    var status = document.getElementById("iqu-csv-status");
+    if (!input) return;
+    function setStep(n) {
+      document.querySelectorAll("[data-steps] li").forEach(function (li) {
+        var s = Number(li.getAttribute("data-step"));
+        li.classList.toggle("is-done", s < n);
+        li.classList.toggle("is-current", s === n);
+        if (s === n) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+        var sr = li.querySelector(".iqu-steps-done");
+        if (sr) sr.textContent = s < n ? " (done)" : "";
+      });
+    }
+    function show() {
+      var f = input.files && input.files[0];
+      zone.classList.toggle("has-file", !!f);
+      zone.classList.remove("is-warn");
+      if (!status) return;
+      if (!f) { status.textContent = ""; setStep(1); return; }
+      var problem = "";
+      if (!/\.csv$/i.test(f.name)) problem = "This does not look like a .csv file. In Excel or Google Sheets use \"Save as / Download as CSV\", then choose it again.";
+      else if (f.size > 1048576) problem = "This file is larger than 1 MB. Split it into smaller files.";
+      zone.classList.toggle("is-warn", !!problem);
+      status.textContent = "Chosen: " + f.name + " (" + B.fileSize(f.size) + ")" + (problem ? " — " + problem : "");
+      status.classList.toggle("is-warn", !!problem);
+      setStep(2);
+    }
+    input.addEventListener("change", show);
+    ["dragenter", "dragover"].forEach(function (ev) {
+      zone.addEventListener(ev, function () { zone.classList.add("is-drag"); });
+    });
+    ["dragleave", "dragend", "drop"].forEach(function (ev) {
+      zone.addEventListener(ev, function () { zone.classList.remove("is-drag"); });
+    });
+    if (input.files && input.files.length) show();
+  };
+
+  /** "Show only rows with problems" (checkbox[data-only-problems="TABLE_ID"]). */
+  B.onlyProblems = function (box) {
+    var table = document.getElementById(box.getAttribute("data-only-problems"));
+    if (!table) return;
+    function apply() {
+      var any = false;
+      table.querySelectorAll("tbody tr").forEach(function (tr) {
+        if (tr.classList.contains("iqu-import-none")) return;
+        var problem = tr.hasAttribute("data-problem");
+        if (problem) any = true;
+        tr.hidden = box.checked && !problem;
+      });
+      var none = table.querySelector(".iqu-import-none");
+      if (none) none.hidden = !(box.checked && !any);
+    }
+    box.addEventListener("change", apply);
+    apply();
+  };
+
   B.init = function () {
     document.querySelectorAll("table.iqu-dt").forEach(function (t) { initSort(t); updateCount(t); });
     document.querySelectorAll("input[data-filter-for]").forEach(initFilter);
@@ -385,6 +455,8 @@
     document.querySelectorAll("button[data-toggle-view]").forEach(initToggle);
     var addForm = document.getElementById("iqu-add-student-form");
     if (addForm) B.addStudent(addForm, root.IQU_BILLING_ADD || {});
+    document.querySelectorAll("[data-dropzone]").forEach(B.importDrop);
+    document.querySelectorAll("input[data-only-problems]").forEach(B.onlyProblems);
     var data = root.IQU_BILLING || {};
     (data.charts || []).forEach(function (c) {
       try { renderChart(c); } catch (e) { /* the table view still shows the numbers */ }
