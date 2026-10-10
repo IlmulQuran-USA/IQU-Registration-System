@@ -78,6 +78,15 @@ class IQU_Billing_Service
     // ------------------------------------------------------------
 
     /** 'new' while the free first month is still running, otherwise 'current'. */
+    /**
+     * New-student families get the free first month: their subscription starts with a trial that
+     * ends on the first charge date. Current students are billed from the billing cycle anchor.
+     */
+    public static function has_free_first_month(array $acc): bool
+    {
+        return ($acc['student_type'] ?? '') === 'new';
+    }
+
     public static function student_type(array $reg): string
     {
         if (($reg['referral'] ?? '') === 'existing_student') return 'current'; // added via Billing; see IQU_Billing_Add_Student::MARKER
@@ -292,7 +301,7 @@ class IQU_Billing_Service
 
         $first_ts = self::first_charge_timestamp($acc['first_charge_date'] ?? null);
         if ($first_ts) {
-            if (($acc['student_type'] ?? '') === 'new') {
+            if (self::has_free_first_month($acc)) {
                 $sub['trial_end'] = $first_ts;
             } else {
                 $sub['billing_cycle_anchor'] = $first_ts;

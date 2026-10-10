@@ -136,7 +136,7 @@ class IQU_Enrollment_Settings
         if (in_array($summer, self::SUMMER_MODES, true)) update_option(self::OPT_SUMMER, $summer, false);
 
         $problems = [];
-        foreach (['summer_fee' => [self::OPT_SUMMER_FEE, 'Summer program fee'], 'summer_fee_supported' => [self::OPT_SUMMER_FEE_SUPPORTED, 'Summer supported rate']] as $field => [$opt, $label]) {
+        foreach (['summer_fee' => [self::OPT_SUMMER_FEE, 'Summer fee — Standard'], 'summer_fee_supported' => [self::OPT_SUMMER_FEE_SUPPORTED, 'Summer fee — Supported rate']] as $field => [$opt, $label]) {
             if (!array_key_exists($field, $post)) continue;
             $v = self::parse_amount(sanitize_text_field((string) $post[$field]));
             if ($v === null) {

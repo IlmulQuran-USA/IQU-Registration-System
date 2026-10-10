@@ -715,8 +715,11 @@ class IQU_Billing_Send
             $first = self::nice_date($acc['first_charge_date']);
             $month = $acc['first_charge_date'] ? gmdate('F', (int) strtotime($acc['first_charge_date'] . ' 12:00:00 UTC')) : '';
             $zelle = (string) get_option(self::OPT_ZELLE, '');
-            $p[] = "Starting this month, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer.";
-            $p[] = "Monthly tuition: {$amount}\nFirst payment: {$first}" . ($month !== '' ? " ({$month} tuition)" : '');
+            $free  = IQU_Billing_Service::has_free_first_month($acc);
+            $p[] = $free
+                ? "Welcome to Ilm-ul-Quran USA! The first month of classes is free. After that, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer."
+                : "Starting this month, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer.";
+            $p[] = "Monthly tuition: {$amount}\n" . ($free ? "First month: free\n" : '') . "First payment: {$first}" . ($month !== '' ? " ({$month} tuition)" : '');
             $p[] = "Please add a US bank account or card once, using your family's private link:\n{$link}";
             $p[] = "Nothing is charged before {$first}." . ($zelle !== '' ? "\nFrom " . self::nice_date($zelle) . ', tuition can no longer be sent by Zelle.' : '');
             $p[] = 'If paying online is difficult, or the fee is a burden right now, please let us know. No child\'s place is ever affected by cost.';
@@ -782,7 +785,8 @@ class IQU_Billing_Send
             $first = self::nice_date($acc['first_charge_date']);
             $ts    = $acc['first_charge_date'] ? (int) strtotime($acc['first_charge_date'] . ' 12:00:00 UTC') : 0;
             $zelle = (string) get_option(self::OPT_ZELLE, '');
-            $table = array_merge($rows, IQU_Billing_Email::tuition_rows($acc), [
+            $free  = IQU_Billing_Service::has_free_first_month($acc);
+            $table = array_merge($rows, IQU_Billing_Email::tuition_rows($acc), $free ? [['First month', 'Free']] : [], [
                 ['First payment', $first . ($ts ? ' (' . gmdate('F', $ts) . ' tuition)' : '')],
                 ['After that', $ts ? $amount . ' on the ' . IQU_Billing_Email::ordinal((int) gmdate('j', $ts)) . ' of each month' : ''],
                 ['Pay with', 'US bank account (ACH) or card — your choice'],
@@ -793,7 +797,9 @@ class IQU_Billing_Send
                 'help'      => $burden,
                 'blocks'    => [
                     ['p', 'We hope you and your family are well.'],
-                    ['p', "Starting this month, tuition for {$kids} will be collected automatically each month — no reminders and no transfers."],
+                    ['p', $free
+                        ? "Welcome to Ilm-ul-Quran USA! The first month of classes is free. After that, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer."
+                        : "Starting this month, tuition for {$kids} will be collected automatically each month — no reminders and no transfers."],
                     ['table', $table],
                     ['steps', 'What you need to do', [
                         'Press "Set up monthly tuition" below.',
@@ -802,7 +808,7 @@ class IQU_Billing_Send
                     ]],
                     ['button', 'Set up monthly tuition', $link],
                     ['list', 'Good to know', [
-                        "Nothing is charged before {$first}.",
+                        $free ? "Your first month is free — nothing is charged before {$first}." : "Nothing is charged before {$first}.",
                         'You can change your bank account or card at any time from your private billing page.',
                         'To pause or stop classes, please tell us at least 7 days before the next payment.',
                         $zelle !== '' ? 'From ' . self::nice_date($zelle) . ', tuition can no longer be sent by Zelle.' : '',
