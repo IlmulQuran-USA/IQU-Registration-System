@@ -63,46 +63,10 @@ class IQU_Coupon_Admin
     // SHARED UI
     // ════════════════════════════════════════════════════
 
-    /**
-     * টপ বার — IQU_Admin::render_top_bar() private হওয়ায় এখানে
-     * একই CSS ক্লাস দিয়ে সমতুল্য মার্কআপ।
-     */
+    /** টপ বার — IQU_Admin::top_bar() এর একই ট্যাব সারি। */
     private function render_top_bar(string $title, string $active_page): void
     {
-        $tabs = [
-            'iqu-registrations'  => 'All',
-            'iqu-list-free'      => 'Free',
-            'iqu-list-summer-l1' => 'Level 1',
-            'iqu-list-summer-l2' => 'Level 2',
-            self::PAGE_CREATE    => 'Create Coupon',
-            self::PAGE_LIST      => 'Coupon List',
-            'iqu-zeffy-payments' => 'Zeffy Payments',
-        ];
-?>
-<div class="iqu-top-bar">
-    <div class="iqu-top-bar-left">
-        <div class="iqu-logo-mark">
-            <img src="https://ilmulquranus.org/wp-content/uploads/2025/08/Favicon.png" alt="IQU Logo" width="44"
-                height="39" style="display:block" />
-        </div>
-        <div>
-            <div class="iqu-page-title"><?php echo esc_html($title); ?></div>
-            <div class="iqu-page-sub">Ilm-ul-Quran USA — Admin Panel</div>
-        </div>
-    </div>
-    <div class="iqu-top-bar-right">
-        <span class="iqu-badge-live">● Live</span>
-        <div class="iqu-tabs">
-            <?php foreach ($tabs as $slug => $label): ?>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=' . $slug)); ?>"
-                class="iqu-tab <?php echo ($active_page === $slug) ? 'iqu-tab-active' : ''; ?>">
-                <?php echo esc_html($label); ?>
-            </a>
-            <?php endforeach; ?>
-        </div>
-    </div>
-</div>
-<?php
+        IQU_Admin::top_bar($title, 'Ilm-ul-Quran USA — Admin Panel', $active_page);
     }
 
     /** URL প্যারামিটার থেকে নোটিশ */

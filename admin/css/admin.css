@@ -95,6 +95,8 @@
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  max-width: 100%;
+  min-width: 0;
 }
 .iqu-badge-live {
   background: #e6f5ec;
@@ -114,6 +116,13 @@
   border-radius: var(--iqu-radius-md);
   overflow: hidden;
   background: var(--iqu-bg1);
+  /* Ten tabs: when the row is wider than the space, it scrolls sideways instead of widening the page. */
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.iqu-tabs > .iqu-tab {
+  flex: 0 0 auto;
 }
 .iqu-tab {
   padding: 6px 16px;
@@ -255,16 +264,51 @@
   text-decoration: underline;
 }
 
-/* ── Section Row (bars + status pills) ──────────────────────── */
+/* ── Section Row (breakdown | status overview + online enrollment) ── */
+/* Both columns stretch to the same height; the right column's two cards share it. */
 .iqu-section-row {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  align-items: stretch;
   gap: 12px;
   margin-bottom: 16px;
 }
-@media (max-width: 780px) {
+.iqu-section-row > .iqu-card {
+  display: flex;
+  flex-direction: column;
+}
+.iqu-section-row > .iqu-card .iqu-breakdown-chart {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 190px;
+}
+.iqu-dash-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.iqu-dash-stack > .iqu-card {
+  flex: 1 0 auto;
+  margin-bottom: 0;
+}
+.iqu-dash-stack .iqu-card-head {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.iqu-dash-stack .iqu-card-head-title {
+  white-space: nowrap;
+}
+@media (max-width: 1023px) {
   .iqu-section-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .iqu-section-row > .iqu-card .iqu-breakdown-chart {
+    flex: none;
+    height: 190px;
+  }
+  .iqu-dash-stack > .iqu-card {
+    flex: none;
   }
 }
 

@@ -215,7 +215,21 @@ class IQU_Admin
   // SHARED HELPERS
   // ════════════════════════════════════════════════════
 
-  private function render_logo(): void
+  /** Tabs of the shared top bar (dashboard, lists, coupons, waitlist). */
+  public const TOP_TABS = [
+    'iqu-registrations'   => 'All',
+    'iqu-list-free'       => 'Free',
+    'iqu-list-summer-l1'  => 'Level 1',
+    'iqu-list-summer-l2'  => 'Level 2',
+    'iqu-list-weekend'    => 'Weekend Program',
+    'iqu-coupon-create'   => 'Create Coupon',
+    'iqu-coupon-list'     => 'Coupon List',
+    'iqu-billing'         => 'Billing',
+    'iqu-waitlist'        => 'Waitlist',
+    'iqu-zeffy-payments'  => 'Zeffy Payments',
+  ];
+
+  private static function render_logo(): void
   {
 ?>
 <img src="https://ilmulquranus.org/wp-content/uploads/2025/08/Favicon.png" alt="IQU Logo" width="44" height="39"
@@ -225,20 +239,17 @@ class IQU_Admin
 
   private function render_top_bar(string $title, string $subtitle, string $active_page = ''): void
   {
-        $tabs = [
-      'iqu-registrations'   => 'All',
-      'iqu-list-free'       => 'Free',
-      'iqu-list-summer-l1'  => 'Level 1',
-      'iqu-list-summer-l2'  => 'Level 2',
-      'iqu-list-weekend'    => 'Weekend Program',
-      'iqu-coupon-create'   => 'Create Coupon',
-      'iqu-coupon-list'     => 'Coupon List',
-      'iqu-zeffy-payments'  => 'Zeffy Payments',
-    ];
+    self::top_bar($title, $subtitle, $active_page);
+  }
+
+  /** The IQU top bar with the tab row — shared by every IQU admin page that shows it. */
+  public static function top_bar(string $title, string $subtitle, string $active_page = ''): void
+  {
+    $tabs = self::TOP_TABS;
   ?>
 <div class="iqu-top-bar">
     <div class="iqu-top-bar-left">
-        <div class="iqu-logo-mark"><?php $this->render_logo(); ?></div>
+        <div class="iqu-logo-mark"><?php self::render_logo(); ?></div>
         <div>
             <div class="iqu-page-title"><?php echo esc_html($title); ?></div>
             <div class="iqu-page-sub"><?php echo esc_html($subtitle); ?></div>
@@ -717,6 +728,7 @@ class IQU_Admin
             </div>
         </div>
 
+        <div class="iqu-dash-stack">
         <div class="iqu-card">
             <div class="iqu-card-head">
                 <span class="iqu-card-head-title">Status overview</span>
@@ -734,29 +746,30 @@ class IQU_Admin
                 <?php endforeach; ?>
             </div>
         </div>
-    </div>
 
-    <!-- ── Online enrollment (3.3.0) ───────────────── -->
-    <div class="iqu-card iqu-enroll-overview">
-        <div class="iqu-card-head">
-            <span class="iqu-card-head-title">Online enrollment</span>
-            <span class="iqu-card-head-badge">Started and completed are counted separately</span>
-        </div>
-        <div class="iqu-status-pills">
-            <?php foreach ([
-              ['card_pending', 'Started — waiting for card'],
-              ['stripe_done', 'Completed — card confirmed by Stripe'],
-              ['pending_review', 'Pending review'],
-              ['expired', 'Expired (no card after 7 days)'],
-              ['paid', 'Summer paid by Stripe'],
-              ['needs_review', 'Needs review (any reason)'],
-            ] as [$k, $label]): ?>
-            <div class="iqu-spill">
-                <div class="iqu-spill-dot iqu-spill-dot--<?php echo esc_attr($k); ?>"></div>
-                <div class="iqu-spill-name"><?php echo esc_html($label); ?></div>
-                <div><span class="iqu-spill-count"><?php echo (int) ($counts[$k] ?? 0); ?></span></div>
+        <!-- ── Online enrollment (3.3.0) ───────────────── -->
+        <div class="iqu-card iqu-enroll-overview">
+            <div class="iqu-card-head">
+                <span class="iqu-card-head-title">Online enrollment</span>
+                <span class="iqu-card-head-badge">Started and completed are counted separately</span>
             </div>
-            <?php endforeach; ?>
+            <div class="iqu-status-pills">
+                <?php foreach ([
+                  ['card_pending', 'Started — waiting for card'],
+                  ['stripe_done', 'Completed — card confirmed by Stripe'],
+                  ['pending_review', 'Pending review'],
+                  ['expired', 'Expired (no card after 7 days)'],
+                  ['paid', 'Summer paid by Stripe'],
+                  ['needs_review', 'Needs review (any reason)'],
+                ] as [$k, $label]): ?>
+                <div class="iqu-spill">
+                    <div class="iqu-spill-dot iqu-spill-dot--<?php echo esc_attr($k); ?>"></div>
+                    <div class="iqu-spill-name"><?php echo esc_html($label); ?></div>
+                    <div><span class="iqu-spill-count"><?php echo (int) ($counts[$k] ?? 0); ?></span></div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
         </div>
     </div>
 
