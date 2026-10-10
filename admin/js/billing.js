@@ -467,8 +467,27 @@
     });
   };
 
+  /**
+   * "Who sends payment receipts?": show the note for the chosen sender only, and make the
+   * "I have turned off Successful payments" tick required when Ilm-ul-Quran USA is chosen
+   * (the server checks it too). Without JavaScript both notes stay visible.
+   */
+  B.receiptSender = function (fs) {
+    var radios = fs.querySelectorAll('input[name="receipt_sender"]');
+    var box = fs.querySelector('input[name="receipt_confirm"]');
+    function apply() {
+      var v = "";
+      radios.forEach(function (r) { if (r.checked) v = r.value; });
+      fs.querySelectorAll("[data-receipt-for]").forEach(function (n) { n.hidden = n.getAttribute("data-receipt-for") !== v; });
+      if (box) box.required = v === "iqu";
+    }
+    radios.forEach(function (r) { r.addEventListener("change", apply); });
+    apply();
+  };
+
   B.init = function () {
     document.querySelectorAll("table.iqu-students-tbl").forEach(B.rowLinks);
+    document.querySelectorAll("[data-receipt-sender]").forEach(B.receiptSender);
     document.querySelectorAll("table.iqu-dt").forEach(function (t) { initSort(t); updateCount(t); });
     document.querySelectorAll("input[data-filter-for]").forEach(initFilter);
     document.querySelectorAll("button[data-csv-for]").forEach(initCsv);

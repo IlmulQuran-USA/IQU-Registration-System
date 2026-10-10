@@ -2012,3 +2012,34 @@ th[aria-sort="descending"] .iqu-sort::after {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── Who sends payment receipts? (3.4.0) ────────────────────── */
+.iqu-billing fieldset.iqu-receipt-fld {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.iqu-billing .iqu-receipt-note {
+  margin: 8px 0 0;
+}
+.iqu-billing .iqu-receipt-note[hidden] {
+  display: none;
+}
+.iqu-receipt-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--iqu-gold);
+  border-radius: var(--iqu-radius-md);
+  background: color-mix(in srgb, var(--iqu-gold) 8%, var(--iqu-bg1));
+  font-weight: 600;
+  line-height: 1.4;
+}
+.iqu-receipt-confirm input[type="checkbox"] {
+  margin-top: 2px;
+}
+.iqu-receipt-changed {
+  margin-top: 8px;
+}

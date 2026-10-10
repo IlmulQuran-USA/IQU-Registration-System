@@ -31,6 +31,7 @@ add_action('plugins_loaded', function () {
     require_once $inc . 'class-iqu-billing-history.php';
     require_once $inc . 'class-iqu-billing-email.php';
     require_once $inc . 'class-iqu-billing-notify.php';
+    require_once $inc . 'class-iqu-billing-receipt.php';
     require_once $inc . 'class-iqu-billing-webhook.php';
     require_once $inc . 'class-iqu-billing-summary.php';
     require_once $inc . 'class-iqu-billing-portal.php';
@@ -39,6 +40,7 @@ add_action('plugins_loaded', function () {
     IQU_Billing_Webhook::init();
     IQU_Billing_Summary::init();
     IQU_Billing_Portal::init();
+    IQU_Billing_Receipt::init();
 
     if (is_admin()) {
         require_once $adm . 'class-iqu-billing-settings.php';

@@ -142,7 +142,8 @@ class IQU_Billing_Email
                 $html  .= '<p style="margin:0 0 10px;text-align:center"><span style="display:inline-block;background:' . self::MINT . ';color:' . self::GREEN . ';border:1px solid #BFE5C8;border-radius:999px;padding:5px 14px;font-size:13px;font-weight:bold">&#10003; ' . esc_html((string) $b[1]) . '</span></p>';
                 $text[] = (string) $b[1];
             } elseif ($type === 'hero') {
-                $html  .= '<p style="margin:0;text-align:center;font-size:32px;line-height:40px;font-weight:bold;color:' . self::INK . '">' . esc_html((string) $b[1]) . '</p>';
+                // The amount is the receipt's headline (its <h1>).
+                $html  .= '<h1 style="margin:0;text-align:center;font-size:32px;line-height:40px;font-weight:bold;color:' . self::INK . '">' . esc_html((string) $b[1]) . '</h1>';
                 $html  .= '<p style="margin:2px 0 22px;text-align:center;font-size:14px;line-height:20px;color:' . self::MUTED . '">' . esc_html((string) ($b[2] ?? '')) . '</p>';
                 $text[] = (string) $b[1];
                 if (($b[2] ?? '') !== '') $text[] = (string) $b[2];

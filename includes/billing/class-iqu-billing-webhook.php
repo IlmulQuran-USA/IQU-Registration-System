@@ -180,6 +180,10 @@ class IQU_Billing_Webhook
         if (in_array($event['type'], ['invoice.paid', 'invoice.payment_failed', 'invoice.payment_action_required'], true)) {
             IQU_Billing_History::refresh_invoice((string) ($obj['id'] ?? ''), IQU_Billing_DB::get_account($id) ?: $acc);
         }
+        // Our own receipt (only when that setting is on; once per invoice). Never throws.
+        if ($event['type'] === 'invoice.paid' && class_exists('IQU_Billing_Receipt')) {
+            IQU_Billing_Receipt::maybe_send((string) ($obj['id'] ?? ''));
+        }
 
         if (in_array($sync['new'], ['unpaid', 'paused', 'canceled'], true) && $sync['new'] !== $sync['old']) {
             IQU_Billing_Notify::needs_contact($acc, $sync['new']);

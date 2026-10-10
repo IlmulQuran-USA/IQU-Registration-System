@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) exit;
  */
 class IQU_Billing_DB
 {
-    public const DB_VERSION = '1.2.0';
+    public const DB_VERSION = '1.3.0';
     private const OPT_VERSION = 'iqu_billing_db_version';
 
     /** Columns update_account() may change, with their formats. */
@@ -175,6 +175,7 @@ class IQU_Billing_DB
             attempt_count SMALLINT(5) UNSIGNED NOT NULL DEFAULT 0,
             failure_reason VARCHAR(255) NOT NULL DEFAULT '',
             updated_at DATETIME DEFAULT NULL,
+            receipt_sent_at DATETIME DEFAULT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY stripe_invoice_id (stripe_invoice_id),
             KEY mode_paid (mode,paid_at),
@@ -184,6 +185,7 @@ class IQU_Billing_DB
         ) {$charset};");
 
         $problem = self::migrate_payments_120();
+        if ($problem === '') $problem = self::migrate_payments_130();
         if ($problem !== '') {
             // Leave the version behind so the next page load tries again.
             error_log('IQU Billing: payments table upgrade to ' . self::DB_VERSION . ' not finished — ' . $problem);
@@ -199,6 +201,22 @@ class IQU_Billing_DB
         'amount_refunded', 'method_label', 'hosted_invoice_url', 'invoice_pdf', 'receipt_number',
         'attempt_count', 'failure_reason', 'updated_at',
     ];
+
+    /**
+     * 1.3.0: receipt_sent_at on the payments table — when our own receipt email went out for
+     * that invoice (NULL = not sent). Added by apply_schema() above; verified here.
+     * @return string '' when the column exists, otherwise the reason.
+     */
+    private static function migrate_payments_130(): string
+    {
+        global $wpdb;
+        $cols = self::payment_columns();
+        if (!isset($cols['receipt_sent_at'])) {
+            $wpdb->query('ALTER TABLE ' . self::payments_table() . ' ADD COLUMN receipt_sent_at DATETIME DEFAULT NULL');
+            $cols = self::payment_columns();
+        }
+        return isset($cols['receipt_sent_at']) ? '' : 'missing column: receipt_sent_at (' . $wpdb->last_error . ')';
+    }
 
     /** paid_at column metadata from SHOW COLUMNS, keyed by column name. */
     private static function payment_columns(): array

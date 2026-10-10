@@ -160,6 +160,21 @@ class IQU_Billing_Notify
         ]);
     }
 
+    /** Our own receipt email could not be sent (wp_mail returned false). $retry: the hourly retry failed too. */
+    public static function receipt_failed(array $acc, array $row, bool $retry = false): void
+    {
+        $family = trim((string) $acc['guardian_name']) ?: ('Family #' . (int) $acc['id']);
+        $month  = IQU_Billing_History::month_label((string) $row['period_month']);
+        $top = ['Amount: <b>' . self::e(IQU_Pricing::format((float) $row['amount_paid'])) . '</b>'];
+        if (!empty($row['receipt_number'])) $top[] = 'Receipt no: ' . self::e((string) $row['receipt_number']);
+        $top[] = 'Email: ' . self::e((string) $acc['contact_email']);
+        self::send("\u{2709}\u{FE0F} Receipt not sent — {$family}, {$month}" . ($retry ? ' (retry failed)' : ''), $top, $acc, ['id' => (string) $row['stripe_invoice_id']], [
+            $retry
+                ? 'The hourly retry failed too. Please check the site\'s email sending and send the receipt by hand.'
+                : 'The payment itself is fine. We will try the email once more within the hour.',
+        ]);
+    }
+
     public static function needs_contact(array $acc, string $status): void
     {
         $label = $status === 'canceled' ? 'Subscription canceled' : 'Automatic attempts finished';
