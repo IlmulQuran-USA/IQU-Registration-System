@@ -736,62 +736,53 @@ class IQU_Billing_Send
         ];
     }
 
-    /** Plain-text message for WhatsApp, SMS or Messenger. */
+    /**
+     * Plain-text message for WhatsApp, SMS or Messenger, by kind (see message_kind()):
+     * setup, account, problem or stopped. The "Need help?" lines come from IQU_Contact
+     * (constants only; a missing one is left out).
+     */
     public static function message_text(array $acc): string
     {
         $name   = self::greeting_name($acc);
         $kids   = self::first_names($acc);
         $amount = IQU_Pricing::format((float) $acc['net_amount']);
-        $first  = self::nice_date($acc['first_charge_date']);
-        $month  = $acc['first_charge_date'] ? gmdate('F', (int) strtotime($acc['first_charge_date'] . ' 12:00:00 UTC')) : '';
-        $zelle  = (string) get_option(self::OPT_ZELLE, '');
-        $new    = ($acc['student_type'] ?? '') === 'new';
+        $link   = IQU_Billing_Service::link_for($acc);
+        $kind   = self::message_kind($acc);
 
-        $lines = [];
-        $lines[] = 'Assalamu alaikum' . ($name !== '' ? ' ' . $name : '') . ',';
-        $lines[] = '';
+        $p = []; // paragraphs, joined by a blank line
+        $p[] = 'Assalamu alaikum' . ($name !== '' ? ' ' . $name : '') . ',';
 
-        $kind = self::message_kind($acc);
-        if ($kind !== 'setup') {
-            $f = self::followup($acc, $kind, $kids, $amount);
-            if ($f['lead'] !== '') {
-                $lines[] = $f['lead'];
-                $lines[] = '';
-            }
-            $lines[] = $f['before_link'];
-            $lines[] = IQU_Billing_Service::link_for($acc);
-            $lines[] = '';
-            if ($f['facts']) {
-                foreach ($f['facts'] as $label => $value) $lines[] = $label . ': ' . $value;
-                $lines[] = '';
-            }
-            $lines[] = $f['close'];
-            $lines[] = '';
-            $lines[] = 'Jazakum Allahu khayran';
-            $lines[] = 'Ilm-ul-Quran USA';
-            return implode("\n", $lines);
+        if ($kind === 'setup') {
+            $first = self::nice_date($acc['first_charge_date']);
+            $month = $acc['first_charge_date'] ? gmdate('F', (int) strtotime($acc['first_charge_date'] . ' 12:00:00 UTC')) : '';
+            $zelle = (string) get_option(self::OPT_ZELLE, '');
+            $p[] = "Starting this month, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer.";
+            $p[] = "Monthly tuition: {$amount}\nFirst payment: {$first}" . ($month !== '' ? " ({$month} tuition)" : '');
+            $p[] = "Please add a US bank account or card once, using your family's private link:\n{$link}";
+            $p[] = "Nothing is charged before {$first}." . ($zelle !== '' ? "\nFrom " . self::nice_date($zelle) . ', tuition can no longer be sent by Zelle.' : '');
+            $p[] = 'If paying online is difficult, or the fee is a burden right now, please let us know. No child\'s place is ever affected by cost.';
+        } elseif ($kind === 'account') {
+            $p[] = "Here is your family's private billing page for {$kids}:\n{$link}";
+            $p[] = 'On this page you can see every payment, download receipts, and change your bank account or card at any time.';
+            $facts = "Monthly tuition: {$amount}";
+            if (!empty($acc['next_charge_at']) && $acc['status'] !== 'canceled') $facts .= "\nNext payment: " . self::nice_utc((string) $acc['next_charge_at']);
+            $p[] = $facts;
+        } elseif ($kind === 'problem') {
+            $p[] = "We wanted to let you know that the tuition payment of {$amount} for {$kids} did not go through.";
+            $p[] = ($acc['status'] === 'past_due'
+                ? 'We will try again automatically. You can also pay now, or switch to a different bank account or card, here:'
+                : 'You can pay it, or switch to a different bank account or card, on your private billing page:') . "\n{$link}";
+            $p[] = 'If paying is difficult right now, or the fee is a burden, please reply and we will sort it out together. No child\'s place is ever affected by cost.';
+        } else { // stopped
+            $p[] = "Monthly tuition billing for {$kids} has now stopped, and nothing more will be charged.";
+            $p[] = "You can still see your past payments and receipts here:\n{$link}";
+            $p[] = 'If you would like to restart classes, or if this was a mistake, please contact us.';
         }
 
-        $lines[] = $new
-            ? "Tuition for {$kids} will be collected automatically each month after the free first month, so there is nothing to remember and nothing to transfer."
-            : "From this month, tuition for {$kids} will be collected automatically, so there is nothing to remember and nothing to transfer.";
-        $lines[] = '';
-        $lines[] = 'Monthly tuition: ' . $amount;
-        $lines[] = 'First payment: ' . $first . ($new ? ' (after the free first month)' : ($month ? " ({$month} tuition)" : ''));
-        $lines[] = '';
-        $lines[] = 'Please add a bank account or card once, here:';
-        $lines[] = IQU_Billing_Service::link_for($acc);
-        $lines[] = '';
-        $lines[] = 'Nothing is charged before ' . $first . '.';
-        if ($zelle !== '') {
-            $lines[] = 'From ' . self::nice_date($zelle) . ', tuition can no longer be sent by Zelle.';
-        }
-        $lines[] = '';
-        $lines[] = 'If paying online is difficult, or the fee is a burden right now, just reply here. No child\'s place is ever affected by cost.';
-        $lines[] = '';
-        $lines[] = 'Jazakum Allahu khayran';
-        $lines[] = 'Ilm-ul-Quran USA';
-        return implode("\n", $lines);
+        $help = IQU_Contact::text_block();
+        if ($help !== '') $p[] = $help;
+        $p[] = "Jazakum Allahu khayran,\nIlm-ul-Quran USA";
+        return implode("\n\n", $p);
     }
 
     /** In test mode, emails only go to our own addresses, never to real families. */
