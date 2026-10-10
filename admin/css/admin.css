@@ -1791,10 +1791,65 @@
  * .iqu-metrics গ্রিডের ভেতরে বসে, কিন্তু পুরো সারি জুড়ে —
  * তাই মোবাইলে উপরের দুই কার্ডের সমান চওড়া দেখায়।
  * ══════════════════════════════════════════════════════════ */
-.iqu-discount-card { 
+.iqu-discount-card {
   box-sizing: border-box;
   padding: 16px 18px 14px;
   margin-bottom: 16px;
+}
+
+/* Coupon List: the discount card sits inside the metric grid.
+   ≥1200px: six columns (shared rule below) — four cards + the discount card spanning two.
+   601–1199px: four columns, the discount card takes its own full row. ≤600px: two columns, full row. */
+.iqu-metrics--coupons .iqu-discount-card {
+  margin-bottom: 0;
+  grid-column: 1 / -1;
+}
+@media (min-width: 601px) and (max-width: 1199px) {
+  .iqu-metrics.iqu-metrics--coupons {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1200px) {
+  .iqu-metrics--coupons .iqu-discount-card {
+    grid-column: span 2;
+  }
+  /* Two columns wide: the four amounts read as a compact list so the row stays short. */
+  .iqu-metrics--coupons .iqu-discount-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .iqu-metrics--coupons .iqu-discount-head {
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+  }
+  .iqu-metrics--coupons .iqu-discount-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "lbl sub amt";
+    align-items: baseline;
+    column-gap: 8px;
+    padding: 5px 10px;
+  }
+  .iqu-metrics--coupons .iqu-discount-amt {
+    grid-area: amt;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .iqu-metrics--coupons .iqu-discount-lbl {
+    grid-area: lbl;
+    margin-top: 0;
+  }
+  .iqu-metrics--coupons .iqu-discount-sub {
+    grid-area: sub;
+    margin-top: 0;
+  }
+}
+.iqu-metric-lbl .dashicons,
+.iqu-discount-title .dashicons {
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+  vertical-align: -2px;
 }
 
 .iqu-metric-accent--discount {

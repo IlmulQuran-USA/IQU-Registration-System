@@ -297,7 +297,7 @@ class IQU_Coupon_Admin
     <?php $this->render_notice(); ?>
 
     <!-- ── Metric Cards ─────────────────────────────── -->
-    <div class="iqu-metrics">
+    <div class="iqu-metrics iqu-metrics--coupons">
         <div class="iqu-metric">
             <div class="iqu-metric-accent iqu-metric-accent--total"></div>
             <div class="iqu-metric-num"><?php echo (int) $stats['total']; ?></div>
@@ -306,26 +306,24 @@ class IQU_Coupon_Admin
         <div class="iqu-metric">
             <div class="iqu-metric-accent iqu-metric-accent--free"></div>
             <div class="iqu-metric-num"><?php echo (int) $stats['active']; ?></div>
-            <div class="iqu-metric-lbl">✅ Active</div>
+            <div class="iqu-metric-lbl"><span class="dashicons dashicons-yes-alt" aria-hidden="true"></span> Active</div>
         </div>
         <div class="iqu-metric">
             <div class="iqu-metric-accent iqu-metric-accent--expired"></div>
             <div class="iqu-metric-num"><?php echo (int) $stats['expired']; ?></div>
-            <div class="iqu-metric-lbl">⌛ Expired</div>
+            <div class="iqu-metric-lbl"><span class="dashicons dashicons-clock" aria-hidden="true"></span> Expired</div>
         </div>
         <div class="iqu-metric">
             <div class="iqu-metric-accent iqu-metric-accent--redeemed"></div>
             <div class="iqu-metric-num"><?php echo (int) $stats['redeemed']; ?></div>
-            <div class="iqu-metric-lbl">🎟️ Times Redeemed</div>
+            <div class="iqu-metric-lbl"><span class="dashicons dashicons-tickets-alt" aria-hidden="true"></span> Times Redeemed</div>
         </div>
 
-    </div>
-    <!-- 💸 Discount Summary — গ্রিডের পুরো প্রস্থ জুড়ে
-             (মোবাইলে উপরের দুই কার্ডের সমান চওড়া) -->
+    <!-- Discount summary — inside the grid: two columns wide on wide screens, full width on mobile -->
     <div class="iqu-metric iqu-discount-card">
         <div class="iqu-metric-accent iqu-metric-accent--discount"></div>
         <div class="iqu-discount-head">
-            <span class="iqu-discount-title">💸 Total Discount Given</span>
+            <span class="iqu-discount-title"><span class="dashicons dashicons-tag" aria-hidden="true"></span> Total Discount Given</span>
             <span class="iqu-discount-total">
                 <?php echo esc_html(IQU_Pricing::format($discounts['total'])); ?>
             </span>
@@ -335,7 +333,7 @@ class IQU_Coupon_Admin
                 <div class="iqu-discount-amt">
                     <?php echo esc_html(IQU_Pricing::format($discounts['full'])); ?>
                 </div>
-                <div class="iqu-discount-lbl">🎓 Full Scholarship</div>
+                <div class="iqu-discount-lbl">Full Scholarship</div>
                 <div class="iqu-discount-sub">
                     <?php echo (int) $discounts['full_count']; ?> student(s)
                 </div>
@@ -344,7 +342,7 @@ class IQU_Coupon_Admin
                 <div class="iqu-discount-amt">
                     <?php echo esc_html(IQU_Pricing::format($discounts['special'])); ?>
                 </div>
-                <div class="iqu-discount-lbl">🎁 Special Discount</div>
+                <div class="iqu-discount-lbl">Special Discount</div>
                 <div class="iqu-discount-sub">
                     <?php echo (int) $discounts['special_count']; ?> student(s)
                 </div>
@@ -353,7 +351,7 @@ class IQU_Coupon_Admin
                 <div class="iqu-discount-amt">
                     <?php echo esc_html(IQU_Pricing::format($discounts['percent'])); ?>
                 </div>
-                <div class="iqu-discount-lbl">％ Percentage Coupon</div>
+                <div class="iqu-discount-lbl">Percentage Coupon</div>
                 <div class="iqu-discount-sub">
                     <?php echo (int) $discounts['percent_count']; ?> student(s)
                 </div>
@@ -362,12 +360,13 @@ class IQU_Coupon_Admin
                 <div class="iqu-discount-amt">
                     <?php echo esc_html(IQU_Pricing::format($discounts['fixed'])); ?>
                 </div>
-                <div class="iqu-discount-lbl">💵 Fixed Amount Coupon</div>
+                <div class="iqu-discount-lbl">Fixed Amount Coupon</div>
                 <div class="iqu-discount-sub">
                     <?php echo (int) $discounts['fixed_count']; ?> student(s)
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <!-- ── Filter Bar ───────────────────────────────── -->
