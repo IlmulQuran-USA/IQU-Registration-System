@@ -352,3 +352,67 @@ if (refCtx && IQU_Admin.chart_data && IQU_Admin.chart_data.referral) {
     },
   });
 }
+
+// ══════════════════════════════════════════════════
+// SUCCESS NOTICES (every IQU admin page)
+// Success notices close by themselves after 5 seconds; errors, warnings and info stay.
+// The timer pauses while the pointer is over the notice or focus is inside it, there is
+// always a close button, and with "reduce motion" the notice goes without the fade.
+// ══════════════════════════════════════════════════
+(function () {
+  "use strict";
+  var DELAY = 5000, FADE = 300;
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function closeNotice(n) {
+    if (!n.parentNode || n.getAttribute("data-iqu-closing")) return;
+    n.setAttribute("data-iqu-closing", "1");
+    if (reduce) { n.parentNode.removeChild(n); return; }
+    n.classList.add("iqu-notice-fading");
+    setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, FADE);
+  }
+
+  function ensureCloseButton(n) {
+    if (n.querySelector(".notice-dismiss")) return;
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "notice-dismiss";
+    b.innerHTML = '<span class="screen-reader-text">Dismiss this notice.</span>';
+    b.addEventListener("click", function () { closeNotice(n); });
+    n.classList.add("is-dismissible");
+    n.appendChild(b);
+  }
+
+  function autoClose(n) {
+    if (n.getAttribute("data-iqu-auto")) return;
+    n.setAttribute("data-iqu-auto", "1");
+    n.setAttribute("role", "status");
+    n.setAttribute("aria-live", "polite");
+    ensureCloseButton(n);
+    var left = DELAY, started = 0, timer = null, hover = false, focus = false;
+    function start() {
+      if (timer || hover || focus) return;
+      started = Date.now();
+      timer = setTimeout(function () { closeNotice(n); }, left);
+    }
+    function pause() {
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = null;
+      left = Math.max(1000, left - (Date.now() - started));
+    }
+    n.addEventListener("mouseenter", function () { hover = true; pause(); });
+    n.addEventListener("mouseleave", function () { hover = false; start(); });
+    n.addEventListener("focusin", function () { focus = true; pause(); });
+    n.addEventListener("focusout", function (e) { if (!n.contains(e.relatedTarget)) { focus = false; start(); } });
+    start();
+  }
+
+  function init() {
+    document.querySelectorAll(".iqu-admin-wrap .notice.notice-success, .iqu-admin-wrap .notice.updated").forEach(autoClose);
+  }
+  // After WordPress has moved notices and added its own dismiss buttons (both run on DOM ready).
+  function later() { setTimeout(init, 0); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", later);
+  else later();
+})();

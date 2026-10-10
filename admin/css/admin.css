@@ -2139,3 +2139,14 @@
 .iqu-wl-date > span {
   min-width: 34px;
 }
+
+/* ── Success notices fade out before they close (admin.js) ──── */
+.iqu-admin-wrap .notice.iqu-notice-fading {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .iqu-admin-wrap .notice.iqu-notice-fading {
+    transition: none;
+  }
+}
