@@ -96,29 +96,71 @@ class IQU_Waitlist
         return (int) $n > 0;
     }
 
-    /** Rows for the admin page / CSV, newest first. */
-    public static function rows(string $country = '', string $program = '', int $limit = 0, int $offset = 0): array
+    /**
+     * WHERE clause for the admin list / CSV. $more (all optional): 's' (name or email contains),
+     * 'from' / 'to' (UTC 'Y-m-d H:i:s' bounds on created_at, inclusive). Values are bound with prepare().
+     * @return array{0:string,1:array}
+     */
+    private static function where(string $country, string $program, array $more): array
     {
         global $wpdb;
         $where = '1=1';
         $args  = [];
         if ($country !== '') { $where .= ' AND country = %s'; $args[] = $country; }
         if ($program !== '') { $where .= ' AND program = %s'; $args[] = $program; }
+        if (($more['s'] ?? '') !== '') {
+            $like = '%' . $wpdb->esc_like((string) $more['s']) . '%';
+            $where .= ' AND (email LIKE %s OR name LIKE %s)';
+            $args[] = $like;
+            $args[] = $like;
+        }
+        if (($more['from'] ?? '') !== '') { $where .= ' AND created_at >= %s'; $args[] = (string) $more['from']; }
+        if (($more['to'] ?? '') !== '') { $where .= ' AND created_at <= %s'; $args[] = (string) $more['to']; }
+        return [$where, $args];
+    }
+
+    /** Rows for the admin page / CSV, newest first. */
+    public static function rows(string $country = '', string $program = '', int $limit = 0, int $offset = 0, array $more = []): array
+    {
+        global $wpdb;
+        [$where, $args] = self::where($country, $program, $more);
         $sql = 'SELECT id, email, name, country, program, source, created_at FROM ' . IQU_Database::waitlist_table() . " WHERE {$where} ORDER BY id DESC";
         if ($limit > 0) { $sql .= ' LIMIT %d OFFSET %d'; $args[] = $limit; $args[] = $offset; }
         if ($args) $sql = $wpdb->prepare($sql, $args);
         return $wpdb->get_results($sql, ARRAY_A) ?: [];
     }
 
-    public static function count(string $country = '', string $program = ''): int
+    public static function count(string $country = '', string $program = '', array $more = []): int
     {
         global $wpdb;
-        $where = '1=1';
-        $args  = [];
-        if ($country !== '') { $where .= ' AND country = %s'; $args[] = $country; }
-        if ($program !== '') { $where .= ' AND program = %s'; $args[] = $program; }
+        [$where, $args] = self::where($country, $program, $more);
         $sql = 'SELECT COUNT(*) FROM ' . IQU_Database::waitlist_table() . " WHERE {$where}";
         return (int) $wpdb->get_var($args ? $wpdb->prepare($sql, $args) : $sql);
+    }
+
+    /**
+     * Totals for the admin metric cards (whole waitlist, not the filtered view).
+     * $month_start_utc: first moment of the current month in the site time zone, as UTC 'Y-m-d H:i:s'.
+     * @return array{total:int,month:int,countries:array<string,int>,programs:array<string,int>}
+     */
+    public static function stats(string $month_start_utc): array
+    {
+        global $wpdb;
+        $t = IQU_Database::waitlist_table();
+        $countries = [];
+        foreach ($wpdb->get_results("SELECT country, COUNT(*) AS n FROM {$t} WHERE country <> '' GROUP BY country ORDER BY n DESC, country ASC LIMIT 3", ARRAY_A) ?: [] as $r) {
+            $countries[(string) $r['country']] = (int) $r['n'];
+        }
+        $programs = [];
+        foreach ($wpdb->get_results("SELECT program, COUNT(*) AS n FROM {$t} GROUP BY program ORDER BY n DESC, program ASC", ARRAY_A) ?: [] as $r) {
+            $programs[(string) $r['program']] = (int) $r['n'];
+        }
+        return [
+            'total'     => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$t}"),
+            'month'     => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t} WHERE created_at >= %s", $month_start_utc)),
+            'countries' => $countries,
+            'programs'  => $programs,
+        ];
     }
 
     /** Countries present, for the filter. */

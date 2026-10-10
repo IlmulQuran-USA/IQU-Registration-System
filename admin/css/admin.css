@@ -527,6 +527,11 @@
   flex: 1;
   min-width: 200px;
 }
+/* WordPress's core inputs have min-height 40px; keep the search box level with the 36px controls. */
+.iqu-admin-wrap .iqu-filter-bar input[type="search"] {
+  box-sizing: border-box;
+  min-height: 36px;
+}
 /* ⚠️ WP-এর .button ক্লাসে line-height: 2.15 থাকায় <a> ট্যাগে
    লেখা উল্লম্বভাবে অফ-সেন্টার বসে, আর মোবাইলে বাটন চওড়া হলে
    বাঁয়ে ঘেঁষে যায়। inline-flex + center দিয়ে তিন ধরনের বাটনই
@@ -2032,3 +2037,102 @@
 .iqu-spill-dot--expired { background: #9aa3ad; }
 .iqu-spill-dot--paid { background: #0e9490; }
 .iqu-spill-dot--needs_review { background: #a33a2c; }
+
+/* ── Waitlist (3.4.0) ───────────────────────────────────────── */
+/* Four metric cards: four equal columns from 601px up (the six-column dashboard rule would leave two empty). */
+@media (min-width: 601px) {
+  .iqu-metrics.iqu-metrics--four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.iqu-wl-intro {
+  margin: -6px 0 14px;
+  font-size: 13px;
+  color: var(--iqu-text2);
+  max-width: 820px;
+}
+.iqu-wl-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--iqu-text1);
+  line-height: 1.5;
+}
+.iqu-wl-list strong {
+  font-weight: 700;
+}
+.iqu-wl-sep {
+  color: var(--iqu-text2);
+}
+.iqu-wl-muted {
+  color: var(--iqu-text2);
+}
+.iqu-wl-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--iqu-text2);
+}
+.iqu-admin-wrap .iqu-wl-date input[type="date"] {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  background: var(--iqu-bg1);
+  color: var(--iqu-text1);
+  font-size: 12px;
+}
+.iqu-admin-wrap .iqu-wl-date input[type="date"]:focus {
+  border-color: var(--iqu-blue);
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+.iqu-wl-clear {
+  font-size: 12px;
+  font-weight: 600;
+}
+.iqu-filter-bar .iqu-wl-clear + .iqu-export-btn,
+.iqu-waitlist .iqu-filter-bar .iqu-export-btn {
+  margin-left: auto;
+}
+.iqu-wl-when {
+  white-space: nowrap;
+}
+.iqu-wl-tbl td {
+  vertical-align: middle;
+}
+.iqu-wl-empty-icon {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 8px;
+  font-size: 32px;
+  color: var(--iqu-text2);
+}
+.iqu-wl-empty-line {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+}
+@media (max-width: 600px) {
+  .iqu-wl-date {
+    width: 100%;
+  }
+  .iqu-wl-date input[type="date"] {
+    flex: 1;
+  }
+  .iqu-waitlist .iqu-filter-bar .iqu-export-btn {
+    margin-left: 0;
+  }
+}
+.iqu-wl-date > span {
+  min-width: 34px;
+}
