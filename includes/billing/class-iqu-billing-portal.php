@@ -213,7 +213,7 @@ class IQU_Billing_Portal
             . '<button type="submit" class="btn wide">Email me my link</button>'
             . '</form>'
             . '<p class="muted small">For privacy, this page never says whether an email is in our records. Changed your email? Write to us at ' . self::contact_link() . '.</p>';
-        self::page('Find your billing page', $html);
+        self::page('Find your billing page', $html, '', true);
     }
 
     private static function render_account(array $acc, string $token, string $error = ''): void
@@ -524,17 +524,27 @@ class IQU_Billing_Portal
         return '<a href="mailto:' . esc_attr(self::CONTACT) . '">' . esc_html(self::CONTACT) . '</a>';
     }
 
-    /** Full HTML page, then stop. $head: extra tags for <head> (only the enrollment refresh uses it). */
-    private static function page(string $title, string $body, string $head = ''): void
+    /**
+     * Full HTML page, then stop. $head: extra tags for <head> (only the enrollment refresh uses it).
+     * $find: the "Find my link" page (its header also says "No login needed").
+     */
+    private static function page(string $title, string $body, string $head = '', bool $find = false): void
     {
         $icon = get_site_icon_url(64);
         $logo = '';
         $logo_id = (int) get_theme_mod('custom_logo');
         if ($logo_id) {
-            $src = wp_get_attachment_image_url($logo_id, 'medium');
-            if ($src) $logo = '<img src="' . esc_url($src) . '" alt="Ilm-ul-Quran USA" style="max-height:44px;width:auto">';
+            // Same logo as the website header, 221px wide like the navbar.
+            $src = wp_get_attachment_image_url($logo_id, 'full');
+            if ($src) $logo = '<img class="logo" src="' . esc_url($src) . '" alt="Ilm-ul-Quran USA" width="221">';
         }
         if ($logo === '') $logo = '<span class="brand">Ilm-ul-Quran USA</span>';
+
+        // "Need help?" in the footer: the contact lines from the constants (none hard-coded).
+        $help = [];
+        foreach ((class_exists('IQU_Contact') ? IQU_Contact::lines() : []) as $label => [$shown, $link]) {
+            $help[] = '<span>' . esc_html($label) . ': <a href="' . esc_url($link) . '" rel="noopener noreferrer">' . esc_html($shown) . '</a></span>';
+        }
 
         // Drop anything other plugins queued for this response (optimizers inject
         // analytics scripts that would see the private link). CSP blocks them too.
@@ -547,12 +557,16 @@ class IQU_Billing_Portal
             . '<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">' . $head . '<title>' . esc_html($title) . ' — Ilm-ul-Quran USA</title>'
             . ($icon ? '<link rel="icon" href="' . esc_url($icon) . '">' : '')
             . '<style>' . self::css() . '</style></head><body>'
-            . '<header><div class="wrap head">' . $logo . '<span class="muted small">Private billing page</span></div></header>'
+            . '<header class="site-head"><div class="wrap head">' . $logo
+            . '<span class="head-note"><span>Private billing page</span>' . ($find ? '<span class="muted">No login needed</span>' : '') . '</span></div></header>'
             . '<main class="wrap">' . $body . '</main>'
-            . '<footer class="wrap muted small">Ilm-ul-Quran USA is operated by AL HASANAH FOUNDATION, a 501(c)(3) nonprofit. Payments are processed securely by Stripe.<br>'
-            . '<a href="' . esc_url(home_url('/tuition-refund-policy/')) . '">Tuition, Payment &amp; Refund Policy</a> · '
-            . '<a href="' . esc_url(home_url('/terms-and-conditions/')) . '">Terms and Conditions</a> · '
-            . '<a href="' . esc_url(home_url('/privacy-policy/')) . '">Privacy Policy</a></footer>'
+            . '<footer class="site-foot"><div class="wrap">'
+            . ($help ? '<div class="foot-help"><strong>Need help?</strong>' . implode('', $help) . '</div>' : '')
+            . '<p>Ilm-ul-Quran USA is operated by AL HASANAH FOUNDATION, a 501(c)(3) nonprofit organization, Richardson, Texas. Payments are processed securely by Stripe.</p>'
+            . '<p class="foot-links"><a href="' . esc_url(home_url('/tuition-refund-policy/')) . '">Tuition &amp; Refund Policy</a>'
+            . '<a href="' . esc_url(home_url('/terms-and-conditions/')) . '">Terms and Conditions</a>'
+            . '<a href="' . esc_url(home_url('/privacy-policy/')) . '">Privacy Policy</a></p>'
+            . '</div></footer>'
             . '</body></html>';
         exit;
     }
@@ -575,12 +589,15 @@ class IQU_Billing_Portal
             . 'body{margin:0;background:#F1F1F4;color:#15303F;font:16px/1.6 "Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}'
             . 'strong,b{font-weight:600}a{color:#1E4D6B}'
             . '.wrap{max-width:720px;margin:0 auto;padding:0 16px}'
-            . 'header{background:#fff;border-bottom:1px solid #E5E7EB;border-top:4px solid #F7941D;margin-bottom:24px}'
-            . '.head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px}.brand{font-weight:600;font-size:19px;color:#1E4D6B}'
+            // Header like the website navbar: white, 12px top/bottom + 1rem inside, thin bottom rule, logo 221px.
+            . '.site-head{background:#fff;border-bottom:1px solid #E5E7EB;margin-bottom:28px}'
+            . '.site-head .head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:12px 1rem}.brand{font-weight:600;font-size:19px;color:#1E4D6B}'
+            . '.logo{display:block;width:221px;max-width:100%;height:auto}'
+            . '.head-note{display:flex;flex-direction:column;align-items:flex-end;font-size:14px;font-weight:500;line-height:1.35;color:#15303F}.head-note .muted{font-weight:400;font-size:13px}'
             . 'h1{font-size:26px;font-weight:600;line-height:1.25;margin:2px 0 20px;color:#15303F}h1 .for{display:block;font-size:17px;font-weight:400;color:#414B58;margin-top:4px}'
             . '.hello{margin:0;color:#414B58}.lead{font-size:17px;margin:0 0 18px}'
             . '.muted{color:#414B58}.small{font-size:14px;line-height:1.55}.center{text-align:center}'
-            . '.card{background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:20px;margin:0 0 16px}'
+            . '.card{background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:20px;margin:0 0 16px;box-shadow:0 1px 2px rgba(21,48,63,.05),0 6px 18px rgba(21,48,63,.06)}'
             . '.label{margin:0 0 12px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#414B58}'
             // hero by state
             . '.hero{border-top:4px solid #1E4D6B}.hero.calm{border-top-color:#414B58}'
@@ -615,9 +632,11 @@ class IQU_Billing_Portal
             . '.box.bad{background:#fbece6;border:1px solid #ebc9bb;border-left:4px solid #8a2424;color:#7a2e12}'
             . '.pill{display:inline-block;padding:3px 12px;border-radius:999px;font-size:13px;font-weight:500;white-space:nowrap}'
             . '.pill.good{background:#EDFAEE;color:#0A553A;border:1px solid #0A553A}.pill.bad{background:#8a2424;color:#fff;border:1px solid #8a2424}.pill.muted{background:#F1F1F4;color:#414B58;border:1px solid #E5E7EB}'
-            . '.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:12px 22px;font-family:inherit;font-size:17px;font-weight:600;line-height:1.2;text-align:center;text-decoration:none;color:#fff;background:#1E4D6B;border:1px solid #1E4D6B;border-radius:12px;cursor:pointer}'
-            . '.btn:hover{background:#15303F;border-color:#15303F}.btn.wide{width:100%;margin:6px 0}'
-            . '.btn.ghost{color:#1E4D6B;background:#fff}.btn.ghost:hover{background:#EFF8FC}'
+            // Primary: the website's orange button (#F7941D, hover #E7850F) with dark navy text (6.3:1, AA).
+            // Secondary: deep blue outline. Pill shape like the theme's buttons.
+            . '.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:12px 24px;font-family:inherit;font-size:17px;font-weight:600;line-height:1.2;text-align:center;text-decoration:none;color:#15303F;background:#F7941D;border:2px solid #F7941D;border-radius:999px;cursor:pointer}'
+            . '.btn:hover{color:#15303F;background:#E7850F;border-color:#E7850F}.btn.wide{width:100%;margin:6px 0}'
+            . '.btn.ghost{color:#1E4D6B;background:#fff;border-color:#1E4D6B}.btn.ghost:hover{color:#fff;background:#1E4D6B;border-color:#1E4D6B}'
             . '.actions{display:flex;flex-wrap:wrap;gap:0 10px;margin:14px 0 6px}.actions>*{flex:1 1 240px}.actions form{margin:0}'
             . 'a:focus-visible,.btn:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #1E4D6B;outline-offset:3px}'
             . 'label{display:block;margin-bottom:6px;font-size:15px;font-weight:600}'
@@ -627,7 +646,10 @@ class IQU_Billing_Portal
             . 'summary{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:48px;padding:8px 0;font-weight:600;cursor:pointer;list-style:none}'
             . 'summary::-webkit-details-marker{display:none}summary::after{content:"+";font-size:22px;font-weight:400;color:#1E4D6B}details[open] summary::after{content:"\2212"}'
             . 'details p{margin:0 0 14px}.help p{margin:0}'
-            . 'footer{padding:24px 16px 40px}footer a{display:inline-block;padding:6px 0;color:#414B58}'
+            // Footer with breathing room: margin above, padding, a top rule, help lines and the policies.
+            . '.site-foot{margin-top:48px;padding:32px 0 44px;border-top:1px solid #E5E7EB;background:#fff;color:#414B58;font-size:14px;line-height:1.6}'
+            . '.site-foot p{margin:0 0 10px}.foot-help{display:flex;flex-wrap:wrap;gap:4px 18px;margin:0 0 14px;color:#15303F}.foot-help strong{flex-basis:100%}'
+            . '.site-foot a{color:#1E4D6B;overflow-wrap:anywhere}.foot-links{display:flex;flex-wrap:wrap;gap:0 18px}.foot-links a{display:inline-block;padding:6px 0;color:#414B58}'
             . '@media (min-width:640px){.wrap{padding:0 24px}h1{font-size:30px}.card{padding:24px 26px}.big{font-size:46px}'
             . '.facts{grid-template-columns:1fr 1fr}.students{grid-template-columns:1fr 1fr}}';
     }
