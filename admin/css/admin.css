@@ -2150,3 +2150,75 @@
     transition: none;
   }
 }
+
+/* ── Registration detail: Monthly payments (3.4.0) ──────────── */
+.iqu-mp {
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  background: var(--iqu-bg1);
+  overflow: hidden;
+}
+.iqu-mp .iqu-mp-tbl {
+  width: 100%;
+  min-width: 0; /* three short columns: no 700px list minimum */
+  border: 0;
+  margin: 0;
+}
+.iqu-mp .iqu-mp-tbl td,
+.iqu-mp .iqu-mp-chip {
+  white-space: normal;
+}
+.iqu-detail-grid > div:first-child {
+  min-width: 0;
+}
+.iqu-mp-tbl th.is-num,
+.iqu-mp-tbl td.is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.iqu-mp-tbl tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--iqu-bg2) 55%, var(--iqu-bg1));
+}
+.iqu-mp-none {
+  color: var(--iqu-text2);
+  font-style: italic;
+}
+.iqu-mp-note,
+.iqu-mp-link {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  border-top: 1px solid var(--iqu-bdr);
+}
+.iqu-mp-note {
+  color: var(--iqu-text2);
+}
+.iqu-mp-link a {
+  font-weight: 600;
+}
+.iqu-mp-chip {
+  font-size: 11px;
+  padding: 3px 10px;
+  border: 1px solid var(--iqu-bdr);
+}
+.iqu-mp-chip--neutral { color: var(--iqu-text2); background: var(--iqu-bg2); }
+.iqu-mp-chip--green {
+  color: var(--iqu-green);
+  background: color-mix(in srgb, var(--iqu-green) 12%, var(--iqu-bg1));
+  border-color: color-mix(in srgb, var(--iqu-green) 35%, var(--iqu-bg1));
+}
+.iqu-mp-chip--red {
+  color: var(--iqu-red);
+  background: color-mix(in srgb, var(--iqu-red) 10%, var(--iqu-bg1));
+  border-color: color-mix(in srgb, var(--iqu-red) 35%, var(--iqu-bg1));
+}
+.iqu-mp-chip--gold {
+  color: color-mix(in srgb, var(--iqu-gold) 65%, var(--iqu-text1));
+  background: color-mix(in srgb, var(--iqu-gold) 12%, var(--iqu-bg1));
+  border-color: color-mix(in srgb, var(--iqu-gold) 35%, var(--iqu-bg1));
+}
+.iqu-mp-chip--blue {
+  color: var(--iqu-blue);
+  background: color-mix(in srgb, var(--iqu-blue) 10%, var(--iqu-bg1));
+  border-color: color-mix(in srgb, var(--iqu-blue) 30%, var(--iqu-bg1));
+}

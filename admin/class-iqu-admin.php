@@ -271,6 +271,84 @@ class IQU_Admin
 <?php
   }
 
+  /**
+   * "Monthly payments" on a registration's detail page (Enroll for Free = monthly students only):
+   * one row per invoice of the student's billing family, newest first, from the current month back,
+   * plus "Upcoming — <date>" when this month is not billed yet. Local database only (payments
+   * history in the current mode); no Stripe call. Summer and Weekend registrations get nothing.
+   */
+  private static function monthly_payments_html(array $row): string
+  {
+    if (($row['form_type'] ?? '') !== IQU_Database::FORM_FREE || !class_exists('IQU_Billing_DB') || !class_exists('IQU_Billing_History')) return '';
+
+    $acc = IQU_Billing_DB::account_for_registration((int) $row['id']);
+    if (!$acc && !empty($row['billing_account_id'])) $acc = IQU_Billing_DB::get_account((int) $row['billing_account_id']);
+
+    $out = '<div class="iqu-section-title">Monthly payments</div>';
+    if (!$acc) {
+      return $out . '<div class="iqu-detail-data iqu-mp"><div class="iqu-detail-item iqu-detail-full"><div class="iqu-detail-val iqu-mp-none">Not on monthly billing yet.</div></div></div>';
+    }
+
+    $tz   = wp_timezone();
+    $now  = new DateTimeImmutable('now', $tz);
+    $cur  = $now->format('Y-m');
+    $rows = array_values(array_filter(IQU_Billing_History::for_account((int) $acc['id']),
+      fn($r) => IQU_Billing_History::is_month((string) $r['period_month']) && (string) $r['period_month'] <= $cur));
+
+    $lines = [];
+    // This month not billed yet, but the next charge falls in it → "Upcoming — 5 Oct".
+    $billed_now = (bool) array_filter($rows, fn($r) => $r['period_month'] === $cur);
+    if (!$billed_now && !empty($acc['next_charge_at']) && $acc['status'] !== 'canceled') {
+      $next = (new DateTimeImmutable($acc['next_charge_at'], new DateTimeZone('UTC')))->setTimezone($tz);
+      if ($next->format('Y-m') === $cur) {
+        $lines[] = [$cur, (float) $acc['net_amount'], 'Upcoming — ' . $next->format('j M'), 'blue'];
+      }
+    }
+    foreach ($rows as $r) {
+      $due = (float) $r['amount_due'];
+      $refunded = (float) $r['amount_refunded'];
+      if ($due <= 0) {
+        [$label, $tone] = ['Free month', 'neutral'];
+      } elseif ($r['status'] === 'paid') {
+        [$label, $tone] = $refunded > 0 ? ['Paid (refunded ' . IQU_Pricing::format($refunded) . ')', 'green'] : ['Paid', 'green'];
+      } else {
+        [$label, $tone] = [
+          'refunded'      => ['Refunded', 'neutral'],
+          'failed'        => ['Failed', 'red'],
+          'open'          => ['Due', 'gold'],
+          'uncollectible' => ['Unpaid', 'red'],
+          'void'          => ['Cancelled', 'neutral'],
+        ][$r['status']] ?? [ucfirst((string) $r['status']), 'neutral'];
+      }
+      $lines[] = [(string) $r['period_month'], $due, $label, $tone];
+    }
+
+    $out .= '<div class="iqu-mp"><table class="iqu-tbl iqu-mp-tbl"><caption class="screen-reader-text">Monthly payments, newest first</caption>'
+      . '<thead><tr><th scope="col">Month</th><th scope="col" class="is-num">Amount</th><th scope="col">Status</th></tr></thead><tbody>';
+    if (!$lines) {
+      $out .= '<tr><td colspan="3" class="iqu-mp-none">No payments yet.</td></tr>';
+    }
+    foreach ($lines as [$ym, $amount, $label, $tone]) {
+      $out .= '<tr><td>' . esc_html(IQU_Billing_History::month_label($ym)) . '</td>'
+        . '<td class="is-num">' . esc_html(IQU_Pricing::format($amount)) . '</td>'
+        . '<td><span class="iqu-chip iqu-mp-chip iqu-mp-chip--' . esc_attr($tone) . '">' . esc_html($label) . '</span></td></tr>';
+    }
+    $out .= '</tbody></table>';
+
+    // Brothers and sisters billed together.
+    $names = [];
+    foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
+      $reg = IQU_Database::get_registration((int) $m['registration_id']);
+      if ($reg) $names[] = trim($reg['first_name'] . ' ' . $reg['last_name']);
+    }
+    if (count($names) > 1) {
+      $out .= '<p class="iqu-mp-note">One monthly payment covers: ' . esc_html(implode(', ', $names)) . '</p>';
+    }
+    $family = class_exists('IQU_Billing_Page') ? IQU_Billing_Page::family_url((int) $acc['id']) : admin_url('admin.php?page=iqu-billing-message&account=' . (int) $acc['id']);
+    $out .= '<p class="iqu-mp-link"><a href="' . esc_url($family) . '">Full payment details on the billing page →</a></p></div>';
+    return $out;
+  }
+
   private static function status_badge_html(string $status): string
   {
     $map = [
@@ -1499,6 +1577,8 @@ class IQU_Admin
                 </div>
                 <?php endif; ?>
             </div>
+
+            <?php echo self::monthly_payments_html($row); // escaped inside ?>
         </div>
 
         <!-- ── Right: Status Panel ─────────────────────── -->
