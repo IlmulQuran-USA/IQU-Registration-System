@@ -165,6 +165,8 @@ class IQU_Billing_Settings
                 <div class="notice notice-<?php echo esc_attr($notice['type']); ?> is-dismissible"><p><?php echo esc_html($notice['text']); ?></p></div>
             <?php endif; ?>
 
+            <!-- Row 1: Stripe connection | Sync with Stripe · Row 2: Messages to families | Country database · then Enrollment (full width) -->
+            <div class="iqu-settings-grid">
             <!-- ── Stripe connection ──────────────────────────── -->
             <div class="iqu-card">
                 <div class="iqu-card-head">
@@ -218,30 +220,6 @@ class IQU_Billing_Settings
                 </form>
             </div>
 
-            <!-- ── Messages to families ───────────────────────── -->
-            <div class="iqu-card">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">Messages to families</span>
-                    <span class="iqu-card-head-badge">Payment link message and email</span>
-                </div>
-                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-form">
-                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SAVE); ?>">
-                    <?php wp_nonce_field(self::A_SAVE); ?>
-                    <div class="iqu-fld-grid">
-                        <div class="iqu-fld">
-                            <label for="zelle_end">Zelle end date</label>
-                            <input id="zelle_end" type="date" name="zelle_end" value="<?php echo esc_attr((string) get_option(self::OPT_ZELLE, '')); ?>">
-                            <p class="iqu-fld-hint">When set, every payment link message and email adds: “From [this date], tuition can no longer be sent by Zelle.” Leave empty to leave the line out.</p>
-                        </div>
-                    </div>
-                    <div class="iqu-cpn-actions">
-                        <?php submit_button('Save', 'primary', 'submit', false); ?>
-                    </div>
-                </form>
-            </div>
-
-            <?php if (class_exists('IQU_Enrollment_Admin')) IQU_Enrollment_Admin::render_card(); ?>
-
             <!-- ── Sync with Stripe ───────────────────────────── -->
             <div class="iqu-card">
                 <div class="iqu-card-head">
@@ -264,6 +242,34 @@ class IQU_Billing_Settings
                     </form>
                 </div>
             </div>
+
+            <!-- ── Messages to families ───────────────────────── -->
+            <div class="iqu-card">
+                <div class="iqu-card-head">
+                    <span class="iqu-card-head-title">Messages to families</span>
+                    <span class="iqu-card-head-badge">Payment link message and email</span>
+                </div>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-form">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SAVE); ?>">
+                    <?php wp_nonce_field(self::A_SAVE); ?>
+                    <div class="iqu-fld-grid">
+                        <div class="iqu-fld">
+                            <label for="zelle_end">Zelle end date</label>
+                            <input id="zelle_end" type="date" name="zelle_end" value="<?php echo esc_attr((string) get_option(self::OPT_ZELLE, '')); ?>">
+                            <p class="iqu-fld-hint">When set, every payment link message and email adds: “From [this date], tuition can no longer be sent by Zelle.” Leave empty to leave the line out.</p>
+                        </div>
+                    </div>
+                    <div class="iqu-cpn-actions">
+                        <?php submit_button('Save', 'primary', 'submit', false); ?>
+                    </div>
+                </form>
+            </div>
+
+            <?php if (class_exists('IQU_Enrollment_Admin')) IQU_Enrollment_Admin::render_geo_card(); ?>
+            </div>
+
+            <?php if (class_exists('IQU_Enrollment_Admin')) IQU_Enrollment_Admin::render_card(); ?>
+
         </div>
         <?php
     }

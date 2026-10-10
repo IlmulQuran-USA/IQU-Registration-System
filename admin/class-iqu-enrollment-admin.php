@@ -120,21 +120,25 @@ class IQU_Enrollment_Admin
                     <?php submit_button('Save enrollment settings', 'primary', 'submit', false); ?>
                 </div>
             </form>
-            <?php self::render_geo(); ?>
         </div>
         <?php
     }
 
-    /** GeoLite2 database status and the "Update now" button. */
-    private static function render_geo(): void
+    /** GeoLite2 database status and the "Update now" button, as its own card on Billing Settings. */
+    public static function render_geo_card(): void
     {
+        if (!current_user_can(self::CAP)) return;
         $meta  = IQU_Geo::meta();
         $file  = IQU_Geo::db_file();
         $creds = IQU_Geo::has_credentials();
         $when  = fn($ts) => $ts ? wp_date('j M Y, g:i A', (int) $ts) : '—';
         ?>
+        <!-- ── Country database ───────────────────────────── -->
+        <div class="iqu-card" id="iqu-geo-settings">
+        <div class="iqu-card-head">
+            <span class="iqu-card-head-title">Country database (MaxMind GeoLite2 Country)</span>
+        </div>
         <div class="iqu-billing-body">
-            <p class="iqu-fld-label"><strong>Country database (MaxMind GeoLite2 Country)</strong></p>
             <div class="iqu-enroll-geo">
                 <span>Database date: <strong><?php echo esc_html($file !== '' ? ($meta['build'] ?? 'unknown') : 'not installed'); ?></strong></span>
                 <?php if ($file !== ''): ?>
@@ -159,6 +163,7 @@ class IQU_Enrollment_Admin
             <?php wp_nonce_field(self::A_GEO); ?>
             <?php submit_button('Update now', 'secondary', 'submit', false, $creds ? [] : ['disabled' => 'disabled']); ?>
         </form>
+        </div>
         <?php
     }
 }

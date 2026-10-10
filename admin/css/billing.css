@@ -1979,3 +1979,36 @@ th[aria-sort="descending"] .iqu-sort::after {
   height: 36px;
   min-height: 36px;
 }
+
+/* ── Settings (3.4.0): two rows of two equal cards, then Enrollment full width ── */
+.iqu-billing .iqu-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.iqu-billing .iqu-settings-grid > .iqu-card {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  min-width: 0;
+}
+/* Forms fill the card so the action row lines up at the bottom of both cards in a row. */
+.iqu-billing .iqu-settings-grid > .iqu-card > form.iqu-cpn-form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+.iqu-billing .iqu-settings-grid > .iqu-card > .iqu-cpn-actions:last-child,
+.iqu-billing .iqu-settings-grid > .iqu-card > form > .iqu-cpn-actions:last-child {
+  margin-top: auto;
+}
+.iqu-billing .iqu-settings-grid .iqu-fld-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (max-width: 1023px) {
+  .iqu-billing .iqu-settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
