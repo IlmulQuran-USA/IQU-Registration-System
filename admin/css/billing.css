@@ -1930,3 +1930,52 @@ th[aria-sort="descending"] .iqu-sort::after {
 .iqu-billing .iqu-students-tbl tbody tr:nth-child(odd) > th {
   background: var(--iqu-bg1);
 }
+
+/* ── Reports (3.4.0): coloured month cards, status chips, ± difference ── */
+.iqu-rep-kpis {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.iqu-rep-kpi .iqu-metric-accent {
+  background: var(--iqu-text2);
+}
+.iqu-rep-kpi--green .iqu-metric-accent { background: var(--iqu-green); }
+.iqu-rep-kpi--blue .iqu-metric-accent { background: var(--iqu-blue); }
+.iqu-rep-kpi--red .iqu-metric-accent { background: var(--iqu-red); }
+.iqu-rep-kpi--gold .iqu-metric-accent { background: var(--iqu-gold); }
+.iqu-rep-kpi--purple .iqu-metric-accent { background: var(--iqu-purple); }
+.iqu-rep-kpi--green .iqu-metric-num { color: color-mix(in srgb, var(--iqu-green) 80%, var(--iqu-text1)); }
+.iqu-rep-kpi--blue .iqu-metric-num { color: var(--iqu-blue); }
+.iqu-rep-kpi--red .iqu-metric-num { color: var(--iqu-red); }
+.iqu-rep-kpi--gold .iqu-metric-num { color: color-mix(in srgb, var(--iqu-gold) 65%, var(--iqu-text1)); }
+.iqu-rep-kpi--purple .iqu-metric-num { color: var(--iqu-purple); }
+.iqu-rep-kpi--red {
+  border-color: color-mix(in srgb, var(--iqu-red) 35%, var(--iqu-bdr));
+}
+@media (max-width: 1279px) {
+  .iqu-rep-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .iqu-rep-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.iqu-billing .iqu-diff {
+  font-weight: 600;
+}
+.iqu-billing .iqu-diff.is-pos {
+  color: color-mix(in srgb, var(--iqu-green) 80%, var(--iqu-text1));
+}
+.iqu-billing .iqu-diff.is-neg {
+  color: var(--iqu-red);
+}
+.iqu-billing .iqu-diff.is-zero {
+  color: var(--iqu-text2);
+}
+/* Month inputs in the period bars: the same 36px as the dropdowns beside them. */
+.iqu-admin-wrap .iqu-period-bar input[type="month"] {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+}

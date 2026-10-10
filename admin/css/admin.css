@@ -810,7 +810,8 @@
    The chevron's fill is the --iqu-navy value (a data URI cannot read variables). */
 .iqu-admin-wrap select.iqu-status-select,
 .iqu-admin-wrap .iqu-status-panel select,
-.iqu-admin-wrap .iqu-filter-bar select {
+.iqu-admin-wrap .iqu-filter-bar select,
+.iqu-admin-wrap .iqu-period-bar select {
   -webkit-appearance: none;
   appearance: none;
   box-sizing: border-box;
@@ -835,14 +836,16 @@
 }
 .iqu-admin-wrap select.iqu-status-select:hover,
 .iqu-admin-wrap .iqu-status-panel select:hover,
-.iqu-admin-wrap .iqu-filter-bar select:hover {
+.iqu-admin-wrap .iqu-filter-bar select:hover,
+.iqu-admin-wrap .iqu-period-bar select:hover {
   background-color: var(--iqu-bg2);
   border-color: var(--iqu-navy);
   color: var(--iqu-text1);
 }
 .iqu-admin-wrap select.iqu-status-select:focus,
 .iqu-admin-wrap .iqu-status-panel select:focus,
-.iqu-admin-wrap .iqu-filter-bar select:focus {
+.iqu-admin-wrap .iqu-filter-bar select:focus,
+.iqu-admin-wrap .iqu-period-bar select:focus {
   border-color: var(--iqu-blue);
   outline: 2px solid var(--iqu-blue);
   outline-offset: 1px;

@@ -49,7 +49,8 @@ class IQU_Billing_Reports
     /**
      * @return array{columns: array<string,array{0:string,1:string}>, rows: array[], note: string}
      *   columns: key => [label, type] with type text | num | money | date | url
-     *   rows:    key => raw value, plus '_account' (account id) for the family link
+     *   rows:    key => raw value, plus '_account' (account id) for the family link and
+ *            '_tones' (column => chip colour) for the screen only — the CSV never reads '_' keys
      */
     public static function dataset(string $key, string $ym): array
     {
@@ -84,6 +85,7 @@ class IQU_Billing_Reports
                     'monthly'     => (float) $m['amount'],
                     'discount'    => $disc,
                     'status'      => IQU_Billing_Send::status_label((string) $a['status']),
+                    '_tones'      => ['status' => IQU_Billing_Page::status_tone((string) $a['status'])],
                     'first'       => (string) ($a['first_charge_date'] ?? ''),
                     'next'        => (string) ($a['next_charge_at'] ?? ''),
                     'method'      => (string) $a['payment_method_label'],
@@ -111,7 +113,7 @@ class IQU_Billing_Reports
         $rows = [];
         foreach (IQU_Billing_History::rows_for_months($ym, $ym) as $r) {
             $a = $accounts[(int) $r['account_id']] ?? null;
-            [$badge] = IQU_Billing_History::badge($r);
+            [$badge, $tone] = IQU_Billing_History::badge($r);
             $rows[] = [
                 '_account' => (int) $r['account_id'],
                 'family'   => $a ? self::family_name($a) : '—',
@@ -124,6 +126,7 @@ class IQU_Billing_Reports
                 'method'   => (string) $r['method_label'],
                 'receipt'  => (string) $r['receipt_number'],
                 'invoice'  => IQU_Billing_History::safe_url($r['hosted_invoice_url']),
+                '_tones'   => ['status' => $tone],
             ];
         }
         return [
@@ -143,15 +146,17 @@ class IQU_Billing_Reports
         $fam = [];
         foreach (IQU_Billing_History::rows_for_months($ym, $ym) as $r) {
             $id = (int) $r['account_id'];
-            $fam[$id] = $fam[$id] ?? ['expected' => 0.0, 'paid' => 0.0, 'statuses' => []];
+            $fam[$id] = $fam[$id] ?? ['expected' => 0.0, 'paid' => 0.0, 'statuses' => [], 'tones' => []];
             if ($r['status'] !== 'void') $fam[$id]['expected'] += (float) $r['amount_due'];
             if ($r['status'] === 'paid') $fam[$id]['paid'] += (float) $r['amount_paid'];
-            $fam[$id]['statuses'][] = IQU_Billing_History::badge($r)[0];
+            [$label, $tone] = IQU_Billing_History::badge($r);
+            $fam[$id]['statuses'][] = $label;
+            $fam[$id]['tones'][] = $tone;
         }
         foreach ($accounts as $id => $a) {
             if (isset($fam[$id]) || !in_array($a['status'], ['free_month', 'waiting_first_charge', 'active'], true) || empty($a['next_charge_at'])) continue;
             if (IQU_Billing_History::month_of((int) strtotime($a['next_charge_at'] . ' UTC')) !== $ym) continue;
-            $fam[$id] = ['expected' => (float) $a['net_amount'], 'paid' => 0.0, 'statuses' => ['Due, no invoice yet']];
+            $fam[$id] = ['expected' => (float) $a['net_amount'], 'paid' => 0.0, 'statuses' => ['Due, no invoice yet'], 'tones' => ['gold']];
         }
         $rows = [];
         foreach ($fam as $id => $f) {
@@ -165,6 +170,7 @@ class IQU_Billing_Reports
                 'difference' => round($f['paid'] - $f['expected'], 2),
                 'status'     => implode(', ', array_unique($f['statuses'])),
                 'billing'    => $a ? IQU_Billing_Send::status_label((string) $a['status']) : '',
+                '_tones'     => ['status' => self::worst_tone($f['tones']), 'billing' => $a ? IQU_Billing_Page::status_tone((string) $a['status']) : 'neutral'],
             ];
         }
         usort($rows, fn($x, $y) => $x['difference'] <=> $y['difference']);
@@ -256,6 +262,8 @@ class IQU_Billing_Reports
                 <button type="submit" class="iqu-btn iqu-btn--secondary">Show</button>
             </form>
 
+            <?php self::month_cards($ym); ?>
+
             <div class="iqu-card">
                 <div class="iqu-card-head">
                     <span class="iqu-card-head-title"><?php echo esc_html(self::DATASETS[$key] . ' — ' . IQU_Billing_History::month_label($ym)); ?></span>
@@ -281,7 +289,9 @@ class IQU_Billing_Reports
                         <?php foreach ($ds['rows'] as $r): ?>
                             <tr>
                             <?php foreach ($cols as $c => [$label, $type]): $v = $r[$c] ?? ''; ?>
-                                <?php if ($type === 'money'): ?>
+                                <?php if ($type === 'money' && $c === 'difference'): $d = (float) $v; ?>
+                                    <td class="is-num iqu-diff <?php echo $d > 0 ? 'is-pos' : ($d < 0 ? 'is-neg' : 'is-zero'); ?>" data-sort="<?php echo esc_attr(number_format($d, 2, '.', '')); ?>"><?php echo esc_html(($d > 0 ? '+' : ($d < 0 ? '−' : '')) . IQU_Pricing::format(abs($d))); ?></td>
+                                <?php elseif ($type === 'money'): ?>
                                     <td class="is-num" data-sort="<?php echo esc_attr(number_format((float) $v, 2, '.', '')); ?>"><?php echo esc_html(IQU_Pricing::format((float) $v)); ?></td>
                                 <?php elseif ($type === 'num'): ?>
                                     <td class="is-num"><?php echo esc_html((string) $v); ?></td>
@@ -291,6 +301,8 @@ class IQU_Billing_Reports
                                     <td><?php if ($v !== ''): ?><a href="<?php echo esc_url((string) $v); ?>" target="_blank" rel="noopener noreferrer">Invoice</a><?php else: ?>—<?php endif; ?></td>
                                 <?php elseif ($c === 'family' && !empty($r['_account'])): ?>
                                     <td><a class="iqu-family-link" href="<?php echo esc_url(IQU_Billing_Page::family_url((int) $r['_account'])); ?>"><?php echo esc_html((string) $v); ?></a></td>
+                                <?php elseif (isset($r['_tones'][$c]) && $v !== ''): ?>
+                                    <td class="iqu-billing-wrap" data-sort="<?php echo esc_attr((string) $v); ?>"><span class="iqu-chip iqu-chip--<?php echo esc_attr($r['_tones'][$c]); ?>"><?php echo esc_html((string) $v); ?></span></td>
                                 <?php elseif ($c === 'student' && !empty($r['_account'])): ?>
                                     <td class="iqu-td-name"><a class="iqu-family-link" href="<?php echo esc_url(IQU_Billing_Page::family_url((int) $r['_account'])); ?>"><?php echo esc_html((string) $v); ?></a></td>
                                 <?php else: ?>
@@ -376,6 +388,39 @@ class IQU_Billing_Reports
         $ym = sanitize_text_field(wp_unslash($src['month'] ?? ''));
         if (!IQU_Billing_History::is_month($ym)) $ym = (new DateTimeImmutable('now', wp_timezone()))->format('Y-m');
         return [$key, $ym];
+    }
+
+    /** The most urgent of several chip colours: red, then gold, then blue, then green, else neutral. */
+    private static function worst_tone(array $tones): string
+    {
+        foreach (['red', 'gold', 'blue', 'green'] as $t) if (in_array($t, $tones, true)) return $t;
+        return 'neutral';
+    }
+
+    /**
+     * Coloured cards for the selected tuition month (local database, current mode):
+     * collected, billed, outstanding, refunded, and families not set up yet.
+     */
+    private static function month_cards(string $ym): void
+    {
+        $accounts = IQU_Billing_History::accounts();
+        $sum = IQU_Billing_History::month_summary($ym, IQU_Billing_History::rows_for_months($ym, $ym), $accounts);
+        $not_set_up = array_filter($accounts, fn($a) => in_array($a['status'], ['not_sent', 'link_sent'], true) && empty($a['stripe_subscription_id']));
+        $owed = array_sum(array_map(fn($a) => (float) $a['net_amount'], $not_set_up));
+        $cards = [
+            ['Collected', IQU_Pricing::format($sum['collected']), 'green', $sum['paid_count'] . ' paid'],
+            ['Billed', IQU_Pricing::format($sum['billed']), 'blue', 'Expected ' . IQU_Pricing::format($sum['expected'])],
+            ['Outstanding', IQU_Pricing::format($sum['outstanding']), $sum['outstanding'] > 0 ? 'red' : 'neutral', $sum['failed_count'] ? $sum['failed_count'] . ' failed' : 'Nothing failed'],
+            ['Refunded', IQU_Pricing::format($sum['refunded']), $sum['refunded'] > 0 ? 'purple' : 'neutral', 'In ' . IQU_Billing_History::month_label($ym)],
+            ['Not set up', (string) count($not_set_up), count($not_set_up) ? 'gold' : 'neutral', IQU_Pricing::format($owed) . ' a month waiting'],
+        ];
+        echo '<div class="iqu-kpis iqu-rep-kpis" aria-label="' . esc_attr(IQU_Billing_History::month_label($ym)) . '">';
+        foreach ($cards as [$label, $value, $tone, $sub]) {
+            echo '<div class="iqu-metric iqu-rep-kpi iqu-rep-kpi--' . esc_attr($tone) . '"><div class="iqu-metric-accent"></div>'
+                . '<div class="iqu-metric-num">' . esc_html($value) . '</div><div class="iqu-metric-lbl">' . esc_html($label) . '</div>'
+                . '<div class="iqu-metric-sub">' . esc_html($sub) . '</div></div>';
+        }
+        echo '</div>';
     }
 
     private static function accounts_by_id(): array
