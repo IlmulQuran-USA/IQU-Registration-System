@@ -2043,3 +2043,12 @@ th[aria-sort="descending"] .iqu-sort::after {
 .iqu-receipt-changed {
   margin-top: 8px;
 }
+
+/* "How these numbers work": the closing note about the tuition month */
+.iqu-howto-note {
+  margin: 0;
+  padding: 0 16px 14px;
+  font-size: 12.5px;
+  color: var(--iqu-text2);
+  font-style: italic;
+}

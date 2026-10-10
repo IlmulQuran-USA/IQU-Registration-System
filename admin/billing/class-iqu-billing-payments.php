@@ -83,14 +83,15 @@ class IQU_Billing_Payments_Screen
             <details class="iqu-howto">
                 <summary>How these numbers work</summary>
                 <dl>
-                    <dt>Tuition month</dt><dd>The month an invoice is for (its billing period start, in the site's time zone), not the day it was paid.</dd>
-                    <dt>Billed</dt><dd>Amount due of the month's invoices, without void ones.</dd>
-                    <dt>Collected</dt><dd>Amount paid of the month's paid invoices. Fully refunded invoices are not counted; partial refunds are shown separately.</dd>
-                    <dt>Outstanding</dt><dd>Billed minus collected, for failed, open and uncollectible invoices.</dd>
-                    <dt>Collection rate</dt><dd>Collected ÷ billed.</dd>
-                    <dt>Expected</dt><dd>Billed, plus the monthly amount of families whose next charge falls in the month and who have no invoice for it yet.</dd>
-                    <dt>Monthly recurring</dt><dd>Monthly amount of every family on billing (free month, waiting for first charge, active, payment failed).</dd>
+                    <dt>1. Collected</dt><dd>Money received for this tuition month's invoices. Fully refunded invoices are not counted. Partial refunds are not subtracted here; they are shown under Outstanding.</dd>
+                    <dt>2. Expected</dt><dd>Everything already billed for the month (shown as "Billed", without cancelled invoices) plus the monthly amount of families whose next payment falls in this month but who have not been billed yet (families in their free month, waiting for the first charge, or active).</dd>
+                    <dt>3. Collection rate</dt><dd>Collected ÷ Billed. Fully refunded invoices stay in Billed, so they lower the rate.</dd>
+                    <dt>4. Outstanding</dt><dd>Billed but not paid yet (failed, open or unpaid invoices). Refunds for the month are shown under it.</dd>
+                    <dt>5. Families on billing</dt><dd>Families in their free month, waiting for the first charge, active, or past due (Stripe is still retrying a failed payment). The line under counts every payment problem, including unpaid and paused families, who are not in this number.</dd>
+                    <dt>6. Monthly recurring</dt><dd>The total monthly tuition of all families on billing (the same families as above).</dd>
+                    <dt>7. Average per family</dt><dd>Monthly recurring ÷ Families on billing.</dd>
                 </dl>
+                <p class="iqu-howto-note">A payment counts toward its tuition month — the invoice's period start, in the site's time zone — not the day it was paid.</p>
             </details>
 
             <!-- ── KPIs ──────────────────────────────────────── -->
