@@ -56,7 +56,7 @@ class IQU_Enrollment_Admin
             <label class="iqu-enroll-choice">
                 <input type="radio" name="<?php echo esc_attr($name); ?>" value="<?php echo esc_attr($value); ?>" <?php checked($current, $value); ?>>
                 <strong><?php echo esc_html($label); ?></strong>
-                <span class="iqu-fld-hint"><?php echo esc_html($hint); ?></span>
+                <?php if ($hint !== ''): ?><span class="iqu-fld-hint"><?php echo esc_html($hint); ?></span><?php endif; ?>
             </label>
             <?php
         }
@@ -71,12 +71,12 @@ class IQU_Enrollment_Admin
         <div class="iqu-card" id="iqu-enrollment-settings">
             <div class="iqu-card-head">
                 <span class="iqu-card-head-title">Enrollment</span>
-                <span class="iqu-card-head-badge">Country check and payment at sign-up</span>
+                <span class="iqu-card-head-badge">Who can enroll and how families pay</span>
             </div>
             <div class="iqu-billing-body">
-                <p class="iqu-billing-intro">Safety switches for the three enrollment forms. With the defaults (Monitor, Off, Zeffy) the forms work exactly as before; Monitor only records what the country check would have blocked.</p>
+                <p class="iqu-billing-intro">Switches for the three enrollment forms. With the defaults (everyone can enroll while visitors from outside the US and Canada are recorded, no card step, Zeffy for Summer) the forms work exactly as before.</p>
                 <?php if ($test): ?>
-                    <div class="notice notice-info inline"><p><strong>Stripe is in test mode.</strong> The payment steps run only for logged-in administrators. Every other visitor sees the forms as before.</p></div>
+                    <div class="notice notice-info inline"><p><strong>Stripe is in test mode, so only administrators see the card step.</strong> Families still enroll the usual way.</p></div>
                 <?php endif; ?>
             </div>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-form">
@@ -84,36 +84,36 @@ class IQU_Enrollment_Admin
                 <?php wp_nonce_field(self::A_SAVE); ?>
                 <div class="iqu-fld-grid">
                     <fieldset class="iqu-fld iqu-fld--full">
-                        <legend class="iqu-fld-label">Country check (US and Canada only)</legend>
+                        <legend class="iqu-fld-label">Who can enroll</legend>
                         <?php self::choice('country_check', IQU_Enrollment_Settings::country_mode(), [
-                            'off'     => ['Off', 'No country check at all.'],
-                            'monitor' => ['Monitor', 'Record what would be blocked, never block. Shown in the 9 PM Telegram summary.'],
-                            'enforce' => ['Enforce', 'Families outside the US and Canada see a message and can join the waitlist.'],
+                            'off'     => ['Everyone — no country check', ''],
+                            'monitor' => ['Everyone, but record visitors from outside the US and Canada (testing)', 'Nobody is blocked. What would have been blocked is listed in the 9 PM Telegram summary.'],
+                            'enforce' => ['Only families in the US and Canada', 'Families outside the US and Canada see a short message and can join the waitlist.'],
                         ]); ?>
                     </fieldset>
                     <fieldset class="iqu-fld">
-                        <legend class="iqu-fld-label">Enroll for Free payment</legend>
+                        <legend class="iqu-fld-label">Card step after Enroll for Free</legend>
                         <?php self::choice('free_payment', IQU_Enrollment_Settings::free_mode(), [
-                            'off' => ['Off', 'The form saves the enrollment and shows the thank-you, as before.'],
-                            'on'  => ['On', 'After the form, the family adds a card or US bank account in Stripe. The first month is free.'],
+                            'off' => ['Off — families enroll without adding a card', 'The form saves the enrollment and shows the thank-you, as before.'],
+                            'on'  => ['On — families add a card or US bank account (first month free)', 'After the form, the family adds it once on Stripe\'s secure page.'],
                         ]); ?>
                     </fieldset>
                     <fieldset class="iqu-fld">
-                        <legend class="iqu-fld-label">Summer payment</legend>
+                        <legend class="iqu-fld-label">How Summer families pay</legend>
                         <?php self::choice('summer_payment', IQU_Enrollment_Settings::summer_mode(), [
-                            'zeffy'  => ['Zeffy', 'Zelle or Zeffy, as before.'],
-                            'stripe' => ['Stripe', 'One card payment through Stripe Checkout, confirmed by the Stripe webhook.'],
+                            'zeffy'  => ['Zeffy (current)', 'Zelle or Zeffy, as before.'],
+                            'stripe' => ['Card on our website (Stripe)', 'One payment on Stripe\'s secure page, confirmed by Stripe.'],
                         ]); ?>
                     </fieldset>
                     <div class="iqu-fld">
-                        <label for="iqu_summer_fee">Summer program fee (USD)</label>
+                        <label for="iqu_summer_fee">Summer fee — Standard (USD)</label>
                         <input id="iqu_summer_fee" type="text" inputmode="decimal" name="summer_fee" value="<?php echo esc_attr(number_format(IQU_Enrollment_Settings::summer_fee('standard'), 2, '.', '')); ?>">
-                        <p class="iqu-fld-hint">Paid once, at registration, for the whole program (Standard option). Used only when Summer payment is Stripe. At least 1.00.</p>
+                        <p class="iqu-fld-hint">Paid once, at registration, for the whole program.</p>
                     </div>
                     <div class="iqu-fld">
-                        <label for="iqu_summer_fee_supported">Summer supported rate (USD)</label>
+                        <label for="iqu_summer_fee_supported">Summer fee — Supported rate (USD)</label>
                         <input id="iqu_summer_fee_supported" type="text" inputmode="decimal" name="summer_fee_supported" value="<?php echo esc_attr(number_format(IQU_Enrollment_Settings::summer_fee('supported'), 2, '.', '')); ?>">
-                        <p class="iqu-fld-hint">The "Supported Rate" option, paid through Stripe the same way. "Flexible / Free" goes to Pending review; "Existing student" stays free.</p>
+                        <p class="iqu-fld-hint">Paid once, at registration, for the whole program.</p>
                     </div>
                 </div>
                 <div class="iqu-cpn-actions">
@@ -131,21 +131,17 @@ class IQU_Enrollment_Admin
         $meta  = IQU_Geo::meta();
         $file  = IQU_Geo::db_file();
         $creds = IQU_Geo::has_credentials();
-        $when  = fn($ts) => $ts ? wp_date('j M Y, g:i A', (int) $ts) : '—';
+        $when  = fn($ts) => $ts ? wp_date('j M Y', (int) $ts) : '—';
         ?>
         <!-- ── Country database ───────────────────────────── -->
         <div class="iqu-card" id="iqu-geo-settings">
         <div class="iqu-card-head">
-            <span class="iqu-card-head-title">Country database (MaxMind GeoLite2 Country)</span>
+            <span class="iqu-card-head-title">Country lookup database</span>
         </div>
         <div class="iqu-billing-body">
             <div class="iqu-enroll-geo">
-                <span>Database date: <strong><?php echo esc_html($file !== '' ? ($meta['build'] ?? 'unknown') : 'not installed'); ?></strong></span>
-                <?php if ($file !== ''): ?>
-                    <span>Stored: <?php echo esc_html(IQU_Geo::location_label()); ?></span>
-                <?php endif; ?>
-                <span>Last update: <?php echo esc_html($when($meta['updated_at'] ?? 0)); ?></span>
-                <span>Refresh: weekly (WP-Cron)</span>
+                <span>Last updated: <strong><?php echo esc_html($file !== '' ? $when($meta['updated_at'] ?? 0) : 'not installed yet'); ?></strong></span>
+                <span>Updates automatically every week</span>
             </div>
             <?php if (!$creds): ?>
                 <p class="iqu-fld-hint">Add <code>IQU_MAXMIND_ACCOUNT_ID</code> and <code>IQU_MAXMIND_LICENSE_KEY</code> to <code>wp-config.php</code> to download the database.</p>
