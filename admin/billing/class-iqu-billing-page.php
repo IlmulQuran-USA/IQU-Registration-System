@@ -5,9 +5,9 @@ if (!defined('ABSPATH')) exit;
  * Class IQU_Billing_Page
  *
  * IQU Registrations → Billing. One menu item with tabs:
- *   Students (default) · Payments · Add Student · Import · Settings
+ *   Student Billing (default) · Payments · Add Student · Import · Settings
  *
- * Students tab: every enrollment in a monthly program, its fee, its billing
+ * Student Billing tab: every enrollment in a monthly program, its fee, its billing
  * status and the actions. Several families can be sent links at once.
  *
  * Security:
@@ -57,7 +57,7 @@ class IQU_Billing_Page
 
     public static function register(): void
     {
-        add_submenu_page('iqu-registrations', 'Billing — IQU', 'Billing', self::CAP, self::SLUG, [__CLASS__, 'render_students']);
+        add_submenu_page('iqu-registrations', 'Student Billing — IQU', 'Billing', self::CAP, self::SLUG, [__CLASS__, 'render_students']);
         add_submenu_page('iqu-registrations', 'Billing Payments — IQU', 'Billing Payments', self::CAP, self::PAYMENTS_SLUG, [__CLASS__, 'render_payments']);
         add_submenu_page('iqu-registrations', 'Send Links — IQU', 'Send Links', self::CAP, self::BULK_SLUG, [__CLASS__, 'render_bulk']);
     }
@@ -74,7 +74,7 @@ class IQU_Billing_Page
     public static function tabs(string $active): void
     {
         $tabs = [
-            'students' => ['Students', self::SLUG],
+            'students' => ['Student Billing', self::SLUG],
             'payments' => ['Payments', self::PAYMENTS_SLUG],
             'reports'  => ['Reports', 'iqu-billing-reports'],
             'add'      => ['Add Student', 'iqu-billing-add-student'],
@@ -180,7 +180,7 @@ class IQU_Billing_Page
     ];
 
     // ------------------------------------------------------------
-    // Students tab
+    // Student Billing tab
     // ------------------------------------------------------------
 
     public static function render_students(): void
@@ -217,7 +217,7 @@ class IQU_Billing_Page
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php self::tabs('students'); ?>
-            <?php self::page_header('Students', 'Everyone on monthly tuition. Send payment links to families who are not set up yet, and follow up on payment problems.'); ?>
+            <?php self::page_header('Student Billing', 'Everyone on monthly tuition. Send payment links to families who are not set up yet, and follow up on payment problems.'); ?>
 
             <?php if (!IQU_Stripe::is_ready()): ?>
                 <div class="notice notice-error inline"><p><?php echo esc_html(IQU_Stripe::not_ready_reason()); ?></p></div>
@@ -420,6 +420,27 @@ class IQU_Billing_Page
         return admin_url('admin.php?page=' . IQU_Billing_Send::MSG_SLUG . '&account=' . $account_id);
     }
 
+    /**
+     * Where "← Back to Student Billing" goes: the Student Billing list with the status filter
+     * and search the admin came from (read from the referer, only when it is that list),
+     * otherwise the plain list. Only a known filter key and a sanitised search are kept.
+     */
+    public static function list_url_from_referer(): string
+    {
+        $url = admin_url('admin.php?page=' . self::SLUG);
+        $ref = (string) wp_get_referer();
+        if ($ref === '') return $url;
+        $q = [];
+        parse_str((string) wp_parse_url($ref, PHP_URL_QUERY), $q);
+        if (($q['page'] ?? '') !== self::SLUG) return $url;
+        $args = [];
+        $show = sanitize_key((string) ($q['show'] ?? ''));
+        if ($show !== '' && isset(self::GROUPS[$show])) $args['show'] = $show;
+        $search = mb_substr(sanitize_text_field((string) ($q['q'] ?? '')), 0, 100);
+        if ($search !== '') $args['q'] = $search;
+        return $args ? add_query_arg($args, $url) : $url;
+    }
+
     /** "SK" from "Sara Khan" (avatar initials). */
     public static function initials(string $name): string
     {
@@ -481,14 +502,14 @@ class IQU_Billing_Page
                 if (!empty($d['account'])) echo '<a class="iqu-action-btn iqu-action-btn--view" href="' . esc_url(admin_url('admin.php?page=' . IQU_Billing_Send::MSG_SLUG . '&account=' . (int) $d['account'])) . '">Message</a>';
                 echo '</td></tr>';
             }
-            echo '</tbody></table></div><div class="iqu-cpn-actions"><a class="iqu-btn-ghost" href="' . esc_url(admin_url('admin.php?page=' . self::SLUG)) . '">Back to students</a></div></div></div>';
+            echo '</tbody></table></div><div class="iqu-cpn-actions"><a class="iqu-btn-ghost" href="' . esc_url(admin_url('admin.php?page=' . self::SLUG)) . '">Back to Student Billing</a></div></div></div>';
             return;
         }
 
         $ids = array_values(array_unique(array_filter(array_map('absint', (array) ($_GET['ids'] ?? [])))));
         $fam = self::families($ids);
         if (!$fam) {
-            echo '<div class="iqu-card"><div class="iqu-empty-state">Nothing to send. Choose students marked “Not set up” on the Students tab.</div></div></div>';
+            echo '<div class="iqu-card"><div class="iqu-empty-state">Nothing to send. Choose students marked “Not set up” on the Student Billing tab.</div></div></div>';
             return;
         }
         if (count($fam) > self::BULK_MAX) {

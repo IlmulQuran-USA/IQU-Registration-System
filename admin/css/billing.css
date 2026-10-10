@@ -1765,3 +1765,8 @@ th[aria-sort="descending"] .iqu-sort::after {
   color: var(--iqu-text2);
   text-align: center;
 }
+
+/* "← Back to Student Billing" on the family page (same button as "← Back to list" on a registration) */
+.iqu-billing .iqu-back-row {
+  margin: 0 0 12px;
+}

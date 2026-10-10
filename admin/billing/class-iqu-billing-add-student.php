@@ -442,7 +442,7 @@ class IQU_Billing_Add_Student
                         <p class="iqu-sum-next-title">What happens next</p>
                         <ol class="iqu-sum-next">
                             <li>Added as a current student — no free month.</li>
-                            <li>Open <strong>Check and send</strong> for them (Students → Not set up).</li>
+                            <li>Open <strong>Check and send</strong> for them (Student Billing → Not set up).</li>
                             <li>Send the private payment link to the billing email.</li>
                         </ol>
                     </div>

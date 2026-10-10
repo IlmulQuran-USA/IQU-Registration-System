@@ -562,7 +562,7 @@ class IQU_Billing_Import
                 <p class="iqu-fld-hint">The new students are also listed in <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-list-free')); ?>">Enroll for Free</a>.</p>
             </div>
             <div class="iqu-form-actions iqu-btn-group">
-                <a class="iqu-btn iqu-btn--secondary" href="<?php echo esc_url(admin_url('admin.php?page=' . IQU_Billing_Page::SLUG)); ?>">Go to Students</a>
+                <a class="iqu-btn iqu-btn--secondary" href="<?php echo esc_url(admin_url('admin.php?page=' . IQU_Billing_Page::SLUG)); ?>">Go to Student Billing</a>
                 <a class="iqu-btn iqu-btn--primary" href="<?php echo esc_url(admin_url('admin.php?page=' . IQU_Billing_Page::SLUG . '&show=not_set_up')); ?>"><?php echo IQU_Billing_Page::icon('email-alt'); ?>Send payment links</a>
             </div>
         </section>
