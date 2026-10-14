@@ -382,7 +382,7 @@ class IQU_Billing_Page
                 <span class="iqu-billing-sub">
                     <?php echo esc_html(implode(' · ', array_filter([
                         $p['days_per_week'] ? (int) $p['days_per_week'] . ' days/week' : '',
-                        ($reg['referral'] ?? '') === 'existing_student' || ($reg['user_agent'] ?? '') === 'IQU Billing (added by admin)' ? 'added from billing' : '',
+                        [IQU_Database::VIA_ADMIN => 'added by admin', IQU_Database::VIA_IMPORT => 'imported from CSV'][IQU_Database::created_via($reg)] ?? '',
                     ])) ?: 'Monthly classes'); ?>
                 </span>
             </td>

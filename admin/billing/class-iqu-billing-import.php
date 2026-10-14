@@ -231,6 +231,7 @@ class IQU_Billing_Import
             'agreed_fee'    => $fee_raw !== '' ? (float) $fee_raw : 0.0,
             'zakat'         => in_array($zak, ['yes', 'y', 'true', '1'], true),
             'note'          => sanitize_textarea_field((string) ($r['note'] ?? '')),
+            'via'           => IQU_Database::VIA_IMPORT,
             // Optional enrollment columns; checked by IQU_Billing_Add_Student::clean_extra() like the form.
             'extra'         => [
                 'age'            => (string) ($r['age'] ?? ''),

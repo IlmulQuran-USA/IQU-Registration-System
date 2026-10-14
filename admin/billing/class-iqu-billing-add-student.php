@@ -21,7 +21,8 @@ if (!defined('ABSPATH')) exit;
 class IQU_Billing_Add_Student
 {
     public const PAGE_SLUG = 'iqu-billing-add-student';
-    public const MARKER    = 'existing_student'; // stored in `referral`
+    /** @deprecated Older versions stored this in `referral`; rows now record `created_via`. */
+    public const MARKER    = IQU_Database::LEGACY_ADMIN_REFERRAL;
     private const CAP      = 'manage_options';
     private const ACTION   = 'iqu_billing_add_student';
     private const FORM_TX  = 'iqu_billing_add_form_';
@@ -269,8 +270,11 @@ class IQU_Billing_Add_Student
             return ['errors' => $errors, 'row' => [], 'gross' => $gross, 'net' => 0.0];
         }
 
+        // How the row is created: this form (admin) or the CSV import (import).
+        $via  = ($in['via'] ?? '') === IQU_Database::VIA_IMPORT ? IQU_Database::VIA_IMPORT : IQU_Database::VIA_ADMIN;
         $user = wp_get_current_user();
-        $note = trim('Added from Billing as an existing student by ' . $user->user_login . '. ' . ($in['note'] ?? ''));
+        $note = trim(($via === IQU_Database::VIA_IMPORT ? 'Imported from CSV' : 'Added from Billing as an existing student')
+            . ' by ' . $user->user_login . '. ' . ($in['note'] ?? ''));
         $now  = gmdate('Y-m-d H:i:s');
 
         $row = [
@@ -282,9 +286,9 @@ class IQU_Billing_Add_Student
             'guardian_name'      => $in['guardian_name'],
             'guardian_whatsapp'  => $in['guardian_name'] !== '' ? $in['whatsapp'] : '',
             'days_per_week'      => (string) (int) $in['days'],
-            // How they heard about us when given; otherwise the old marker. Either way the billing
-            // service treats rows added here as current students (it also reads user_agent below).
-            'referral'           => $extra_cols['referral'] ?? self::MARKER,
+            // Only what the family answered ('' when not given). Whether the row came from an
+            // admin or an import is `created_via`, never the referral.
+            'referral'           => $extra_cols['referral'] ?? '',
             'course_type'        => $in['course'],
             'per_class_rate'     => (float) $calc['per_class_rate'],
             'calculated_amount'  => $gross,
@@ -295,10 +299,13 @@ class IQU_Billing_Add_Student
             'status'             => 'enrolled',
             'admin_note'         => $note,
             'ip_address'         => '',
-            'user_agent'         => 'IQU Billing (added by admin)',
+            'user_agent'         => $via === IQU_Database::VIA_IMPORT ? 'IQU Billing (imported from CSV)' : 'IQU Billing (added by admin)',
             'created_at'         => $now,
             'updated_at'         => $now,
         ];
+        // Written once the column is migrated; until then IQU_Database::created_via() reads the
+        // "IQU Billing (…)" user agent above, so the rules are the same either way.
+        if (IQU_Database::created_via_ready()) $row['created_via'] = $via;
 
         foreach ($extra_cols as $col => $value) {
             if ($col !== 'referral') $row[$col] = $value;

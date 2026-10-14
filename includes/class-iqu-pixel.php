@@ -81,6 +81,8 @@ class IQU_Pixel
                 . ' TOKEN=' . (defined('IQU_FB_CAPI_TOKEN') ? 'yes' : 'no'));
             return;
         }
+        // Only website submissions are leads (see IQU_Database::created_via()).
+        if (!IQU_Database::is_public_row($clean)) return;
         try {
             $payload = [
                 'event_name'       => 'Lead',
@@ -146,6 +148,8 @@ class IQU_Pixel
     public static function send_server_event(string $event_name, array $row, string $event_id, array $custom = []): void
     {
         if (!self::is_configured()) return;
+        // Students added by an admin or a CSV import are not website conversions.
+        if (!IQU_Database::is_public_row($row)) return;
         try {
             $ud = [];
             self::maybe_set($ud, 'em', self::hash_email($row['email'] ?? ''));

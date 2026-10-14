@@ -164,16 +164,18 @@ class IQU_Admin
     $total_revenue = $revenue_l1 + $revenue_l2;
 
     // ── Referral breakdown ────────────────────────────────────
-    $referral_rows = $wpdb->get_results(
-      "SELECT 
-        COALESCE(NULLIF(TRIM(referral), ''), 'unknown') AS ref_key,
+    // Only what families answered. The old "existing_student" marker that Billing used to
+    // store here is not an answer, so it counts as unknown; who added a row is created_via.
+    $referral_rows = $wpdb->get_results($wpdb->prepare(
+      "SELECT
+        CASE WHEN TRIM(referral) IN ('', %s) THEN 'unknown' ELSE TRIM(referral) END AS ref_key,
         COUNT(*) AS cnt
      FROM `{$table}`
      GROUP BY ref_key
      ORDER BY cnt DESC
      LIMIT 8",
-      ARRAY_A
-    );
+      IQU_Database::LEGACY_ADMIN_REFERRAL
+    ), ARRAY_A);
     $ref_labels = [];
     $ref_data   = [];
     $map = [
@@ -870,6 +872,13 @@ class IQU_Admin
             <div class="iqu-chart-body iqu-chart-body--referral">
                 <canvas id="iqu-referral-chart" aria-label="Registrations by referral source"></canvas>
             </div>
+            <?php $via = IQU_Database::created_via_counts(); if ($via[IQU_Database::VIA_ADMIN] + $via[IQU_Database::VIA_IMPORT] > 0): ?>
+            <p class="iqu-chart-note" data-created-via>
+                Added by admin: <strong><?php echo (int) $via[IQU_Database::VIA_ADMIN]; ?></strong>
+                · Imported from CSV: <strong><?php echo (int) $via[IQU_Database::VIA_IMPORT]; ?></strong>
+                · From the website: <strong><?php echo (int) $via[IQU_Database::VIA_PUBLIC]; ?></strong>
+            </p>
+            <?php endif; ?>
         </div>
         <div class="iqu-card">
             <div class="iqu-card-head">
@@ -1339,7 +1348,19 @@ class IQU_Admin
                 </div>
                 <div class="iqu-detail-item">
                     <div class="iqu-detail-lbl">Referral</div>
-                    <div class="iqu-detail-val"><?php echo esc_html($row['referral'] ?: '—'); ?></div>
+                    <div class="iqu-detail-val"><?php
+                        $ref_shown = $row['referral'] === IQU_Database::LEGACY_ADMIN_REFERRAL ? '' : (string) $row['referral'];
+                        if ($ref_shown === 'other' && !empty($row['referral_other'])) $ref_shown = 'other — ' . $row['referral_other'];
+                        echo esc_html($ref_shown ?: '—'); ?></div>
+                </div>
+                <div class="iqu-detail-item">
+                    <div class="iqu-detail-lbl">Added by</div>
+                    <div class="iqu-detail-val" data-created-via="<?php echo esc_attr(IQU_Database::created_via($row)); ?>"><?php
+                        echo esc_html([
+                            IQU_Database::VIA_PUBLIC => 'Website form',
+                            IQU_Database::VIA_ADMIN  => 'Admin (Add existing student)',
+                            IQU_Database::VIA_IMPORT => 'CSV import',
+                        ][IQU_Database::created_via($row)]); ?></div>
                 </div>
                 <div class="iqu-detail-item iqu-detail-full">
                     <div class="iqu-detail-lbl">Memorized</div>
@@ -1669,6 +1690,7 @@ class IQU_Admin
       'Enrollment Level', 'Guardian', 'Guardian Contact', 'Guardian WhatsApp',
       'WA Group', 'Admission Fee', 'Payment Method', 'Amount Due',
       'Transaction ID', 'Payment Status', 'Status', 'Registered At',
+      'Created Via', // website / admin / import — separate from Referral (what the family answered)
     ]);
     foreach ($rows as $r) {
       fputcsv($out, [
@@ -1716,6 +1738,7 @@ class IQU_Admin
         $r['payment_status'],
         $r['status'],
         $r['created_at'],
+        ['public' => 'website', 'admin' => 'admin', 'import' => 'import'][IQU_Database::created_via($r)],
       ]);
     }
     fclose($out);

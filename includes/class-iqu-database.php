@@ -33,6 +33,24 @@ class IQU_Database
      */
     public const STATUSES = ['pending', 'confirmed', 'contacted', 'enrolled', 'cancelled', 'card_pending', 'pending_review', 'expired', 'paid'];
 
+    /**
+     * How a row was created (`created_via` column): a public website form, Billing → Add
+     * existing student, or Billing → Import students. Read it with created_via(). Rows added
+     * by an admin or an import never get a free month, Meta events, card reminders, the 7-day
+     * expiry or the "card_pending" status. `referral` is only what the family answered.
+     */
+    public const VIA_PUBLIC = 'public';
+    public const VIA_ADMIN  = 'admin';
+    public const VIA_IMPORT = 'import';
+    public const VIA_VALUES = [self::VIA_PUBLIC, self::VIA_ADMIN, self::VIA_IMPORT];
+
+    /** What earlier versions wrote on rows added from Billing (before `created_via`). */
+    public const LEGACY_ADMIN_REFERRAL = 'existing_student';
+    public const LEGACY_ADMIN_UA_PREFIX = 'IQU Billing (';
+
+    /** Set once the created_via column is added, backfilled and verified: ['at', 'admin', 'public']. */
+    private const OPT_CREATED_VIA = 'iqu_created_via_migrated';
+
     /** Weekend প্রোগ্রামের দুটো form_type একসাথে। */
     public static function weekend_types(): array
     {
@@ -136,6 +154,7 @@ class IQU_Database
             pay_session_id     VARCHAR(100)        NOT NULL DEFAULT '',
             billing_account_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
             reminders_sent     TINYINT(3) UNSIGNED NOT NULL DEFAULT 0,
+            created_via        VARCHAR(10)         NOT NULL DEFAULT 'public',
             PRIMARY KEY        (id),
             KEY                email (email),
             KEY                form_type (form_type),
@@ -190,6 +209,122 @@ class IQU_Database
     public static function schema_ready(): bool
     {
         return get_option('iqu_db_version') === IQU_VERSION;
+    }
+
+    // ------------------------------------------------------------
+    // How a row was created (created_via)
+    // ------------------------------------------------------------
+
+    /**
+     * public | admin | import. A stored admin / import wins. Otherwise what Billing writes on
+     * every row it adds counts as admin: the "IQU Billing (…)" user agent, or the older
+     * `existing_student` referral marker. That covers rows from before the column existed and
+     * rows saved while the column holds only its default ('public') because the migration has
+     * not finished. Website forms never write either marker. Everything else → public.
+     */
+    public static function created_via(array $row): string
+    {
+        $via = (string) ($row['created_via'] ?? '');
+        if ($via === self::VIA_ADMIN || $via === self::VIA_IMPORT) return $via;
+        if ((string) ($row['referral'] ?? '') === self::LEGACY_ADMIN_REFERRAL
+            || strpos((string) ($row['user_agent'] ?? ''), self::LEGACY_ADMIN_UA_PREFIX) === 0) {
+            return self::VIA_ADMIN;
+        }
+        return self::VIA_PUBLIC;
+    }
+
+    /** True for rows a family submitted on the website. */
+    public static function is_public_row(array $row): bool
+    {
+        return self::created_via($row) === self::VIA_PUBLIC;
+    }
+
+    /** True once created_via exists and is backfilled; only then is it written or queried. */
+    public static function created_via_ready(): bool
+    {
+        return is_array(get_option(self::OPT_CREATED_VIA));
+    }
+
+    /** Rows by how they were created: ['public' => n, 'admin' => n, 'import' => n]. */
+    public static function created_via_counts(): array
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . IQU_TABLE_NAME;
+        $out   = array_fill_keys(self::VIA_VALUES, 0);
+        if (self::created_via_ready()) {
+            foreach ((array) $wpdb->get_results("SELECT created_via AS via, COUNT(*) AS n FROM {$table} GROUP BY created_via", ARRAY_A) as $r) {
+                if (isset($out[$r['via']])) $out[$r['via']] = (int) $r['n'];
+            }
+            return $out;
+        }
+        $out[self::VIA_ADMIN]  = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$table} WHERE referral = %s OR user_agent LIKE %s",
+            self::LEGACY_ADMIN_REFERRAL, $wpdb->esc_like(self::LEGACY_ADMIN_UA_PREFIX) . '%'
+        ));
+        $out[self::VIA_PUBLIC] = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}") - $out[self::VIA_ADMIN];
+        return $out;
+    }
+
+    /** Backfill counts from the migration (admin, public), or [] before it has run. */
+    public static function created_via_backfill(): array
+    {
+        $o = get_option(self::OPT_CREATED_VIA);
+        return is_array($o) ? $o : [];
+    }
+
+    /**
+     * One-time migration: add `created_via` (apply_schema first, then an explicit ALTER if
+     * dbDelta did not add it; dbDelta also never changes NULL / NOT NULL, so a nullable
+     * column is fixed with MODIFY after its NULLs are filled), then backfill:
+     * rows with the old Billing markers → admin, every other row → public.
+     * Nothing else in any row is changed. The flag is set only after verifying.
+     */
+    public static function maybe_migrate_created_via(): void
+    {
+        global $wpdb;
+        if (self::created_via_ready()) return;
+        $table = $wpdb->prefix . IQU_TABLE_NAME;
+        $def   = "VARCHAR(10) NOT NULL DEFAULT '" . self::VIA_PUBLIC . "'";
+
+        $cols = self::registration_columns();
+        if (!$cols) return;
+        if (!isset($cols['created_via'])) {
+            self::create_table();
+            $cols = self::registration_columns();
+        }
+        if (!isset($cols['created_via'])) {
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN created_via {$def}");
+            $cols = self::registration_columns();
+        }
+        if (!isset($cols['created_via'])) {
+            error_log('[IQU] created_via column could not be added (' . $wpdb->last_error . '); will retry.');
+            return;
+        }
+
+        // Backfill. Empty / NULL first (a nullable column added by hand), then the markers.
+        $wpdb->query($wpdb->prepare("UPDATE {$table} SET created_via = %s WHERE created_via IS NULL OR created_via = ''", self::VIA_PUBLIC));
+        $wpdb->query($wpdb->prepare(
+            "UPDATE {$table} SET created_via = %s WHERE created_via = %s AND (referral = %s OR user_agent LIKE %s)",
+            self::VIA_ADMIN, self::VIA_PUBLIC, self::LEGACY_ADMIN_REFERRAL, $wpdb->esc_like(self::LEGACY_ADMIN_UA_PREFIX) . '%'
+        ));
+        if (strtoupper((string) ($cols['created_via']['Null'] ?? 'NO')) === 'YES') {
+            $wpdb->query("ALTER TABLE {$table} MODIFY COLUMN created_via {$def}");
+        }
+
+        // Verify: every row has a known value.
+        $in  = implode(',', array_fill(0, count(self::VIA_VALUES), '%s'));
+        $bad = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table} WHERE created_via IS NULL OR created_via NOT IN ({$in})", ...self::VIA_VALUES));
+        if ($bad > 0) {
+            error_log("[IQU] created_via backfill left {$bad} rows without a value; will retry.");
+            return;
+        }
+        $count = fn(string $v) => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table} WHERE created_via = %s", $v));
+        update_option(self::OPT_CREATED_VIA, [
+            'at'     => gmdate('Y-m-d H:i:s'),
+            'admin'  => $count(self::VIA_ADMIN),
+            'import' => $count(self::VIA_IMPORT),
+            'public' => $count(self::VIA_PUBLIC),
+        ], false);
     }
 
     public static function waitlist_table(): string
@@ -249,7 +384,19 @@ class IQU_Database
     {
         global $wpdb;
         if (!in_array($status, self::STATUSES, true)) return false;
+        if (!self::status_allowed_for($id, $status)) return false;
         return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, ['status' => $status], ['id' => $id], ['%s'], ['%d']);
+    }
+
+    /**
+     * "card_pending" (waiting for the family to add a card on the website) only exists for
+     * rows a family submitted online; admin and import rows never enter it.
+     */
+    private static function status_allowed_for(int $id, string $status): bool
+    {
+        if ($status !== 'card_pending') return true;
+        $row = self::get_registration($id);
+        return $row !== null && self::is_public_row($row);
     }
 
     /** Update the 3.3.0 enrollment columns of one registration. Unknown keys are ignored. */
@@ -294,6 +441,8 @@ class IQU_Database
         if ($stored !== IQU_VERSION) {
             self::create_table();
         }
+        // Own flag rather than the version: it also runs on sites already at this version.
+        self::maybe_migrate_created_via();
         // One-time import from the legacy IUQ plugin table, if present.
         self::maybe_migrate_from_iuq();
     }
@@ -594,6 +743,9 @@ class IQU_Database
         $table = $wpdb->prefix . IQU_TABLE_NAME;
 
         if (! in_array($status, self::STATUSES, true)) {
+            return false;
+        }
+        if (! self::status_allowed_for($id, $status)) {
             return false;
         }
 

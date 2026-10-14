@@ -56,8 +56,10 @@ class IQU_Enrollment
         $cut = gmdate('Y-m-d H:i:s', $since ?: time() - DAY_IN_SECONDS);
         $n = fn(string $sql, array $args) => (int) $wpdb->get_var($wpdb->prepare($sql, $args));
 
-        $started   = $n("SELECT COUNT(*) FROM {$t} WHERE form_type = %s AND created_at >= %s AND (billing_account_id > 0 OR status = %s)", [IQU_Database::FORM_FREE, $cut, 'card_pending']);
-        $completed = $n("SELECT COUNT(*) FROM {$t} WHERE status = %s AND billing_account_id > 0 AND updated_at >= %s", ['enrolled', $cut]);
+        // Online enrollments only (rows added by an admin or an import are not counted).
+        $online    = IQU_Database::created_via_ready() ? $wpdb->prepare(' AND created_via = %s', IQU_Database::VIA_PUBLIC) : '';
+        $started   = $n("SELECT COUNT(*) FROM {$t} WHERE form_type = %s AND created_at >= %s AND (billing_account_id > 0 OR status = %s){$online}", [IQU_Database::FORM_FREE, $cut, 'card_pending']);
+        $completed = $n("SELECT COUNT(*) FROM {$t} WHERE status = %s AND billing_account_id > 0 AND updated_at >= %s{$online}", ['enrolled', $cut]);
         $review    = $n("SELECT COUNT(*) FROM {$t} WHERE status = %s AND created_at >= %s", ['pending_review', $cut]);
         $paid      = $n("SELECT COUNT(*) FROM {$t} WHERE status = %s AND updated_at >= %s", ['paid', $cut]);
         $waiting   = $n("SELECT COUNT(*) FROM {$t} WHERE status = %s", ['card_pending']);
@@ -217,7 +219,8 @@ class IQU_Enrollment
             $done = [];
             foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
                 $reg = IQU_Database::get_registration((int) $m['registration_id']);
-                if ($reg && $reg['status'] === 'card_pending' && IQU_Database::set_status((int) $reg['id'], 'enrolled')) {
+                // Website enrollments only: admin / import rows get no welcome email, Meta event or Telegram here.
+                if ($reg && $reg['status'] === 'card_pending' && IQU_Database::is_public_row($reg) && IQU_Database::set_status((int) $reg['id'], 'enrolled')) {
                     $reg['status'] = 'enrolled';
                     $done[] = $reg;
                 }
@@ -325,6 +328,8 @@ class IQU_Enrollment
         ), ARRAY_A) ?: [];
 
         foreach ($rows as $reg) {
+            // Card reminders and the 7-day expiry are for website enrollments only.
+            if (!IQU_Database::is_public_row($reg)) continue;
             $id   = (int) $reg['id'];
             $age  = $now - (int) strtotime($reg['created_at'] . ' UTC');
             $bits = (int) $reg['reminders_sent'];

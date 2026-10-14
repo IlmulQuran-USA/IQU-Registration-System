@@ -89,8 +89,8 @@ class IQU_Billing_Service
     /** 'new' while the free first month is still running, otherwise 'current'. */
     public static function student_type(array $reg): string
     {
-        // Added via Billing (Add existing student / Import) — always current; see IQU_Billing_Add_Student.
-        if (($reg['referral'] ?? '') === 'existing_student' || ($reg['user_agent'] ?? '') === 'IQU Billing (added by admin)') return 'current';
+        // Added via Billing (Add existing student / Import) — always current: no free month.
+        if (!IQU_Database::is_public_row($reg)) return 'current';
         $created = strtotime((string) ($reg['created_at'] ?? '') . ' UTC');
         if ($created && $created > time() - self::FREE_MONTH_DAYS * DAY_IN_SECONDS) return 'new';
         return 'current';

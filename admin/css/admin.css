@@ -1314,6 +1314,18 @@
   width: 100% !important;
   height: 100% !important;
 }
+/* Under the referral chart: rows added by an admin or a CSV import (not a referral source). */
+.iqu-chart-note {
+  margin: 0;
+  padding: 8px 16px 12px;
+  border-top: 1px solid var(--iqu-bdr);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--iqu-text2);
+}
+.iqu-chart-note strong {
+  color: var(--iqu-text1);
+}
 
 /* Referral chips */
 .iqu-ref-chip {
