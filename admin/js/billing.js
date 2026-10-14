@@ -199,8 +199,9 @@
     };
     if (!round) {
       options.scales = {
-        x: { stacked: !!cfg.stacked, grid: { display: false }, ticks: { color: token("text2") } },
-        y: { stacked: !!cfg.stacked, beginAtZero: true, ticks: { color: token("text2"), precision: 0, callback: function (v) { return money ? "$" + Number(v).toLocaleString("en-US") : v; } }, grid: { color: token("bdr") } }
+        // Axis labels in the body-text colour (read from the theme token, so a dark theme stays readable); grid lines stay light.
+        x: { stacked: !!cfg.stacked, grid: { display: false }, ticks: { color: token("text1") } },
+        y: { stacked: !!cfg.stacked, beginAtZero: true, ticks: { color: token("text1"), precision: 0, callback: function (v) { return money ? "$" + Number(v).toLocaleString("en-US") : v; } }, grid: { color: token("bdr") } }
       };
     } else {
       options.cutout = "62%";
