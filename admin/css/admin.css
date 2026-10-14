@@ -1797,52 +1797,126 @@
   margin-bottom: 16px;
 }
 
-/* Coupon List: the discount card sits inside the metric grid.
-   ≥1200px: six columns (shared rule below) — four cards + the discount card spanning two.
-   601–1199px: four columns, the discount card takes its own full row. ≤600px: two columns, full row. */
+/* Coupon List: four small cards and the discount card. Cards are as tall as their content.
+   ≥1280px: one row (six columns, the discount card spans two). 1024–1279px: the four small
+   cards in a row, the discount card below. 601–1023px: two columns. ≤600px: one column. */
+.iqu-metrics.iqu-metrics--coupons {
+  align-items: start;
+}
 .iqu-metrics--coupons .iqu-discount-card {
   margin-bottom: 0;
   grid-column: 1 / -1;
 }
-@media (min-width: 601px) and (max-width: 1199px) {
+@media (min-width: 1024px) and (max-width: 1279px) {
   .iqu-metrics.iqu-metrics--coupons {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
-@media (min-width: 1200px) {
+@media (min-width: 1280px) {
+  .iqu-metrics.iqu-metrics--coupons {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
   .iqu-metrics--coupons .iqu-discount-card {
     grid-column: span 2;
   }
-  /* Two columns wide: the four amounts read as a compact list so the row stays short. */
-  .iqu-metrics--coupons .iqu-discount-grid {
+}
+@media (min-width: 601px) and (max-width: 1023px) {
+  .iqu-metrics.iqu-metrics--coupons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .iqu-metrics.iqu-metrics--coupons {
     grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
   }
-  .iqu-metrics--coupons .iqu-discount-head {
-    padding-bottom: 8px;
-    margin-bottom: 8px;
-  }
-  .iqu-metrics--coupons .iqu-discount-item {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "lbl sub amt";
-    align-items: baseline;
-    column-gap: 8px;
-    padding: 5px 10px;
-  }
-  .iqu-metrics--coupons .iqu-discount-amt {
-    grid-area: amt;
-    font-size: 14px;
-    font-variant-numeric: tabular-nums;
-  }
-  .iqu-metrics--coupons .iqu-discount-lbl {
-    grid-area: lbl;
-    margin-top: 0;
-  }
-  .iqu-metrics--coupons .iqu-discount-sub {
-    grid-area: sub;
-    margin-top: 0;
-  }
+}
+/* Small cards: icon chip, number, label, and one line on what the number means. */
+.iqu-cpn-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.iqu-cpn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  color: var(--iqu-navy);
+  background: color-mix(in srgb, var(--iqu-navy) 10%, var(--iqu-bg1));
+}
+.iqu-cpn-card--active .iqu-cpn-icon { color: var(--iqu-blue); background: color-mix(in srgb, var(--iqu-blue) 10%, var(--iqu-bg1)); }
+.iqu-cpn-card--expired .iqu-cpn-icon { color: var(--iqu-orange); background: color-mix(in srgb, var(--iqu-orange) 10%, var(--iqu-bg1)); }
+.iqu-cpn-card--redeemed .iqu-cpn-icon { color: var(--iqu-purple); background: color-mix(in srgb, var(--iqu-purple) 10%, var(--iqu-bg1)); }
+.iqu-cpn-icon .dashicons {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+.iqu-cpn-line {
+  font-size: 12px;
+  color: var(--iqu-text2);
+  line-height: 1.4;
+}
+.iqu-cpn-note {
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--iqu-text1);
+  background: var(--iqu-bg2);
+  border-radius: var(--iqu-radius-md);
+}
+.iqu-cpn-note a {
+  font-weight: 600;
+}
+/* Discount card: total up top, then one row per type with its share as a thin bar. */
+.iqu-discount-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.iqu-discount-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "lbl amt" "bar bar" "sub sub";
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 4px;
+  margin: 0;
+}
+.iqu-discount-row .iqu-discount-lbl {
+  grid-area: lbl;
+  margin: 0;
+}
+.iqu-discount-row .iqu-discount-amt {
+  grid-area: amt;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.iqu-discount-row .iqu-discount-sub {
+  grid-area: sub;
+  margin: 0;
+  font-style: normal;
+}
+.iqu-discount-bar {
+  grid-area: bar;
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--iqu-bg2);
+  overflow: hidden;
+}
+.iqu-discount-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--iqu-green), var(--iqu-gold));
 }
 .iqu-metric-lbl .dashicons,
 .iqu-discount-title .dashicons {

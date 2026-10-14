@@ -296,30 +296,32 @@ class IQU_Coupon_Admin
     <?php $this->render_top_bar('Coupon List', self::PAGE_LIST); ?>
     <?php $this->render_notice(); ?>
 
-    <!-- ── Metric Cards ─────────────────────────────── -->
+    <!-- ── Metric Cards: icon, number, label, and what the number means ── -->
+    <?php
+        $students = fn(int $n) => $n . ' ' . ($n === 1 ? 'student' : 'students');
+        $cards = [
+            ['total', 'tag', (int) $stats['total'], 'Total coupons', (int) $stats['total'] . ' created'],
+            ['active', 'yes-alt', (int) $stats['active'], 'Active', 'can be used now'],
+            ['expired', 'clock', (int) $stats['expired'], 'Expired', 'past date or all uses taken'],
+            ['redeemed', 'tickets-alt', (int) $stats['redeemed'], 'Times redeemed',
+                (int) $stats['unlimited'] > 0 || (int) $stats['capacity'] === 0 ? 'across all coupons' : (int) $stats['redeemed'] . ' of ' . (int) $stats['capacity'] . ' uses'],
+        ];
+    ?>
     <div class="iqu-metrics iqu-metrics--coupons">
-        <div class="iqu-metric">
-            <div class="iqu-metric-accent iqu-metric-accent--total"></div>
-            <div class="iqu-metric-num"><?php echo (int) $stats['total']; ?></div>
-            <div class="iqu-metric-lbl">Total Coupons</div>
+        <?php foreach ($cards as [$key, $icon, $num, $label, $line]): ?>
+        <div class="iqu-metric iqu-cpn-card iqu-cpn-card--<?php echo esc_attr($key); ?>">
+            <div class="iqu-metric-accent iqu-metric-accent--<?php echo esc_attr(['total' => 'total', 'active' => 'free', 'expired' => 'expired', 'redeemed' => 'redeemed'][$key]); ?>"></div>
+            <span class="iqu-cpn-icon" aria-hidden="true"><span class="dashicons dashicons-<?php echo esc_attr($icon); ?>"></span></span>
+            <div class="iqu-metric-num"><?php echo (int) $num; ?></div>
+            <div class="iqu-metric-lbl"><?php echo esc_html($label); ?></div>
+            <div class="iqu-cpn-line"><?php echo esc_html($line); ?></div>
+            <?php if ($key === 'active' && $num === 0): ?>
+            <p class="iqu-cpn-note">No coupon can be used right now. <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_CREATE)); ?>">Create a coupon</a></p>
+            <?php endif; ?>
         </div>
-        <div class="iqu-metric">
-            <div class="iqu-metric-accent iqu-metric-accent--free"></div>
-            <div class="iqu-metric-num"><?php echo (int) $stats['active']; ?></div>
-            <div class="iqu-metric-lbl"><span class="dashicons dashicons-yes-alt" aria-hidden="true"></span> Active</div>
-        </div>
-        <div class="iqu-metric">
-            <div class="iqu-metric-accent iqu-metric-accent--expired"></div>
-            <div class="iqu-metric-num"><?php echo (int) $stats['expired']; ?></div>
-            <div class="iqu-metric-lbl"><span class="dashicons dashicons-clock" aria-hidden="true"></span> Expired</div>
-        </div>
-        <div class="iqu-metric">
-            <div class="iqu-metric-accent iqu-metric-accent--redeemed"></div>
-            <div class="iqu-metric-num"><?php echo (int) $stats['redeemed']; ?></div>
-            <div class="iqu-metric-lbl"><span class="dashicons dashicons-tickets-alt" aria-hidden="true"></span> Times Redeemed</div>
-        </div>
+        <?php endforeach; ?>
 
-    <!-- Discount summary — inside the grid: two columns wide on wide screens, full width on mobile -->
+    <!-- Discount summary — inside the grid: two columns wide on wide screens, full width below -->
     <div class="iqu-metric iqu-discount-card">
         <div class="iqu-metric-accent iqu-metric-accent--discount"></div>
         <div class="iqu-discount-head">
@@ -328,44 +330,20 @@ class IQU_Coupon_Admin
                 <?php echo esc_html(IQU_Pricing::format($discounts['total'])); ?>
             </span>
         </div>
-        <div class="iqu-discount-grid">
-            <div class="iqu-discount-item">
-                <div class="iqu-discount-amt">
-                    <?php echo esc_html(IQU_Pricing::format($discounts['full'])); ?>
-                </div>
-                <div class="iqu-discount-lbl">Full Scholarship</div>
-                <div class="iqu-discount-sub">
-                    <?php echo (int) $discounts['full_count']; ?> student(s)
-                </div>
-            </div>
-            <div class="iqu-discount-item">
-                <div class="iqu-discount-amt">
-                    <?php echo esc_html(IQU_Pricing::format($discounts['special'])); ?>
-                </div>
-                <div class="iqu-discount-lbl">Special Discount</div>
-                <div class="iqu-discount-sub">
-                    <?php echo (int) $discounts['special_count']; ?> student(s)
-                </div>
-            </div>
-            <div class="iqu-discount-item">
-                <div class="iqu-discount-amt">
-                    <?php echo esc_html(IQU_Pricing::format($discounts['percent'])); ?>
-                </div>
-                <div class="iqu-discount-lbl">Percentage Coupon</div>
-                <div class="iqu-discount-sub">
-                    <?php echo (int) $discounts['percent_count']; ?> student(s)
-                </div>
-            </div>
-            <div class="iqu-discount-item">
-                <div class="iqu-discount-amt">
-                    <?php echo esc_html(IQU_Pricing::format($discounts['fixed'])); ?>
-                </div>
-                <div class="iqu-discount-lbl">Fixed Amount Coupon</div>
-                <div class="iqu-discount-sub">
-                    <?php echo (int) $discounts['fixed_count']; ?> student(s)
-                </div>
-            </div>
-        </div>
+        <ul class="iqu-discount-rows">
+            <?php foreach ([
+                ['full', 'Full Scholarship'], ['special', 'Special Discount'], ['percent', 'Percentage Coupon'], ['fixed', 'Fixed Amount Coupon'],
+            ] as [$k, $label]):
+                $amt   = (float) $discounts[$k];
+                $share = $discounts['total'] > 0 ? (int) round($amt / $discounts['total'] * 100) : 0; ?>
+            <li class="iqu-discount-row">
+                <span class="iqu-discount-lbl"><?php echo esc_html($label); ?></span>
+                <span class="iqu-discount-amt"><?php echo esc_html(IQU_Pricing::format($amt)); ?></span>
+                <span class="iqu-discount-bar" role="img" aria-label="<?php echo esc_attr($share . '% of the total'); ?>"><span style="width:<?php echo (int) $share; ?>%"></span></span>
+                <span class="iqu-discount-sub"><?php echo esc_html($share . '% · ' . $students((int) $discounts[$k . '_count'])); ?></span>
+            </li>
+            <?php endforeach; ?>
+        </ul>
     </div>
     </div>
 

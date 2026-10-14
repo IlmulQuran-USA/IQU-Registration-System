@@ -211,18 +211,24 @@ class IQU_Coupon_DB
         $table = self::table();
         $today = current_time('Y-m-d');
 
+        // Active = can be used now (enabled, not past its date, uses left; max_uses 0 = no limit).
+        // Expired = past its date, or every use taken.
         return [
-            'total'    => (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$table}`"),
-            'active'   => (int) $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM `{$table}` WHERE `status` = %s AND (`expire_date` IS NULL OR `expire_date` >= %s)",
+            'total'     => (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$table}`"),
+            'active'    => (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM `{$table}` WHERE `status` = %s AND (`expire_date` IS NULL OR `expire_date` >= %s)
+                   AND (`max_uses` = 0 OR `used_count` < `max_uses`)",
                 self::STATUS_ACTIVE,
                 $today
             )),
-            'expired'  => (int) $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM `{$table}` WHERE `expire_date` IS NOT NULL AND `expire_date` < %s",
+            'expired'   => (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM `{$table}` WHERE (`expire_date` IS NOT NULL AND `expire_date` < %s)
+                   OR (`max_uses` > 0 AND `used_count` >= `max_uses`)",
                 $today
             )),
-            'redeemed' => (int) $wpdb->get_var("SELECT COALESCE(SUM(`used_count`),0) FROM `{$table}`"),
+            'redeemed'  => (int) $wpdb->get_var("SELECT COALESCE(SUM(`used_count`),0) FROM `{$table}`"),
+            'capacity'  => (int) $wpdb->get_var("SELECT COALESCE(SUM(`max_uses`),0) FROM `{$table}`"),
+            'unlimited' => (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$table}` WHERE `max_uses` = 0"),
         ];
     }
 
