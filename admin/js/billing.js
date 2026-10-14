@@ -430,6 +430,27 @@
     if (input.files && input.files.length) show();
   };
 
+  /**
+   * Import preview: each row's "Details" button (aria-controls = its detail row) shows the
+   * columns that are not in the table. A detail row is shown only while its row is shown and
+   * its button is expanded.
+   */
+  B.syncImportDetails = function (table) {
+    table.querySelectorAll("tr.iqu-import-detail").forEach(function (detail) {
+      var row = detail.previousElementSibling;
+      var btn = row ? row.querySelector("[data-detail-toggle]") : null;
+      detail.hidden = !row || row.hidden || !btn || btn.getAttribute("aria-expanded") !== "true";
+    });
+  };
+  B.importDetails = function (table) {
+    table.addEventListener("click", function (e) {
+      var btn = e.target.closest ? e.target.closest("[data-detail-toggle]") : null;
+      if (!btn) return;
+      btn.setAttribute("aria-expanded", btn.getAttribute("aria-expanded") === "true" ? "false" : "true");
+      B.syncImportDetails(table);
+    });
+  };
+
   /** "Show only rows with problems" (checkbox[data-only-problems="TABLE_ID"]). */
   B.onlyProblems = function (box) {
     var table = document.getElementById(box.getAttribute("data-only-problems"));
@@ -437,11 +458,12 @@
     function apply() {
       var any = false;
       table.querySelectorAll("tbody tr").forEach(function (tr) {
-        if (tr.classList.contains("iqu-import-none")) return;
+        if (tr.classList.contains("iqu-import-none") || tr.classList.contains("iqu-import-detail")) return;
         var problem = tr.hasAttribute("data-problem");
         if (problem) any = true;
         tr.hidden = box.checked && !problem;
       });
+      B.syncImportDetails(table);
       var none = table.querySelector(".iqu-import-none");
       if (none) none.hidden = !(box.checked && !any);
     }
@@ -496,6 +518,7 @@
     var addForm = document.getElementById("iqu-add-student-form");
     if (addForm) B.addStudent(addForm, root.IQU_BILLING_ADD || {});
     document.querySelectorAll("[data-dropzone]").forEach(B.importDrop);
+    document.querySelectorAll("table.iqu-import-tbl").forEach(B.importDetails);
     document.querySelectorAll("input[data-only-problems]").forEach(B.onlyProblems);
     var data = root.IQU_BILLING || {};
     (data.charts || []).forEach(function (c) {

@@ -1399,6 +1399,16 @@ class IQU_Admin
                 $d_days     = (int) ($row['days_per_week'] ?? 0);
                 ?>
 
+                <?php if (class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::course_missing($row)): ?>
+                <div class="iqu-detail-item iqu-detail-full">
+                    <div class="iqu-detail-lbl">Course</div>
+                    <div class="iqu-detail-val">
+                        <span class="iqu-status-badge iqu-sb-pending" data-course-missing>Course missing</span>
+                        <small>Billing cannot start until a course is chosen: Student Billing → Needs course → Choose course.</small>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <?php if ($d_course !== ''): ?>
                 <!-- ── নতুন সিস্টেম (v2.8.0+) ── -->
                 <div class="iqu-detail-item">

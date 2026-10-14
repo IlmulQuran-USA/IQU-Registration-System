@@ -163,6 +163,9 @@ class IQU_Billing_Send
                                             <option value="<?php echo esc_attr($k); ?>" <?php selected($courses[$id] ?? '', $k); ?>><?php echo esc_html(IQU_Pricing::label($k)); ?></option>
                                         <?php endforeach; ?>
                                     </select>
+                                    <?php if (IQU_Billing_Pricing::course_missing($reg)): ?>
+                                        <br><span class="iqu-billing-sub" data-course-missing>Course missing on the record. The course you choose is saved on it when billing is created.</span>
+                                    <?php endif; ?>
                                     <?php if ((int) $reg['days_per_week'] <= 0): ?>
                                         <label class="screen-reader-text" for="d<?php echo $id; ?>">Days per week</label>
                                         <select id="d<?php echo $id; ?>" name="days[<?php echo $id; ?>]">

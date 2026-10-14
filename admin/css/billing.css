@@ -1652,6 +1652,145 @@ th[aria-sort="descending"] .iqu-sort::after {
   color: var(--iqu-text1);
 }
 
+/* Warnings: saved, but worth a look (gold rather than red). */
+.iqu-problem-list.is-warning {
+  color: color-mix(in srgb, var(--iqu-gold) 65%, var(--iqu-text1));
+}
+
+/* "X OK · Y with warnings · Z rejected" above the chips. */
+.iqu-import-summary {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: var(--iqu-text1);
+}
+
+.iqu-import-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.iqu-import-results-form {
+  margin: 0;
+}
+
+.iqu-import-dry {
+  margin-top: 12px;
+}
+
+/* Row number with its "Details" toggle; the detail row lists the other columns. */
+.iqu-import-tbl .iqu-td-id {
+  white-space: nowrap;
+}
+
+.iqu-import-detail-btn {
+  display: block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--iqu-blue);
+  background: transparent;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.iqu-import-detail-btn:hover {
+  border-color: var(--iqu-blue);
+}
+
+.iqu-import-detail-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--iqu-blue);
+}
+
+.iqu-import-detail-btn[aria-expanded="true"] {
+  color: #fff;
+  background: var(--iqu-blue);
+  border-color: var(--iqu-blue);
+}
+
+.iqu-import-tbl tr.iqu-import-detail td {
+  background: var(--iqu-bg2);
+}
+
+.iqu-import-detail-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px 20px;
+  margin: 0;
+}
+
+.iqu-import-detail-list > div {
+  min-width: 0;
+}
+
+.iqu-import-detail-list dt {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--iqu-text2);
+}
+
+.iqu-import-detail-list dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--iqu-text1);
+}
+
+/* Ten columns: let the cells wrap (the base table does not) so Messages stays in view; the
+   table still scrolls inside its box on narrow screens. */
+.iqu-import-tbl th,
+.iqu-import-tbl td {
+  white-space: normal;
+}
+
+.iqu-import-tbl td.iqu-td-email {
+  min-width: 150px;
+  max-width: 190px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.iqu-import-tbl td.iqu-import-msgs {
+  min-width: 240px;
+}
+
+/* Add student: warnings to confirm before saving. */
+.iqu-confirm-warnings {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--iqu-gold) 10%, var(--iqu-bg1));
+  border: 1px solid color-mix(in srgb, var(--iqu-gold) 40%, var(--iqu-bg1));
+  border-radius: var(--iqu-radius-md, 8px);
+}
+
+.iqu-confirm-warnings p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+}
+
+.iqu-confirm-warnings .dashicons {
+  color: var(--iqu-gold);
+}
+
+.iqu-confirm-warnings ul {
+  margin: 0 0 8px 20px;
+  list-style: disc;
+}
+
+/* "Course missing" badge next to the course (Student Billing, student page). */
+.iqu-course-missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* Confirm / Cancel stay in view at the bottom of the screen while scrolling the rows. */
 /* (position: sticky needs every ancestor to let it overflow, so the preview card does.) */
 .iqu-billing .iqu-import-preview {

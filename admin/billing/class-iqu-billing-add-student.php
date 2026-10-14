@@ -74,7 +74,12 @@ class IQU_Billing_Add_Student
 
         $prep = self::prepare($in);
         if ($prep['errors']) {
-            self::flash(['errors' => $prep['errors'], 'old' => $in]);
+            self::flash(['errors' => $prep['errors'], 'warnings' => $prep['warnings'], 'old' => $in]);
+            self::back();
+        }
+        // Warnings (age under 4, an "Other" answer) can be saved, after the admin confirms them.
+        if ($prep['warnings'] && empty($_POST['confirm_warnings'])) {
+            self::flash(['warnings' => $prep['warnings'], 'confirm' => true, 'old' => $in]);
             self::back();
         }
 
@@ -129,6 +134,7 @@ class IQU_Billing_Add_Student
             'session_dur'    => sanitize_text_field((string) ($p['session_dur'] ?? '')),
             'teacher_pref'   => sanitize_text_field((string) ($p['teacher_pref'] ?? '')),
             'referral'       => sanitize_text_field((string) ($p['referral'] ?? '')),
+            'referral_other' => sanitize_text_field((string) ($p['referral_other'] ?? '')),
         ];
     }
 
@@ -138,12 +144,16 @@ class IQU_Billing_Add_Student
      * enrollment ("saturday, monday", "english, arabic", "30", "05:00 PM – 06:00 PM (CST)").
      * CSV cells may use common spellings: "Mon", "30 min", "Bangla", "any", "Friend/Family".
      *
-     * @return array{0:array<string,mixed>,1:string[]} [columns, errors]
+     * Three outcomes per value: fine, a warning (saved, but the admin should look: age under 4,
+     * an "Other" answer), or an error (not saved).
+     *
+     * @return array{0:array<string,mixed>,1:string[],2:string[]} [columns, errors, warnings]
      */
     public static function clean_extra(array $x, int $days): array
     {
         $cols = [];
         $e    = [];
+        $w    = [];
         $list = function ($v): array {
             $items = is_array($v) ? $v : preg_split('/[,;\/|]+/', (string) $v);
             return array_values(array_filter(array_map(fn($s) => strtolower(trim((string) $s)), $items), fn($s) => $s !== ''));
@@ -151,8 +161,12 @@ class IQU_Billing_Add_Student
 
         $age = trim((string) ($x['age'] ?? ''));
         if ($age !== '' && $age !== '0') {
-            if (!preg_match('/^\d{1,3}$/', $age) || (int) $age < 4 || (int) $age > 100) $e[] = 'Age must be between 4 and 100.';
-            else $cols['age'] = (int) $age;
+            if (!preg_match('/^\d{1,3}$/', $age) || (int) $age < 1 || (int) $age > 100) {
+                $e[] = 'Age must be a number from 1 to 100.';
+            } else {
+                $cols['age'] = (int) $age;
+                if ((int) $age < 4) $w[] = 'Age under 4 — please confirm.';
+            }
         }
         foreach (['country_origin', 'country_res'] as $k) {
             $v = self::clean_text((string) ($x[$k] ?? ''));
@@ -217,15 +231,24 @@ class IQU_Billing_Add_Student
         }
 
         $ref = strtolower(trim((string) ($x['referral'] ?? '')));
+        // "Other", or "Other: a cousin" / "Other - a cousin" / "Other (a cousin)" in a CSV cell. Any
+        // text given is kept, as on the website form; the admin is asked to check it.
+        if (preg_match('/^\s*other\b\s*[:\-–(]?\s*(.*?)\)?\s*$/iu', (string) ($x['referral'] ?? ''), $om)) {
+            $other = self::clean_text(trim(($om[1] ?? '') !== '' ? $om[1] : (string) ($x['referral_other'] ?? '')));
+            $cols['referral']       = 'other';
+            $cols['referral_other'] = substr($other, 0, 200);
+            $w[] = "'Other' answer — check and update manually.";
+            $ref = '';
+        }
         if ($ref !== '') {
             $key = '';
             foreach (IQU_Reg_Fields::REFERRALS as $k => $label) {
                 if ($ref === $k || $ref === strtolower($label) || preg_replace('/[^a-z]/', '', $ref) === preg_replace('/[^a-z]/', '', $k)) $key = $k;
             }
-            if ($key === '') $e[] = 'How they heard about us must be one of: ' . implode(', ', IQU_Reg_Fields::REFERRALS) . '.';
+            if ($key === '') $e[] = 'How they heard about us must be one of: ' . implode(', ', IQU_Reg_Fields::REFERRALS) . ' or Other.';
             else $cols['referral'] = $key;
         }
-        return [$cols, $e];
+        return [$cols, $e, $w];
     }
 
     /**
@@ -238,11 +261,24 @@ class IQU_Billing_Add_Student
      */
     public static function prepare(array $in): array
     {
-        $errors = self::validate($in);
-        [$extra_cols, $extra_errors] = self::clean_extra(is_array($in['extra'] ?? null) ? $in['extra'] : [], (int) ($in['days'] ?? 0));
-        $errors = array_merge($errors, $extra_errors);
-        $calc   = null;
-        if (!$errors) {
+        $warnings = [];
+        // CSV only (course_raw is the cell as typed): a course that matches no course on the
+        // website is saved blank with a warning; billing then waits until a course is chosen.
+        // An empty Course cell is still a missing required field. The form's course is a menu.
+        $raw            = trim((string) ($in['course_raw'] ?? ''));
+        $course_missing = $raw !== '' && !IQU_Pricing::is_valid_course((string) $in['course']);
+        if ($course_missing) {
+            $allowed = implode(', ', array_map(fn($k) => IQU_Pricing::label($k) . " ({$k})", IQU_Pricing::course_keys()));
+            $warnings[]   = "Course '{$raw}' not found — left blank. Allowed: {$allowed}.";
+            $in['course'] = '';
+        }
+
+        $errors = self::validate($in, $course_missing);
+        [$extra_cols, $extra_errors, $extra_warnings] = self::clean_extra(is_array($in['extra'] ?? null) ? $in['extra'] : [], (int) ($in['days'] ?? 0));
+        $errors   = array_merge($errors, $extra_errors);
+        $warnings = array_merge($warnings, $extra_warnings);
+        $calc     = null;
+        if (!$errors && !$course_missing) {
             $calc = IQU_Pricing::calculate($in['course'], (int) $in['days']);
             if (empty($calc['valid'])) {
                 $errors[] = $calc['error'] ?: 'Invalid course or days.';
@@ -251,7 +287,9 @@ class IQU_Billing_Add_Student
 
         $gross    = $calc ? round((float) $calc['monthly_amount'], 2) : 0.0;
         $discount = 0.0;
-        if (!$errors && !empty($in['use_agreed'])) {
+        if (!$errors && !empty($in['use_agreed']) && $course_missing) {
+            $errors[] = 'The agreed fee needs a course from the list, so it can be checked against the standard fee.';
+        } elseif (!$errors && !empty($in['use_agreed'])) {
             $agreed = round((float) $in['agreed_fee'], 2);
             if ($agreed < 0) {
                 $errors[] = 'The agreed fee cannot be negative.';
@@ -267,7 +305,7 @@ class IQU_Billing_Add_Student
         }
 
         if ($errors) {
-            return ['errors' => $errors, 'row' => [], 'gross' => $gross, 'net' => 0.0];
+            return ['errors' => $errors, 'warnings' => $warnings, 'row' => [], 'gross' => $gross, 'net' => 0.0, 'course_missing' => $course_missing];
         }
 
         // How the row is created: this form (admin) or the CSV import (import).
@@ -290,7 +328,7 @@ class IQU_Billing_Add_Student
             // admin or an import is `created_via`, never the referral.
             'referral'           => $extra_cols['referral'] ?? '',
             'course_type'        => $in['course'],
-            'per_class_rate'     => (float) $calc['per_class_rate'],
+            'per_class_rate'     => $calc ? (float) $calc['per_class_rate'] : 0.0, // 0 while the course is missing
             'calculated_amount'  => $gross,
             'discount_amount'    => $discount,
             'zakat_declaration'  => !empty($in['zakat']) ? 1 : 0,
@@ -311,7 +349,7 @@ class IQU_Billing_Add_Student
             if ($col !== 'referral') $row[$col] = $value;
         }
 
-        return ['errors' => [], 'row' => $row, 'gross' => $gross, 'net' => round($gross - $discount, 2)];
+        return ['errors' => [], 'warnings' => $warnings, 'row' => $row, 'gross' => $gross, 'net' => round($gross - $discount, 2), 'course_missing' => $course_missing];
     }
 
     /**
@@ -327,13 +365,14 @@ class IQU_Billing_Add_Student
         return ltrim($value, "=+@\t\r");
     }
 
-    private static function validate(array $in): array
+    /** @param bool $course_missing the course was given but not found (CSV): a warning, not an error */
+    private static function validate(array $in, bool $course_missing = false): array
     {
         $e = [];
         if ($in['first_name'] === '' || $in['last_name'] === '') $e[] = 'Enter the student\'s first and last name.';
         if (!is_email($in['email'])) $e[] = 'Enter a valid email address. Payment links and receipts go here.';
         if (strlen(preg_replace('/\D/', '', $in['whatsapp'])) < 7) $e[] = 'Enter a WhatsApp number with country code.';
-        if (!IQU_Pricing::is_valid_course($in['course'])) $e[] = 'Choose a course.';
+        if (!$course_missing && !IQU_Pricing::is_valid_course($in['course'])) $e[] = 'Choose a course.';
         if ($in['days'] < 1 || $in['days'] > 7) $e[] = 'Choose classes per week (1–7).';
         return $e;
     }
@@ -456,6 +495,12 @@ class IQU_Billing_Add_Student
                 </ul></div>
             <?php endif; ?>
 
+            <?php if (!empty($flash['confirm']) && !empty($flash['warnings'])): ?>
+                <div class="notice notice-warning"><p><strong>Not saved yet — please check:</strong></p><ul class="iqu-billing-notice-list">
+                    <?php foreach ($flash['warnings'] as $msg): ?><li><?php echo esc_html($msg); ?></li><?php endforeach; ?>
+                </ul><p>If it is correct, tick <em>I have checked this</em> at the bottom of the form and press Add student again.</p></div>
+            <?php endif; ?>
+
             <?php if (!empty($flash['saved'])): $s = $flash['saved']; ?>
                 <div class="notice notice-success"><p>
                     <strong><?php echo esc_html($s['name']); ?></strong> added (IQU-<?php echo (int) $s['id']; ?>) —
@@ -488,7 +533,7 @@ class IQU_Billing_Add_Student
                             </div>
                             <div class="iqu-fld">
                                 <label for="age">Age <span class="iqu-fld-optional">(optional)</span></label>
-                                <input id="age" name="age" type="number" min="4" max="100" step="1" inputmode="numeric" aria-describedby="iqu-err-age" value="<?php echo $xv('age'); ?>"<?php echo $invalid('age'); ?>>
+                                <input id="age" name="age" type="number" min="1" max="100" step="1" inputmode="numeric" aria-describedby="iqu-err-age" value="<?php echo $xv('age'); ?>"<?php echo $invalid('age'); ?>>
                                 <?php echo $err('age'); ?>
                             </div>
                         </div>
@@ -620,7 +665,10 @@ class IQU_Billing_Add_Student
                                 <select id="referral" name="referral" aria-describedby="iqu-err-referral">
                                     <option value="">— Choose —</option>
                                     <?php foreach (IQU_Reg_Fields::REFERRALS as $rv => $rl): ?><option value="<?php echo esc_attr($rv); ?>" <?php selected((string) ($x['referral'] ?? ''), $rv); ?>><?php echo esc_html($rl); ?></option><?php endforeach; ?>
+                                    <option value="other" <?php selected((string) ($x['referral'] ?? ''), 'other'); ?>>Other</option>
                                 </select>
+                                <label for="referral_other" class="iqu-billing-sublabel">If Other, how? <span class="iqu-fld-optional">(optional)</span></label>
+                                <input id="referral_other" name="referral_other" type="text" maxlength="200" autocomplete="off" value="<?php echo $xv('referral_other'); ?>">
                                 <?php echo $err('referral'); ?>
                             </div>
                             <fieldset class="iqu-fld iqu-fld--full iqu-chips-field" aria-describedby="iqu-err-languages">
@@ -662,6 +710,13 @@ class IQU_Billing_Add_Student
                         </div>
                     </section>
 
+                    <?php if (!empty($flash['confirm']) && !empty($flash['warnings'])): ?>
+                        <div class="iqu-confirm-warnings" role="group" aria-labelledby="iqu-confirm-title">
+                            <p id="iqu-confirm-title"><span class="dashicons dashicons-warning" aria-hidden="true"></span><strong>Please confirm</strong></p>
+                            <ul><?php foreach ($flash['warnings'] as $msg): ?><li><?php echo esc_html($msg); ?></li><?php endforeach; ?></ul>
+                            <label class="iqu-billing-check-label"><input type="checkbox" name="confirm_warnings" value="1"> I have checked this — save anyway</label>
+                        </div>
+                    <?php endif; ?>
                     <div class="iqu-form-actions iqu-btn-group">
                         <a class="iqu-btn iqu-btn--secondary" href="<?php echo esc_url($students); ?>">Cancel</a>
                         <button type="submit" name="submit" value="Add student" class="iqu-btn iqu-btn--primary"><?php echo IQU_Billing_Page::icon('plus-alt2'); ?>Add student</button>

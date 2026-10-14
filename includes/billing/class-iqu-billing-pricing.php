@@ -26,6 +26,18 @@ class IQU_Billing_Pricing
      * @param string|null $course Admin's course choice, used only when the record has none.
      * @param int|null    $days   Admin's days choice, used only when the record has none.
      */
+    /**
+     * A monthly student with no course on the record: course_type is empty or not a course on
+     * the website, and there is no older agreed fee (fee_pref / payment) to bill instead. Such a
+     * student can be saved (e.g. by the CSV import) but cannot be billed until a course is set.
+     */
+    public static function course_missing(array $reg): bool
+    {
+        if (!in_array($reg['form_type'] ?? '', self::BILLABLE_FORMS, true)) return false;
+        if (IQU_Pricing::is_valid_course((string) ($reg['course_type'] ?? ''))) return false;
+        return (string) ($reg['course_type'] ?? '') !== '' || self::legacy_fee($reg) === null;
+    }
+
     public static function for_registration(array $reg, ?string $course = null, ?int $days = null): array
     {
         $out = [
@@ -60,11 +72,13 @@ class IQU_Billing_Pricing
             }
         }
 
-        // Course: the record wins; an admin choice is used only when the record is empty.
+        // Course: the record wins; an admin choice is used only when the record has no course
+        // (empty, or a value that is not a course on the website).
+        if (!IQU_Pricing::is_valid_course($rec_course)) $rec_course = '';
         $use_course = $rec_course !== '' ? $rec_course : (string) $course;
         if (!IQU_Pricing::is_valid_course($use_course)) {
             $out['needs_input'] = true;
-            $out['reason']      = 'Choose the course for this student.';
+            $out['reason']      = 'Course missing — choose the course before billing can start.';
             return $out;
         }
 

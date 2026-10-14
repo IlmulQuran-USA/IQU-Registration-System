@@ -232,6 +232,14 @@ class IQU_Billing_Page
             <?php self::tabs('students'); ?>
             <?php self::page_header('Student Billing', 'Everyone on monthly tuition. Send payment links to families who are not set up yet, and follow up on payment problems.'); ?>
 
+            <?php $missing = count(array_filter($rows, fn($r) => !$r['acc'] && IQU_Billing_Pricing::course_missing($r['reg']))); if ($missing): ?>
+                <div class="notice notice-warning inline" data-course-missing-notice><p>
+                    <strong><?php echo $missing === 1 ? '1 student has no course.' : $missing . ' students have no course.'; ?></strong>
+                    Billing cannot start for their families until a course is chosen, because the monthly fee depends on it.
+                    <a href="<?php echo esc_url($list(['show' => 'needs_course'])); ?>">Show them</a>, then use <em>Choose course</em> on each row.
+                </p></div>
+            <?php endif; ?>
+
             <?php if (!IQU_Stripe::is_ready()): ?>
                 <div class="notice notice-error inline"><p><?php echo esc_html(IQU_Stripe::not_ready_reason()); ?></p></div>
             <?php elseif (IQU_Stripe::expected_mode() === 'test'): ?>
@@ -378,7 +386,11 @@ class IQU_Billing_Page
                 </div>
             </td>
             <td>
-                <span class="iqu-course-name"><?php echo esc_html($p['course_label'] ?: 'Course not set'); ?></span>
+                <?php if (IQU_Billing_Pricing::course_missing($reg)): ?>
+                    <span class="iqu-chip iqu-chip--gold iqu-course-missing" data-course-missing>Course missing</span>
+                <?php else: ?>
+                    <span class="iqu-course-name"><?php echo esc_html($p['course_label'] ?: 'Course not set'); ?></span>
+                <?php endif; ?>
                 <span class="iqu-billing-sub">
                     <?php echo esc_html(implode(' · ', array_filter([
                         $p['days_per_week'] ? (int) $p['days_per_week'] . ' days/week' : '',
@@ -413,7 +425,9 @@ class IQU_Billing_Page
                     echo $pill('Not set up', 'neutral');
                 } elseif ($r['group'] === 'needs_course') {
                     echo $pill('Needs course', 'blue');
-                    echo '<br><span class="iqu-billing-sub">No course or fee on the record</span>';
+                    echo '<br><span class="iqu-billing-sub">' . esc_html(IQU_Billing_Pricing::course_missing($reg)
+                        ? 'Billing cannot start until a course is chosen'
+                        : 'No course or fee on the record') . '</span>';
                 } else {
                     echo $pill('Not billed', 'neutral');
                     if ($p['reason']) echo '<br><span class="iqu-billing-sub">' . esc_html($p['reason']) . '</span>';

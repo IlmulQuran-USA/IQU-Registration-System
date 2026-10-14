@@ -230,6 +230,15 @@ class IQU_Billing_Service
             'token_hash'         => hash('sha256', self::token_for($acc)),
         ]);
 
+        // A course chosen here for a student whose record has none is saved on the record, so
+        // the student page, Reports and emails show the course that is billed. Only a missing
+        // course (and missing days) is filled; nothing the record already has is changed.
+        foreach ($priced as $id => $p) {
+            if (IQU_Billing_Pricing::course_missing($regs[$id]) && $p['course'] !== '') {
+                IQU_Database::fill_course((int) $id, $p['course'], (int) $p['days_per_week'], (float) $p['per_class_rate'], (float) $p['gross']);
+            }
+        }
+
         return ['ok' => true, 'errors' => [], 'account_id' => $account_id];
     }
 

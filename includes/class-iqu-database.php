@@ -419,6 +419,21 @@ class IQU_Database
         return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, $row, ['id' => $id], $fmt, ['%d']);
     }
 
+    /**
+     * Set the course of a registration that has none (empty or not a course on the website),
+     * with its price at that time. Days are set only when the record has none. Used when an
+     * admin chooses the course while setting up billing. A record with a course is not changed.
+     */
+    public static function fill_course(int $id, string $course, int $days, float $rate, float $amount): bool
+    {
+        global $wpdb;
+        $row = self::get_registration($id);
+        if (!$row || !IQU_Pricing::is_valid_course($course) || IQU_Pricing::is_valid_course((string) $row['course_type'])) return false;
+        $set = ['course_type' => $course, 'per_class_rate' => round($rate, 2), 'calculated_amount' => round($amount, 2)];
+        if ((int) $row['days_per_week'] <= 0 && $days > 0) $set['days_per_week'] = (string) $days;
+        return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, $set, ['id' => $id]);
+    }
+
     /** Add a review reason to a registration, keeping the ones it already has. */
     public static function add_review_reason(int $id, string $reason): bool
     {
