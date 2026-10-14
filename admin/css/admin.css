@@ -265,22 +265,18 @@
 }
 
 /* ── Section Row (breakdown | status overview + online enrollment) ── */
-/* Both columns stretch to the same height; the right column's two cards share it. */
+/* Each column is as tall as its own content (the two may end at different heights).
+   The breakdown chart has a fixed height, so Chart.js (responsive, no aspect ratio)
+   sizes the canvas to the box and never feeds back into the row height. */
 .iqu-section-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
-  align-items: stretch;
+  align-items: start;
   gap: 12px;
   margin-bottom: 16px;
 }
-.iqu-section-row > .iqu-card {
-  display: flex;
-  flex-direction: column;
-}
-.iqu-section-row > .iqu-card .iqu-breakdown-chart {
-  flex: 1 1 auto;
-  height: auto;
-  min-height: 190px;
+.iqu-section-row .iqu-breakdown-chart {
+  height: 210px;
 }
 .iqu-dash-stack {
   display: flex;
@@ -289,7 +285,7 @@
   min-width: 0;
 }
 .iqu-dash-stack > .iqu-card {
-  flex: 1 0 auto;
+  flex: none;
   margin-bottom: 0;
 }
 .iqu-dash-stack .iqu-card-head {
@@ -303,12 +299,8 @@
   .iqu-section-row {
     grid-template-columns: minmax(0, 1fr);
   }
-  .iqu-section-row > .iqu-card .iqu-breakdown-chart {
-    flex: none;
+  .iqu-section-row .iqu-breakdown-chart {
     height: 190px;
-  }
-  .iqu-dash-stack > .iqu-card {
-    flex: none;
   }
 }
 
