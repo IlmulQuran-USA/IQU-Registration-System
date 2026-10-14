@@ -67,6 +67,7 @@ class IQU_Billing_Add_Student
             'agreed_fee'    => isset($_POST['agreed_fee']) ? (float) $_POST['agreed_fee'] : 0.0,
             'zakat'         => !empty($_POST['zakat']),
             'note'          => sanitize_textarea_field(wp_unslash($_POST['note'] ?? '')),
+            'extra'         => self::extra_from_post(wp_unslash($_POST)),
         ];
         $in['whatsapp'] = trim(substr($in['whatsapp'], 0, 25));
 
@@ -90,15 +91,141 @@ class IQU_Billing_Add_Student
         self::back();
     }
 
-    /** Optional enrollment columns that may be filled from the form or a CSV. */
+    /**
+     * Optional enrollment columns that may be filled from the form or a CSV, with their length
+     * limits (the public Enroll for Free form's limits). The payment amount is not one of them:
+     * pricing stays in the course / days / agreed fee / Zakat fields.
+     */
     private const EXTRA_FIELDS = [
+        'age'            => 3,
+        'country_origin' => 100,
         'country_res'    => 100,
+        'quran_level'    => 20,
+        'memorized'      => 500,
+        'languages'      => 200,
         'preferred_days' => 200,
         'time_slot'      => 100,
         'session_dur'    => 20,
-        'languages'      => 200,
         'teacher_pref'   => 20,
+        'referral'       => 30,
     ];
+
+    /** The optional fields as posted by the form (arrays for the checkbox groups). */
+    private static function extra_from_post(array $p): array
+    {
+        $list = fn($k) => array_map('sanitize_text_field', array_map('strval', (array) ($p[$k] ?? [])));
+        return [
+            'age'            => sanitize_text_field((string) ($p['age'] ?? '')),
+            'country_origin' => (string) ($p['country_origin'] ?? ''),
+            'country_res'    => (string) ($p['country_res'] ?? ''),
+            'quran_level'    => sanitize_text_field((string) ($p['quran_level'] ?? '')),
+            'memorized'      => sanitize_textarea_field((string) ($p['memorized'] ?? '')),
+            'languages'      => $list('languages'),
+            'preferred_days' => $list('preferred_days'),
+            'time_start'     => sanitize_text_field((string) ($p['time_start'] ?? '')),
+            'time_end'       => sanitize_text_field((string) ($p['time_end'] ?? '')),
+            'time_zone'      => sanitize_text_field((string) ($p['time_zone'] ?? '')),
+            'session_dur'    => sanitize_text_field((string) ($p['session_dur'] ?? '')),
+            'teacher_pref'   => sanitize_text_field((string) ($p['teacher_pref'] ?? '')),
+            'referral'       => sanitize_text_field((string) ($p['referral'] ?? '')),
+        ];
+    }
+
+    /**
+     * Clean and check the optional fields against the public form's own option lists
+     * (IQU_Reg_Fields) and limits, and return them in the same stored format as a website
+     * enrollment ("saturday, monday", "english, arabic", "30", "05:00 PM – 06:00 PM (CST)").
+     * CSV cells may use common spellings: "Mon", "30 min", "Bangla", "any", "Friend/Family".
+     *
+     * @return array{0:array<string,mixed>,1:string[]} [columns, errors]
+     */
+    public static function clean_extra(array $x, int $days): array
+    {
+        $cols = [];
+        $e    = [];
+        $list = function ($v): array {
+            $items = is_array($v) ? $v : preg_split('/[,;\/|]+/', (string) $v);
+            return array_values(array_filter(array_map(fn($s) => strtolower(trim((string) $s)), $items), fn($s) => $s !== ''));
+        };
+
+        $age = trim((string) ($x['age'] ?? ''));
+        if ($age !== '' && $age !== '0') {
+            if (!preg_match('/^\d{1,3}$/', $age) || (int) $age < 4 || (int) $age > 100) $e[] = 'Age must be between 4 and 100.';
+            else $cols['age'] = (int) $age;
+        }
+        foreach (['country_origin', 'country_res'] as $k) {
+            $v = self::clean_text((string) ($x[$k] ?? ''));
+            if ($v !== '') $cols[$k] = substr($v, 0, self::EXTRA_FIELDS[$k]);
+        }
+        $lvl = strtolower(trim((string) ($x['quran_level'] ?? '')));
+        if ($lvl !== '') {
+            if (!isset(IQU_Reg_Fields::QURAN_LEVELS[$lvl])) $e[] = "Qur'an level must be Beginner, Intermediate or Advanced.";
+            else $cols['quran_level'] = $lvl;
+        }
+        $mem = trim(sanitize_textarea_field((string) ($x['memorized'] ?? '')));
+        if ($mem !== '') $cols['memorized'] = substr(ltrim($mem, "=+@\t\r"), 0, self::EXTRA_FIELDS['memorized']);
+
+        $langs = $list($x['languages'] ?? []);
+        if ($langs) {
+            $langs = array_map(fn($l) => $l === 'bangla' ? 'bengali' : $l, $langs);
+            $bad = array_diff($langs, array_keys(IQU_Reg_Fields::LANGUAGES));
+            if ($bad) $e[] = 'Languages must be English, Arabic, Urdu or Bengali.';
+            else $cols['languages'] = implode(', ', array_values(array_unique($langs)));
+        }
+
+        $want = $list($x['preferred_days'] ?? []);
+        if ($want) {
+            $by3 = [];
+            foreach (IQU_Reg_Fields::WEEK_DAYS as $d) $by3[strtolower(substr($d, 0, 3))] = strtolower($d);
+            $clean = [];
+            $bad = false;
+            foreach ($want as $d) {
+                $k = substr($d, 0, 3);
+                if (isset($by3[$k]) && (strlen($d) === 3 || $d === $by3[$k])) $clean[] = $by3[$k]; else $bad = true;
+            }
+            $clean = array_values(array_unique($clean));
+            if ($bad) $e[] = 'Preferred days must be days of the week (for example Mon, Wed).';
+            elseif ($days >= 1 && count($clean) > $days) $e[] = 'Choose no more preferred days than classes a week.';
+            else $cols['preferred_days'] = implode(', ', $clean);
+        }
+
+        $start = trim((string) ($x['time_start'] ?? ''));
+        $end   = trim((string) ($x['time_end'] ?? ''));
+        $tz    = strtoupper(trim((string) ($x['time_zone'] ?? '')));
+        if ($start !== '' || $end !== '' || $tz !== '') {
+            $t = fn($s) => preg_match('/^([01]?\d|2[0-3]):([0-5]\d)$/', $s) ? DateTimeImmutable::createFromFormat('H:i', $s) : false;
+            if (!$t($start) || !$t($end)) $e[] = 'Preferred time: enter a start and an end time.';
+            elseif (!isset(IQU_Reg_Fields::TIME_ZONES[$tz])) $e[] = 'Preferred time: choose a time zone.';
+            else $cols['time_slot'] = $t($start)->format('h:i A') . ' – ' . $t($end)->format('h:i A') . ' (' . $tz . ')';
+        } elseif (($slot = self::clean_text((string) ($x['time_slot'] ?? ''))) !== '') {
+            $cols['time_slot'] = substr($slot, 0, self::EXTRA_FIELDS['time_slot']);
+        }
+
+        $dur = strtolower(trim((string) ($x['session_dur'] ?? '')));
+        if ($dur !== '') {
+            $num = preg_replace('/\D/', '', $dur);
+            if (!isset(IQU_Reg_Fields::SESSION_DURATIONS[$num])) $e[] = 'Session duration must be 30, 45 or 60 minutes.';
+            else $cols['session_dur'] = $num;
+        }
+
+        $tp = strtolower(trim(preg_replace('/[\s\-]+/', '_', (string) ($x['teacher_pref'] ?? '')), '_'));
+        if ($tp !== '') {
+            if (in_array($tp, ['any', 'either', 'none', 'no_pref'], true)) $tp = 'no_preference';
+            if (!isset(IQU_Reg_Fields::TEACHER_PREFS[$tp])) $e[] = 'Teacher preference must be Male, Female or No preference.';
+            else $cols['teacher_pref'] = $tp;
+        }
+
+        $ref = strtolower(trim((string) ($x['referral'] ?? '')));
+        if ($ref !== '') {
+            $key = '';
+            foreach (IQU_Reg_Fields::REFERRALS as $k => $label) {
+                if ($ref === $k || $ref === strtolower($label) || preg_replace('/[^a-z]/', '', $ref) === preg_replace('/[^a-z]/', '', $k)) $key = $k;
+            }
+            if ($key === '') $e[] = 'How they heard about us must be one of: ' . implode(', ', IQU_Reg_Fields::REFERRALS) . '.';
+            else $cols['referral'] = $key;
+        }
+        return [$cols, $e];
+    }
 
     /**
      * Validate one student and build the registrations row.
@@ -111,6 +238,8 @@ class IQU_Billing_Add_Student
     public static function prepare(array $in): array
     {
         $errors = self::validate($in);
+        [$extra_cols, $extra_errors] = self::clean_extra(is_array($in['extra'] ?? null) ? $in['extra'] : [], (int) ($in['days'] ?? 0));
+        $errors = array_merge($errors, $extra_errors);
         $calc   = null;
         if (!$errors) {
             $calc = IQU_Pricing::calculate($in['course'], (int) $in['days']);
@@ -153,7 +282,9 @@ class IQU_Billing_Add_Student
             'guardian_name'      => $in['guardian_name'],
             'guardian_whatsapp'  => $in['guardian_name'] !== '' ? $in['whatsapp'] : '',
             'days_per_week'      => (string) (int) $in['days'],
-            'referral'           => self::MARKER,
+            // How they heard about us when given; otherwise the old marker. Either way the billing
+            // service treats rows added here as current students (it also reads user_agent below).
+            'referral'           => $extra_cols['referral'] ?? self::MARKER,
             'course_type'        => $in['course'],
             'per_class_rate'     => (float) $calc['per_class_rate'],
             'calculated_amount'  => $gross,
@@ -169,14 +300,8 @@ class IQU_Billing_Add_Student
             'updated_at'         => $now,
         ];
 
-        $extra = is_array($in['extra'] ?? null) ? $in['extra'] : [];
-        foreach (self::EXTRA_FIELDS as $col => $max) {
-            if (isset($extra[$col]) && $extra[$col] !== '') {
-                $row[$col] = substr(self::clean_text((string) $extra[$col]), 0, $max);
-            }
-        }
-        if (isset($extra['age']) && (int) $extra['age'] > 0 && (int) $extra['age'] < 120) {
-            $row['age'] = (int) $extra['age'];
+        foreach ($extra_cols as $col => $value) {
+            if ($col !== 'referral') $row[$col] = $value;
         }
 
         return ['errors' => [], 'row' => $row, 'gross' => $gross, 'net' => round($gross - $discount, 2)];
@@ -224,6 +349,15 @@ class IQU_Billing_Add_Student
             'agreed fee'                => 'agreed_fee',
             'enrollment records'        => 'first_name',
             'appears twice'             => 'first_name',
+            'Age must be'               => 'age',
+            "Qur'an level"              => 'quran_level',
+            'Languages must be'         => 'languages',
+            'preferred days'            => 'preferred_days',
+            'Preferred days'            => 'preferred_days',
+            'Preferred time'            => 'time_slot',
+            'Session duration'          => 'session_dur',
+            'Teacher preference'        => 'teacher_pref',
+            'heard about us'            => 'referral',
         ];
         foreach ($map as $needle => $field) {
             if (stripos($msg, $needle) !== false) return $field;
@@ -297,6 +431,9 @@ class IQU_Billing_Add_Student
         }
         wp_add_inline_script('iqu-billing-js', 'window.IQU_BILLING_ADD = ' . wp_json_encode(['pricing' => $pricing, 'families' => $families]) . ';', 'before');
 
+        $x          = is_array($old['extra'] ?? null) ? $old['extra'] : [];
+        $xv         = fn($k) => esc_attr((string) ($x[$k] ?? ''));
+        $xin        = fn($k, $val) => in_array((string) $val, array_map('strval', (array) ($x[$k] ?? [])), true);
         $course_old = (string) ($old['course'] ?? '');
         $days_old   = (int) ($old['days'] ?? 0);
         $show_fee   = !empty($old['use_agreed']) || !empty($old['zakat']);
@@ -331,7 +468,7 @@ class IQU_Billing_Add_Student
                             <p class="iqu-add-section-title" id="iqu-sec-1">Student</p>
                             <p class="iqu-fld-hint">Who is joining. Use the name the family uses.</p>
                         </div></div>
-                        <div class="iqu-fld-grid">
+                        <div class="iqu-fld-grid iqu-fld-grid--3">
                             <div class="iqu-fld">
                                 <label for="first_name">First name <em>*</em></label>
                                 <input id="first_name" name="first_name" type="text" required autocomplete="off" aria-describedby="iqu-err-first_name" value="<?php echo $v('first_name'); ?>"<?php echo $invalid('first_name'); ?>>
@@ -342,12 +479,17 @@ class IQU_Billing_Add_Student
                                 <input id="last_name" name="last_name" type="text" required autocomplete="off" aria-describedby="iqu-err-last_name" value="<?php echo $v('last_name'); ?>">
                                 <?php echo $err('last_name'); ?>
                             </div>
+                            <div class="iqu-fld">
+                                <label for="age">Age <span class="iqu-fld-optional">(optional)</span></label>
+                                <input id="age" name="age" type="number" min="4" max="100" step="1" inputmode="numeric" aria-describedby="iqu-err-age" value="<?php echo $xv('age'); ?>"<?php echo $invalid('age'); ?>>
+                                <?php echo $err('age'); ?>
+                            </div>
                         </div>
                     </section>
 
                     <section class="iqu-add-section" aria-labelledby="iqu-sec-2">
                         <div class="iqu-add-section-head"><span class="iqu-add-step" aria-hidden="true">2</span><div>
-                            <p class="iqu-add-section-title" id="iqu-sec-2">Family contact</p>
+                            <p class="iqu-add-section-title" id="iqu-sec-2">Guardian &amp; contact</p>
                             <p class="iqu-fld-hint">The billing email receives the private payment link and every receipt. Siblings can share one email.</p>
                         </div></div>
                         <div class="iqu-fld-grid">
@@ -379,8 +521,8 @@ class IQU_Billing_Add_Student
 
                     <section class="iqu-add-section" aria-labelledby="iqu-sec-3">
                         <div class="iqu-add-section-head"><span class="iqu-add-step" aria-hidden="true">3</span><div>
-                            <p class="iqu-add-section-title" id="iqu-sec-3">Course and fee</p>
-                            <p class="iqu-fld-hint">The standard fee comes from the pricing rules; a lower agreed fee is stored as a reduction.</p>
+                            <p class="iqu-add-section-title" id="iqu-sec-3">Course &amp; schedule</p>
+                            <p class="iqu-fld-hint">The course and classes a week set the standard fee. The schedule fields are optional.</p>
                         </div></div>
                         <div class="iqu-fld-grid">
                             <fieldset class="iqu-fld iqu-fld--full iqu-chips-field" aria-describedby="iqu-err-course">
@@ -402,6 +544,100 @@ class IQU_Billing_Add_Student
                                 <p class="iqu-fld-hint" id="iqu-hint-days" data-days-hint>Only the numbers allowed for the chosen course are shown.</p>
                                 <?php echo $err('days'); ?>
                             </fieldset>
+                            <fieldset class="iqu-fld iqu-fld--full iqu-chips-field" aria-describedby="iqu-hint-pdays iqu-err-preferred_days">
+                                <legend class="iqu-fld-label">Preferred days <span class="iqu-fld-optional">(optional)</span></legend>
+                                <div class="iqu-chips iqu-chips--weekdays">
+                                    <?php foreach (IQU_Reg_Fields::WEEK_DAYS as $day): ?>
+                                        <label class="iqu-chip-opt"><input type="checkbox" name="preferred_days[]" value="<?php echo esc_attr($day); ?>" <?php checked($xin('preferred_days', $day)); ?>><span><?php echo esc_html(substr($day, 0, 3)); ?></span></label>
+                                    <?php endforeach; ?>
+                                </div>
+                                <p class="iqu-fld-hint" id="iqu-hint-pdays">No more days than classes a week.</p>
+                                <?php echo $err('preferred_days'); ?>
+                            </fieldset>
+                            <fieldset class="iqu-fld iqu-fld--full" aria-describedby="iqu-err-time_slot">
+                                <legend class="iqu-fld-label">Preferred time <span class="iqu-fld-optional">(optional)</span></legend>
+                                <div class="iqu-fld-grid iqu-fld-grid--3 iqu-fld-grid--tight">
+                                    <div class="iqu-fld"><label for="time_start" class="iqu-billing-sublabel">Start</label><input id="time_start" name="time_start" type="time" value="<?php echo $xv('time_start'); ?>"></div>
+                                    <div class="iqu-fld"><label for="time_end" class="iqu-billing-sublabel">End</label><input id="time_end" name="time_end" type="time" value="<?php echo $xv('time_end'); ?>"></div>
+                                    <div class="iqu-fld"><label for="time_zone" class="iqu-billing-sublabel">Time zone</label>
+                                        <select id="time_zone" name="time_zone">
+                                            <option value="">— Time zone —</option>
+                                            <?php foreach (IQU_Reg_Fields::TIME_ZONES as $tzv => $tzl): ?><option value="<?php echo esc_attr($tzv); ?>" <?php selected((string) ($x['time_zone'] ?? ''), $tzv); ?>><?php echo esc_html($tzl); ?></option><?php endforeach; ?>
+                                        </select></div>
+                                </div>
+                                <?php echo $err('time_slot'); ?>
+                            </fieldset>
+                            <div class="iqu-fld">
+                                <label for="session_dur">Session duration <span class="iqu-fld-optional">(optional)</span></label>
+                                <select id="session_dur" name="session_dur" aria-describedby="iqu-err-session_dur">
+                                    <option value="">— Choose —</option>
+                                    <?php foreach (IQU_Reg_Fields::SESSION_DURATIONS as $sv => $sl): ?><option value="<?php echo esc_attr($sv); ?>" <?php selected((string) ($x['session_dur'] ?? ''), $sv); ?>><?php echo esc_html($sl); ?></option><?php endforeach; ?>
+                                </select>
+                                <?php echo $err('session_dur'); ?>
+                            </div>
+                            <div class="iqu-fld">
+                                <label for="teacher_pref">Teacher preference <span class="iqu-fld-optional">(optional)</span></label>
+                                <select id="teacher_pref" name="teacher_pref" aria-describedby="iqu-err-teacher_pref">
+                                    <option value="">— Choose —</option>
+                                    <?php foreach (IQU_Reg_Fields::TEACHER_PREFS as $tv => $tl): ?><option value="<?php echo esc_attr($tv); ?>" <?php selected((string) ($x['teacher_pref'] ?? ''), $tv); ?>><?php echo esc_html($tl); ?></option><?php endforeach; ?>
+                                </select>
+                                <?php echo $err('teacher_pref'); ?>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="iqu-add-section" aria-labelledby="iqu-sec-4">
+                        <div class="iqu-add-section-head"><span class="iqu-add-step" aria-hidden="true">4</span><div>
+                            <p class="iqu-add-section-title" id="iqu-sec-4">Background</p>
+                            <p class="iqu-fld-hint">The same questions as the Enroll for Free form. All optional.</p>
+                        </div></div>
+                        <div class="iqu-fld-grid">
+                            <div class="iqu-fld">
+                                <label for="country_origin">Country of origin</label>
+                                <input id="country_origin" name="country_origin" type="text" maxlength="100" autocomplete="off" value="<?php echo $xv('country_origin'); ?>">
+                            </div>
+                            <div class="iqu-fld">
+                                <label for="country_res">Country of residence</label>
+                                <input id="country_res" name="country_res" type="text" maxlength="100" autocomplete="off" value="<?php echo $xv('country_res'); ?>">
+                            </div>
+                            <div class="iqu-fld">
+                                <label for="quran_level">Qur'an reading level</label>
+                                <select id="quran_level" name="quran_level" aria-describedby="iqu-err-quran_level">
+                                    <option value="">— Choose —</option>
+                                    <?php foreach (IQU_Reg_Fields::QURAN_LEVELS as $lv => $ll): ?><option value="<?php echo esc_attr($lv); ?>" <?php selected((string) ($x['quran_level'] ?? ''), $lv); ?>><?php echo esc_html($ll); ?></option><?php endforeach; ?>
+                                </select>
+                                <?php echo $err('quran_level'); ?>
+                            </div>
+                            <div class="iqu-fld">
+                                <label for="referral">How they heard about us</label>
+                                <select id="referral" name="referral" aria-describedby="iqu-err-referral">
+                                    <option value="">— Choose —</option>
+                                    <?php foreach (IQU_Reg_Fields::REFERRALS as $rv => $rl): ?><option value="<?php echo esc_attr($rv); ?>" <?php selected((string) ($x['referral'] ?? ''), $rv); ?>><?php echo esc_html($rl); ?></option><?php endforeach; ?>
+                                </select>
+                                <?php echo $err('referral'); ?>
+                            </div>
+                            <fieldset class="iqu-fld iqu-fld--full iqu-chips-field" aria-describedby="iqu-err-languages">
+                                <legend class="iqu-fld-label">Languages spoken fluently</legend>
+                                <div class="iqu-chips">
+                                    <?php foreach (IQU_Reg_Fields::LANGUAGES as $lgv => $lgl): ?>
+                                        <label class="iqu-chip-opt"><input type="checkbox" name="languages[]" value="<?php echo esc_attr($lgv); ?>" <?php checked($xin('languages', $lgv)); ?>><span><?php echo esc_html($lgl); ?></span></label>
+                                    <?php endforeach; ?>
+                                </div>
+                                <?php echo $err('languages'); ?>
+                            </fieldset>
+                            <div class="iqu-fld iqu-fld--full">
+                                <label for="memorized">Memorized before (Surahs or Juz)</label>
+                                <textarea id="memorized" name="memorized" rows="2" maxlength="500"><?php echo esc_textarea((string) ($x['memorized'] ?? '')); ?></textarea>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="iqu-add-section" aria-labelledby="iqu-sec-5">
+                        <div class="iqu-add-section-head"><span class="iqu-add-step" aria-hidden="true">5</span><div>
+                            <p class="iqu-add-section-title" id="iqu-sec-5">Fee</p>
+                            <p class="iqu-fld-hint">The standard fee comes from the pricing rules; a lower agreed fee is stored as a reduction.</p>
+                        </div></div>
+                        <div class="iqu-fld-grid">
                             <div class="iqu-fld iqu-fld--full">
                                 <label class="iqu-billing-check-label"><input type="checkbox" id="iqu-use-agreed" name="use_agreed" value="1" aria-controls="iqu-agreed-panel" <?php checked(!empty($old['use_agreed'])); ?>> This family pays a lower fee agreed with us</label>
                                 <div class="iqu-agreed-panel" id="iqu-agreed-panel" data-show="<?php echo $show_fee ? '1' : '0'; ?>">
@@ -412,13 +648,10 @@ class IQU_Billing_Add_Student
                                     <label class="iqu-billing-check-label"><input type="checkbox" name="zakat" value="1" <?php checked(!empty($old['zakat'])); ?>> The reduction is paid by the Zakat Fund</label>
                                 </div>
                             </div>
-                        </div>
-                    </section>
-
-                    <section class="iqu-add-section" aria-label="Note">
-                        <div class="iqu-fld">
-                            <label for="note">Note <span class="iqu-fld-optional">(optional)</span></label>
-                            <textarea id="note" name="note" rows="3"><?php echo esc_textarea((string) ($old['note'] ?? '')); ?></textarea>
+                            <div class="iqu-fld iqu-fld--full">
+                                <label for="note">Note <span class="iqu-fld-optional">(optional)</span></label>
+                                <textarea id="note" name="note" rows="3"><?php echo esc_textarea((string) ($old['note'] ?? '')); ?></textarea>
+                            </div>
                         </div>
                     </section>
 

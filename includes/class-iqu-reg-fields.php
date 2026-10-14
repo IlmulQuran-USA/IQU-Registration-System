@@ -20,6 +20,60 @@ if (!defined('ABSPATH')) exit;
  */
 class IQU_Reg_Fields
 {
+    // ── Enroll for Free option lists: value => label ─────────────────────────
+    // The one source for these choices: the public form (public/class-iqu-form.php)
+    // and Billing → Add existing student / Import both read them.
+
+    public const QURAN_LEVELS = [
+        'beginner'     => 'Beginner',
+        'intermediate' => 'Intermediate',
+        'advanced'     => 'Advanced',
+    ];
+
+    /** Stored lowercase ("saturday, monday"), shown with a capital. */
+    public const WEEK_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+    /** The time zones of the "Preferred Time Slots" picker (part of the stored time_slot text). */
+    public const TIME_ZONES = [
+        'CST' => 'CST (Central Standard Time)',
+        'CDT' => 'CDT (Central Daylight Time)',
+        'EST' => 'EST (Eastern Standard Time)',
+        'EDT' => 'EDT (Eastern Daylight Time)',
+        'PST' => 'PST (Pacific Standard Time)',
+        'PDT' => 'PDT (Pacific Daylight Time)',
+        'GMT' => 'GMT (Greenwich Mean Time)',
+        'UTC' => 'UTC (Coordinated Universal Time)',
+    ];
+
+    public const SESSION_DURATIONS = [
+        '30' => '30 minutes',
+        '45' => '45 minutes',
+        '60' => '60 minutes',
+    ];
+
+    public const LANGUAGES = [
+        'english' => 'English',
+        'arabic'  => 'Arabic',
+        'urdu'    => 'Urdu',
+        'bengali' => 'Bengali',
+    ];
+
+    public const TEACHER_PREFS = [
+        'male'          => 'Male',
+        'female'        => 'Female',
+        'no_preference' => 'No preference',
+    ];
+
+    public const REFERRALS = [
+        'facebook'      => 'Facebook',
+        'whatsapp'      => 'WhatsApp',
+        'linkedin'      => 'LinkedIn',
+        'youtube'       => 'YouTube',
+        'website'       => 'Website',
+        'friend_family' => 'Friend/Family',
+        'email'         => 'Email',
+    ];
+
     /**
      * অ্যাডমিনের জন্য সম্পূর্ণ ফিল্ড তালিকা।
      *

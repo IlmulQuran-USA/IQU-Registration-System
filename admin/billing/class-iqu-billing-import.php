@@ -41,13 +41,17 @@ class IQU_Billing_Import
         ['Days/Week',          true,  'Classes per week, 1 to 7. Hifz needs at least 3.',     '4'],
         ['Agreed Monthly Fee', false, 'Only for families who pay less than the standard fee. Number only. 0 means full scholarship. Leave empty for the standard fee.', ''],
         ['Zakat',              false, 'Yes if the reduced fee is paid by the Zakat Fund. Otherwise leave empty or No.', 'No'],
-        ['Age',                false, 'Student age.',                                          '9'],
+        ['Age',                false, 'Student age, 4 to 100.',                                '9'],
+        ['Country Origin',     false, 'Country the student is from.',                          'Bangladesh'],
         ['Country Residence',  false, 'Country the student lives in.',                         'United States'],
-        ['Preferred Days',     false, 'For example: Mon, Tue, Thu, Fri.',                      'Mon, Tue, Thu, Fri'],
-        ['Time Slot',          false, 'Usual class time.',                                     '5:00 PM CST'],
-        ['Session Duration',   false, 'For example: 30 min.',                                  '30 min'],
-        ['Languages',          false, 'Languages spoken.',                                     'English, Bangla'],
-        ['Teacher Pref',       false, 'Male, female or any.',                                  'female'],
+        ['Quran Level',        false, 'Beginner, Intermediate or Advanced.',                   'Beginner'],
+        ['Memorized',          false, 'Surahs or Juz memorized before (up to 500 characters).', 'Juz Amma'],
+        ['Preferred Days',     false, 'Days of the week, for example: Mon, Tue, Thu, Fri. No more than Days/Week.', 'Mon, Tue, Thu, Fri'],
+        ['Time Slot',          false, 'Usual class time, for example 05:00 PM – 06:00 PM (CST). Up to 100 characters.', '05:00 PM – 06:00 PM (CST)'],
+        ['Session Duration',   false, '30, 45 or 60 (minutes).',                               '30'],
+        ['Languages',          false, 'English, Arabic, Urdu or Bengali; several with commas.', 'English, Bengali'],
+        ['Teacher Pref',       false, 'Male, Female or No preference.',                        'Female'],
+        ['Referral',           false, 'How they heard about us: Facebook, WhatsApp, LinkedIn, YouTube, Website, Friend/Family or Email.', 'Friend/Family'],
         ['Note',               false, 'Anything the admin should know.',                       ''],
     ];
 
@@ -59,9 +63,12 @@ class IQU_Billing_Import
         'course' => 'course', 'daysweek' => 'days', 'daysperweek' => 'days',
         'agreedmonthlyfee' => 'agreed_fee', 'zakat' => 'zakat', 'zakatsupport' => 'zakat',
         'declarationsigned' => 'zakat', 'age' => 'age', 'countryresidence' => 'country_res',
+        'countryofresidence' => 'country_res', 'countryorigin' => 'country_origin', 'countryoforigin' => 'country_origin',
+        'quranlevel' => 'quran_level', 'memorized' => 'memorized', 'memorizedbefore' => 'memorized',
         'preferreddays' => 'preferred_days', 'timeslot' => 'time_slot',
         'sessionduration' => 'session_dur', 'languages' => 'languages',
-        'teacherpref' => 'teacher_pref', 'note' => 'note',
+        'teacherpref' => 'teacher_pref', 'teacherpreference' => 'teacher_pref',
+        'referral' => 'referral', 'heardaboutusvia' => 'referral', 'note' => 'note',
     ];
 
     public static function init(): void
@@ -224,14 +231,19 @@ class IQU_Billing_Import
             'agreed_fee'    => $fee_raw !== '' ? (float) $fee_raw : 0.0,
             'zakat'         => in_array($zak, ['yes', 'y', 'true', '1'], true),
             'note'          => sanitize_textarea_field((string) ($r['note'] ?? '')),
+            // Optional enrollment columns; checked by IQU_Billing_Add_Student::clean_extra() like the form.
             'extra'         => [
-                'age'            => (int) ($r['age'] ?? 0),
+                'age'            => (string) ($r['age'] ?? ''),
+                'country_origin' => $r['country_origin'] ?? '',
                 'country_res'    => $r['country_res'] ?? '',
+                'quran_level'    => $r['quran_level'] ?? '',
+                'memorized'      => $r['memorized'] ?? '',
+                'languages'      => $r['languages'] ?? '',
                 'preferred_days' => $r['preferred_days'] ?? '',
                 'time_slot'      => $r['time_slot'] ?? '',
                 'session_dur'    => $r['session_dur'] ?? '',
-                'languages'      => $r['languages'] ?? '',
                 'teacher_pref'   => $r['teacher_pref'] ?? '',
+                'referral'       => $r['referral'] ?? '',
             ],
         ];
     }

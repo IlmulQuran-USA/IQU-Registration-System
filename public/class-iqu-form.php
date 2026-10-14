@@ -547,9 +547,9 @@ class IQU_Form
                         </p>
                         <select id="quran_level" name="quran_level" required>
                             <option value="">-- Please select a level --</option>
-                            <option value="beginner">Beginner</option>
-                            <option value="intermediate">Intermediate</option>
-                            <option value="advanced">Advanced</option>
+<?php foreach (IQU_Reg_Fields::QURAN_LEVELS as $opt_v => $opt_l): ?>
+                            <option value="<?php echo esc_attr($opt_v); ?>"><?php echo esc_html($opt_l); ?></option>
+<?php endforeach; ?>
                         </select>
                         <span class="iqu-error" data-field="quran_level"></span>
                     </div>
@@ -599,7 +599,7 @@ class IQU_Form
                         <!-- কোর্সভেদে সর্বনিম্ন দিনের বার্তা — JS ভরে দেয় -->
                         <p class="iqu-min-days-note" hidden></p>
                         <div class="iqu-day-chips">
-                            <?php foreach (['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as $day): ?>
+                            <?php foreach (IQU_Reg_Fields::WEEK_DAYS as $day): ?>
                             <label class="iqu-day-chip" title="<?php echo esc_attr($day); ?>">
                                 <input type="checkbox" name="preferred_days[]" value="<?php echo esc_attr($day); ?>">
                                 <!-- ⚠️ দেখানো হয় সংক্ষিপ্ত নাম, কিন্তু value পুরো নামই
@@ -634,14 +634,9 @@ class IQU_Form
                             <label for="iqu_time_slot_timezone">Time Zone</label>
                             <select id="iqu_time_slot_timezone" required>
                                 <option value="">-- Select Time Zone --</option>
-                                <option value="CST">CST (Central Standard Time)</option>
-                                <option value="CDT">CDT (Central Daylight Time)</option>
-                                <option value="EST">EST (Eastern Standard Time)</option>
-                                <option value="EDT">EDT (Eastern Daylight Time)</option>
-                                <option value="PST">PST (Pacific Standard Time)</option>
-                                <option value="PDT">PDT (Pacific Daylight Time)</option>
-                                <option value="GMT">GMT (Greenwich Mean Time)</option>
-                                <option value="UTC">UTC (Coordinated Universal Time)</option>
+<?php foreach (IQU_Reg_Fields::TIME_ZONES as $opt_v => $opt_l): ?>
+                                <option value="<?php echo esc_attr($opt_v); ?>"><?php echo esc_html($opt_l); ?></option>
+<?php endforeach; ?>
                             </select>
                         </div>
                     </div>
@@ -657,9 +652,9 @@ class IQU_Form
                                 class="req">*</span></label>
                         <select id="session_dur" name="session_dur" required>
                             <option value="">-- Please select an option --</option>
-                            <option value="30">30 minutes</option>
-                            <option value="45">45 minutes</option>
-                            <option value="60">60 minutes</option>
+<?php foreach (IQU_Reg_Fields::SESSION_DURATIONS as $opt_v => $opt_l): ?>
+                            <option value="<?php echo esc_attr($opt_v); ?>"><?php echo esc_html($opt_l); ?></option>
+<?php endforeach; ?>
                         </select>
                         <span class="iqu-error" data-field="session_dur"></span>
                     </div>
@@ -667,7 +662,7 @@ class IQU_Form
                     <div class="iqu-question">
                         <label>Select the languages you can communicate in fluently. <span class="req">*</span></label>
                         <div class="iqu-radio-list" style="display:flex; flex-wrap:wrap; gap:8px 16px;">
-                            <?php foreach (['english' => 'English', 'arabic' => 'Arabic', 'urdu' => 'Urdu', 'bengali' => 'Bengali'] as $v => $lbl): ?>
+                            <?php foreach (IQU_Reg_Fields::LANGUAGES as $v => $lbl): ?>
                             <label class="iqu-radio-label" style="margin:0;">
                                 <input type="checkbox" name="languages[]" value="<?php echo esc_attr($v); ?>">
                                 <span><?php echo esc_html($lbl); ?></span>
@@ -712,9 +707,9 @@ class IQU_Form
                                 class="req">*</span></label>
                         <select id="teacher_pref" name="teacher_pref" required>
                             <option value="">-- Please select an option --</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="no_preference">No preference</option>
+<?php foreach (IQU_Reg_Fields::TEACHER_PREFS as $opt_v => $opt_l): ?>
+                            <option value="<?php echo esc_attr($opt_v); ?>"><?php echo esc_html($opt_l); ?></option>
+<?php endforeach; ?>
                         </select>
                         <span class="iqu-error" data-field="teacher_pref"></span>
                     </div>
@@ -728,13 +723,9 @@ class IQU_Form
 
                         <select id="referral" name="referral" required>
                             <option value="">-- Please select an option --</option>
-                            <option value="facebook">Facebook</option>
-                            <option value="whatsapp">WhatsApp</option>
-                            <option value="linkedin">LinkedIn</option>
-                            <option value="youtube">YouTube</option>
-                            <option value="website">Website</option>
-                            <option value="friend_family">Friend/Family</option>
-                            <option value="email">Email</option>
+<?php foreach (IQU_Reg_Fields::REFERRALS as $opt_v => $opt_l): ?>
+                            <option value="<?php echo esc_attr($opt_v); ?>"><?php echo esc_html($opt_l); ?></option>
+<?php endforeach; ?>
                         </select>
                         <div class="iqu-other-wrap iqu-referral-other-wrap" hidden>
                             <input type="text" id="referral_other" name="referral_other" placeholder="Please specify" />

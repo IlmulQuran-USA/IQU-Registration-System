@@ -2060,3 +2060,31 @@ th[aria-sort="descending"] .iqu-sort::after {
   align-items: center;
   gap: 8px 12px;
 }
+/* ── Add existing student (3.4.0 UI fixes): the Enroll for Free fields ── */
+.iqu-billing .iqu-fld-grid.iqu-fld-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.iqu-billing .iqu-fld-grid.iqu-fld-grid--tight {
+  gap: 10px 12px;
+  padding: 4px 0 0;
+}
+.iqu-billing .iqu-add-form select {
+  width: 100%;
+}
+.iqu-admin-wrap .iqu-add-form input[type="number"],
+.iqu-admin-wrap .iqu-add-form input[type="time"] {
+  box-sizing: border-box;
+  min-height: 36px;
+}
+.iqu-admin-wrap .iqu-add-form input[type="time"] {
+  width: 100%;
+}
+.iqu-billing .iqu-chips--weekdays .iqu-chip-opt span {
+  min-width: 48px;
+  justify-content: center;
+}
+@media (max-width: 782px) {
+  .iqu-billing .iqu-fld-grid.iqu-fld-grid--3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

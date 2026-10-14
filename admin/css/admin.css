@@ -804,7 +804,8 @@
 .iqu-admin-wrap .iqu-status-panel select,
 .iqu-admin-wrap .iqu-filter-bar select,
 .iqu-admin-wrap .iqu-period-bar select,
-.iqu-admin-wrap.iqu-cpn-create select {
+.iqu-admin-wrap.iqu-cpn-create select,
+.iqu-admin-wrap .iqu-add-form select {
   -webkit-appearance: none;
   appearance: none;
   box-sizing: border-box;
@@ -831,7 +832,8 @@
 .iqu-admin-wrap .iqu-status-panel select:hover,
 .iqu-admin-wrap .iqu-filter-bar select:hover,
 .iqu-admin-wrap .iqu-period-bar select:hover,
-.iqu-admin-wrap.iqu-cpn-create select:hover {
+.iqu-admin-wrap.iqu-cpn-create select:hover,
+.iqu-admin-wrap .iqu-add-form select:hover {
   background-color: var(--iqu-bg2);
   border-color: var(--iqu-navy);
   color: var(--iqu-text1);
@@ -840,7 +842,8 @@
 .iqu-admin-wrap .iqu-status-panel select:focus,
 .iqu-admin-wrap .iqu-filter-bar select:focus,
 .iqu-admin-wrap .iqu-period-bar select:focus,
-.iqu-admin-wrap.iqu-cpn-create select:focus {
+.iqu-admin-wrap.iqu-cpn-create select:focus,
+.iqu-admin-wrap .iqu-add-form select:focus {
   border-color: var(--iqu-blue);
   outline: 2px solid var(--iqu-blue);
   outline-offset: 1px;
