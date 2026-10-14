@@ -180,10 +180,12 @@ class IQU_Billing_Import
         $fail = fn(string $msg) => ['error' => $msg];
         $fh = fopen($path, 'r');
         if (!$fh) return $fail('The file could not be read.');
+        // Skip a UTF-8 byte order mark ("CSV UTF-8" from Excel) before parsing, so a quoted
+        // first header is read as First Name, not "First Name" with its quotes.
+        if (fread($fh, 3) !== "\xEF\xBB\xBF") rewind($fh);
 
         $header = fgetcsv($fh, 0, ',', '"', '');
         if (!$header) { fclose($fh); return $fail('The file is empty.'); }
-        $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string) $header[0]);
 
         $map = [];
         foreach ($header as $i => $h) {
