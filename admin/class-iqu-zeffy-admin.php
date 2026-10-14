@@ -244,17 +244,8 @@ class IQU_Zeffy_Admin
         <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_SLUG . '&setup=1#iquz-settings')); ?>"
             class="iquz-btn">⚙ Settings</a>
         <?php
-                // Same tab set as the registration pages, so moving between the
-                // two areas does not require going back through the sidebar.
-                $tabs = [
-                    'iqu-registrations'  => 'All',
-                    'iqu-list-free'      => 'Free',
-                    'iqu-list-summer-l1' => 'Level 1',
-                    'iqu-list-summer-l2' => 'Level 2',
-                    'iqu-coupon-create'  => 'Create Coupon',
-                    'iqu-coupon-list'    => 'Coupon List',
-                    self::PAGE_SLUG      => 'Zeffy Payments',
-                ];
+                // Same tabs, in the same order, as every other IQU page (one shared list).
+                $tabs = IQU_Admin::TOP_TABS;
                 ?>
         <div class="iquz-tabs">
             <?php foreach ($tabs as $slug => $label): ?>

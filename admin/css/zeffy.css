@@ -129,6 +129,17 @@
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
+  /* The shared ten tabs (IQU_Admin::TOP_TABS): scroll sideways instead of widening the page. */
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.iquz-tabs > .iquz-tab {
+  flex: 0 0 auto;
+}
+.iquz-header-right {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .iquz-tab {
