@@ -109,26 +109,23 @@ class IQU_Coupon_Admin
 
         $default_expiry = date('Y-m-d', strtotime('+' . self::DEFAULT_EXPIRY_DAYS . ' days', current_time('timestamp')));
     ?>
-<div class="wrap iqu-admin-wrap">
+<div class="wrap iqu-admin-wrap iqu-cpn-create">
 
     <?php $this->render_top_bar('Create Coupon', self::PAGE_CREATE); ?>
     <?php $this->render_notice(); ?>
 
     <?php if ($new_code !== ''): ?>
-    <div class="iqu-card iqu-cpn-success">
+    <div class="iqu-card iqu-cpn-success" role="status">
         <div class="iqu-card-head">
-            <span class="iqu-card-head-title">✅ Coupon Created</span>
+            <span class="iqu-card-head-title"><span class="dashicons dashicons-yes-alt" aria-hidden="true"></span> Coupon created</span>
             <span class="iqu-card-head-badge">Ready to share</span>
         </div>
         <div class="iqu-cpn-success-body">
-            <p>Share this code with the student. They will enter it on the enrollment form.</p>
+            <p>Share this code with the student. They enter it on the enrollment form.</p>
             <div class="iqu-code-row">
                 <code id="iqu-new-code"><?php echo esc_html($new_code); ?></code>
-                <button type="button" class="iqu-btn-ghost" onclick="
-                    navigator.clipboard.writeText(document.getElementById('iqu-new-code').textContent.trim());
-                    this.textContent='✓ Copied';
-                    setTimeout(()=>{this.textContent='Copy Code';},2000);
-                ">Copy Code</button>
+                <button type="button" class="iqu-btn iqu-btn--secondary" id="iqu-copy-code" aria-describedby="iqu-new-code"><span class="dashicons dashicons-admin-page" aria-hidden="true"></span><span class="iqu-copy-label">Copy code</span></button>
+                <span class="screen-reader-text" id="iqu-copy-status" aria-live="polite"></span>
             </div>
             <p class="iqu-fld-hint">
                 Each coupon respects its usage limit and stops working automatically
@@ -138,116 +135,189 @@ class IQU_Coupon_Admin
     </div>
     <?php endif; ?>
 
-    <div class="iqu-card">
-        <div class="iqu-card-head">
-            <span class="iqu-card-head-title">🎟️ Coupon Details</span>
-            <span class="iqu-card-head-badge">Code generated automatically</span>
-        </div>
+    <form method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-form iqu-cpn-create-form" id="iqu-cpn-create-form" novalidate>
+        <input type="hidden" name="action" value="iqu_create_coupon">
+        <?php wp_nonce_field('iqu_create_coupon'); ?>
 
-        <form method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-form">
-            <input type="hidden" name="action" value="iqu_create_coupon">
-            <?php wp_nonce_field('iqu_create_coupon'); ?>
+        <div class="iqu-cpn-create-layout">
+            <div class="iqu-cpn-create-main">
 
-            <div class="iqu-fld-grid">
-
-                <!-- Occasion — পুরো প্রস্থ -->
-                <div class="iqu-fld iqu-fld--full">
-                    <label for="occasion_name">Occasion Name <em>*</em></label>
-                    <input type="text" id="occasion_name" name="occasion_name" required maxlength="150"
-                        placeholder="Ramadan Zakat Scholarship 2026">
-                    <p class="iqu-fld-hint">Internal label only — students never see this.</p>
-                </div>
-
-                <!-- Applies To -->
-                <div class="iqu-fld">
-                    <label for="course_type">Applies To</label>
-                    <select id="course_type" name="course_type">
-                        <option value="">All Courses</option>
-                        <?php foreach (IQU_Pricing::course_options() as $key => $label): ?>
-                        <option value="<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <p class="iqu-fld-hint">
-                        Restricting the course prevents a Hifz coupon being used
-                        for a cheaper Qa'idah enrollment.
-                    </p>
-                </div>
-
-                <!-- Coupon Type -->
-                <div class="iqu-fld">
-                    <label for="discount_type">Coupon Type <em>*</em></label>
-                    <select id="discount_type" name="discount_type" required>
-                        <option value="percentage">Percentage (%)</option>
-                        <option value="fixed">Fixed Amount ($)</option>
-                    </select>
-                    <p class="iqu-fld-hint">
-                        Percentage scales with the student's chosen days —
-                        recommended for scholarships.
-                    </p>
-                </div>
-
-                <!-- Coupon Value — সংখ্যা + সাফিক্স একসাথে -->
-                <div class="iqu-fld">
-                    <label for="discount_value">Coupon Value <em>*</em></label>
-                    <div class="iqu-input-group">
-                        <input type="number" id="discount_value" name="discount_value" step="0.01" min="0.01" max="100"
-                            required placeholder="100">
-                        <span class="iqu-input-suffix" id="iqu-value-hint">% off</span>
+                <!-- 1. Coupon details -->
+                <section class="iqu-card iqu-cpn-section" aria-labelledby="iqu-cpn-s1">
+                    <div class="iqu-card-head"><h2 class="iqu-cpn-section-title" id="iqu-cpn-s1">Coupon details</h2><span class="iqu-card-head-badge">The code is generated when you save</span></div>
+                    <div class="iqu-cpn-section-body">
+                        <div class="iqu-fld">
+                            <label for="occasion_name">Occasion name <em>*</em></label>
+                            <input type="text" id="occasion_name" name="occasion_name" required maxlength="150"
+                                placeholder="Ramadan Zakat Scholarship 2026" aria-describedby="occasion_name-hint occasion_name-err">
+                            <p class="iqu-fld-hint" id="occasion_name-hint">Internal label only — students never see this.</p>
+                            <p class="iqu-fld-error" id="occasion_name-err" hidden></p>
+                        </div>
+                        <div class="iqu-fld">
+                            <label for="description">Description</label>
+                            <textarea id="description" name="description" rows="3" maxlength="500"
+                                placeholder="Approved for Fatima R. after reviewing her situation on Messenger."></textarea>
+                            <p class="iqu-fld-hint">Optional note for your own records.</p>
+                        </div>
                     </div>
-                    <p class="iqu-fld-hint">Enter <strong>100</strong> for a full Zakat scholarship.</p>
-                </div>
+                </section>
 
-                <!-- Expire Date -->
-                <div class="iqu-fld">
-                    <label for="expire_date">Expire Date <em>*</em></label>
-                    <input type="date" id="expire_date" name="expire_date" required
-                        value="<?php echo esc_attr($default_expiry); ?>"
-                        min="<?php echo esc_attr(current_time('Y-m-d')); ?>">
-                    <p class="iqu-fld-hint">The coupon stops working after this date.</p>
-                </div>
+                <!-- 2. Discount -->
+                <section class="iqu-card iqu-cpn-section" aria-labelledby="iqu-cpn-s2">
+                    <div class="iqu-card-head"><h2 class="iqu-cpn-section-title" id="iqu-cpn-s2">Discount</h2></div>
+                    <div class="iqu-cpn-section-body">
+                        <fieldset class="iqu-fld">
+                            <legend class="iqu-fld-label">Discount type <em>*</em></legend>
+                            <div class="iqu-cpn-seg">
+                                <label class="iqu-cpn-seg-opt"><input type="radio" name="discount_type" value="percentage" checked required><span>Percentage (%)</span></label>
+                                <label class="iqu-cpn-seg-opt"><input type="radio" name="discount_type" value="fixed"><span>Fixed amount ($)</span></label>
+                            </div>
+                            <p class="iqu-fld-hint">Percentage scales with the student's chosen days — recommended for scholarships.</p>
+                        </fieldset>
+                        <div class="iqu-fld">
+                            <label for="discount_value">Discount value <em>*</em></label>
+                            <div class="iqu-input-group">
+                                <input type="number" id="discount_value" name="discount_value" step="0.01" min="0.01" max="100"
+                                    required placeholder="100" aria-describedby="iqu-value-hint discount_value-hint discount_value-err">
+                                <span class="iqu-input-suffix" id="iqu-value-hint">% off</span>
+                            </div>
+                            <p class="iqu-fld-hint" id="discount_value-hint">Enter <strong>100</strong> for a full Zakat scholarship.</p>
+                            <p class="iqu-fld-error" id="discount_value-err" hidden></p>
+                        </div>
+                    </div>
+                </section>
 
-                <!-- Usage Limit -->
-                <div class="iqu-fld iqu-fld--full">
-                    <label for="max_uses">Usage Limit</label>
-                    <input type="number" id="max_uses" name="max_uses" min="0" max="9999" value="1"
-                        class="iqu-fld-narrow">
-                    <p class="iqu-fld-hint">
-                        <strong>1</strong> = single student (recommended).
-                        <strong>0</strong> = unlimited — use with care, a shared
-                        code could be redeemed endlessly.
-                    </p>
-                </div>
+                <!-- 3. Who can use it -->
+                <section class="iqu-card iqu-cpn-section" aria-labelledby="iqu-cpn-s3">
+                    <div class="iqu-card-head"><h2 class="iqu-cpn-section-title" id="iqu-cpn-s3">Who can use it</h2></div>
+                    <div class="iqu-cpn-section-body">
+                        <div class="iqu-fld">
+                            <label for="course_type">Applies to</label>
+                            <select id="course_type" name="course_type">
+                                <option value="">All courses</option>
+                                <?php foreach (IQU_Pricing::course_options() as $key => $label): ?>
+                                <option value="<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="iqu-fld-hint">Restricting the course prevents a Hifz coupon being used for a cheaper Qa'idah enrollment.</p>
+                        </div>
+                    </div>
+                </section>
 
-                <!-- Description -->
-                <div class="iqu-fld iqu-fld--full">
-                    <label for="description">Description</label>
-                    <textarea id="description" name="description" rows="3" maxlength="500"
-                        placeholder="Approved for Fatima R. after reviewing her situation on Messenger."></textarea>
-                    <p class="iqu-fld-hint">Optional note for your own records.</p>
-                </div>
+                <!-- 4. Limits and dates -->
+                <section class="iqu-card iqu-cpn-section" aria-labelledby="iqu-cpn-s4">
+                    <div class="iqu-card-head"><h2 class="iqu-cpn-section-title" id="iqu-cpn-s4">Limits and dates</h2></div>
+                    <div class="iqu-cpn-section-body iqu-cpn-two">
+                        <div class="iqu-fld">
+                            <label for="max_uses">Usage limit</label>
+                            <input type="number" id="max_uses" name="max_uses" min="0" max="9999" step="1" value="1" aria-describedby="max_uses-hint max_uses-err">
+                            <p class="iqu-fld-hint" id="max_uses-hint"><strong>1</strong> = single student (recommended). <strong>0</strong> = unlimited — use with care, a shared code could be redeemed endlessly.</p>
+                            <p class="iqu-fld-error" id="max_uses-err" hidden></p>
+                        </div>
+                        <div class="iqu-fld">
+                            <label for="expire_date">Expiry date <em>*</em></label>
+                            <input type="date" id="expire_date" name="expire_date" required
+                                value="<?php echo esc_attr($default_expiry); ?>"
+                                min="<?php echo esc_attr(current_time('Y-m-d')); ?>" aria-describedby="expire_date-hint expire_date-err">
+                            <p class="iqu-fld-hint" id="expire_date-hint">The coupon stops working after this date.</p>
+                            <p class="iqu-fld-error" id="expire_date-err" hidden></p>
+                        </div>
+                    </div>
+                </section>
             </div>
 
-            <div class="iqu-cpn-actions">
-                <button type="submit" class="iqu-btn-primary">Generate Coupon</button>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_LIST)); ?>"
-                    class="iqu-btn-ghost">View All Coupons</a>
-            </div>
-        </form>
-    </div>
+            <!-- Live summary: beside the form on wide screens, below it on phones -->
+            <aside class="iqu-card iqu-cpn-summary" aria-labelledby="iqu-cpn-sum-title">
+                <div class="iqu-card-head"><h2 class="iqu-cpn-section-title" id="iqu-cpn-sum-title">Summary</h2></div>
+                <div class="iqu-cpn-section-body">
+                    <p class="iqu-cpn-sum-code"><span class="iqu-fld-hint">Code</span><code>Generated when you save</code></p>
+                    <p class="iqu-cpn-sum-line" id="iqu-cpn-sum-line" aria-live="polite">100% off · all courses · 1 use · expires <?php echo esc_html(date('j M Y', strtotime($default_expiry))); ?></p>
+                    <dl class="iqu-cpn-sum-list">
+                        <div><dt>Discount</dt><dd id="iqu-sum-discount">100% off</dd></div>
+                        <div><dt>Course</dt><dd id="iqu-sum-course">All courses</dd></div>
+                        <div><dt>Uses</dt><dd id="iqu-sum-uses">1 use</dd></div>
+                        <div><dt>Expires</dt><dd id="iqu-sum-expires"><?php echo esc_html(date('j M Y', strtotime($default_expiry))); ?></dd></div>
+                    </dl>
+                    <div class="iqu-cpn-actions">
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_LIST)); ?>" class="iqu-btn iqu-btn--secondary">View all coupons</a>
+                        <button type="submit" class="iqu-btn iqu-btn--primary"><span class="dashicons dashicons-tickets-alt" aria-hidden="true"></span>Generate coupon</button>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </form>
 </div>
 
 <script>
-(function() {
-    var type = document.getElementById('discount_type');
-    var hint = document.getElementById('iqu-value-hint');
-    var val = document.getElementById('discount_value');
-    if (!type || !hint) return;
-    type.addEventListener('change', function() {
-        var pct = this.value === 'percentage';
+(function () {
+    // Copy the new code.
+    var copy = document.getElementById('iqu-copy-code');
+    if (copy) copy.addEventListener('click', function () {
+        var code = document.getElementById('iqu-new-code').textContent.trim();
+        var label = copy.querySelector('.iqu-copy-label'), status = document.getElementById('iqu-copy-status');
+        var done = function () { label.textContent = 'Copied'; status.textContent = 'Code copied'; setTimeout(function () { label.textContent = 'Copy code'; status.textContent = ''; }, 2000); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, done); else done();
+    });
+
+    var form = document.getElementById('iqu-cpn-create-form');
+    if (!form) return;
+    var val = document.getElementById('discount_value'), hint = document.getElementById('iqu-value-hint');
+    var course = document.getElementById('course_type'), uses = document.getElementById('max_uses'), date = document.getElementById('expire_date');
+    var occ = document.getElementById('occasion_name');
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    function type() { var r = form.querySelector('input[name="discount_type"]:checked'); return r ? r.value : 'percentage'; }
+    function nice(d) { var p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); return p ? (+p[3]) + ' ' + months[+p[2] - 1] + ' ' + p[1] : 'no date'; }
+    function money(n) { return '$' + n.toFixed(2).replace(/\.00$/, ''); }
+
+    // Live summary, e.g. "100% off · all courses · 3 uses · expires 10 Sep 2026".
+    function summary() {
+        var pct = type() === 'percentage', n = parseFloat(val.value);
+        var disc = isFinite(n) && n > 0 ? (pct ? Math.min(100, n) + '% off' : money(n) + ' off') : (pct ? '—% off' : '$— off');
+        var c = course.value === '' ? 'all courses' : course.options[course.selectedIndex].text;
+        var u = parseInt(uses.value, 10), usesTxt = u === 0 ? 'unlimited uses' : (isFinite(u) && u > 0 ? u + (u === 1 ? ' use' : ' uses') : '— uses');
+        var e = nice(date.value);
+        document.getElementById('iqu-cpn-sum-line').textContent = disc + ' · ' + c + ' · ' + usesTxt + ' · expires ' + e;
+        document.getElementById('iqu-sum-discount').textContent = disc;
+        document.getElementById('iqu-sum-course').textContent = course.value === '' ? 'All courses' : c;
+        document.getElementById('iqu-sum-uses').textContent = usesTxt.charAt(0).toUpperCase() + usesTxt.slice(1);
+        document.getElementById('iqu-sum-expires').textContent = e;
+    }
+
+    // The discount type switches the value's unit and limit (as before).
+    function syncType() {
+        var pct = type() === 'percentage';
         hint.textContent = pct ? '% off' : 'USD off';
         val.max = pct ? 100 : 10000;
         val.placeholder = pct ? '100' : '25';
+        summary();
+    }
+
+    // Inline errors under each field: the same rules the server checks.
+    function check(input) {
+        var msg = '', v = input.value.trim();
+        if (input === occ && v === '') msg = 'Enter an occasion name.';
+        if (input === val) {
+            var n = parseFloat(v);
+            if (v === '' || !isFinite(n) || n <= 0) msg = 'Enter a value above 0.';
+            else if (type() === 'percentage' && n > 100) msg = 'A percentage cannot be more than 100.';
+            else if (type() === 'fixed' && n > 10000) msg = 'Enter an amount up to $10,000.';
+        }
+        if (input === uses && v !== '' && !/^\d{1,4}$/.test(v)) msg = 'Enter a whole number from 0 to 9999.';
+        if (input === date && (v === '' || (date.min && v < date.min))) msg = 'Choose today or a later date.';
+        var err = document.getElementById(input.id + '-err');
+        if (err) { err.textContent = msg; err.hidden = msg === ''; }
+        input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+        return msg === '';
+    }
+    [occ, val, uses, date].forEach(function (i) { i.addEventListener('blur', function () { check(i); }); i.addEventListener('input', function () { if (i.getAttribute('aria-invalid') === 'true') check(i); summary(); }); });
+    form.querySelectorAll('input[name="discount_type"]').forEach(function (r) { r.addEventListener('change', function () { syncType(); if (val.value !== '') check(val); }); });
+    course.addEventListener('change', summary);
+    date.addEventListener('change', summary);
+    form.addEventListener('submit', function (e) {
+        var bad = [occ, val, uses, date].filter(function (i) { return !check(i); });
+        if (bad.length) { e.preventDefault(); bad[0].focus(); }
     });
+    syncType();
 })();
 </script>
 <?php

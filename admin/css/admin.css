@@ -803,7 +803,8 @@
 .iqu-admin-wrap select.iqu-status-select,
 .iqu-admin-wrap .iqu-status-panel select,
 .iqu-admin-wrap .iqu-filter-bar select,
-.iqu-admin-wrap .iqu-period-bar select {
+.iqu-admin-wrap .iqu-period-bar select,
+.iqu-admin-wrap.iqu-cpn-create select {
   -webkit-appearance: none;
   appearance: none;
   box-sizing: border-box;
@@ -829,7 +830,8 @@
 .iqu-admin-wrap select.iqu-status-select:hover,
 .iqu-admin-wrap .iqu-status-panel select:hover,
 .iqu-admin-wrap .iqu-filter-bar select:hover,
-.iqu-admin-wrap .iqu-period-bar select:hover {
+.iqu-admin-wrap .iqu-period-bar select:hover,
+.iqu-admin-wrap.iqu-cpn-create select:hover {
   background-color: var(--iqu-bg2);
   border-color: var(--iqu-navy);
   color: var(--iqu-text1);
@@ -837,7 +839,8 @@
 .iqu-admin-wrap select.iqu-status-select:focus,
 .iqu-admin-wrap .iqu-status-panel select:focus,
 .iqu-admin-wrap .iqu-filter-bar select:focus,
-.iqu-admin-wrap .iqu-period-bar select:focus {
+.iqu-admin-wrap .iqu-period-bar select:focus,
+.iqu-admin-wrap.iqu-cpn-create select:focus {
   border-color: var(--iqu-blue);
   outline: 2px solid var(--iqu-blue);
   outline-offset: 1px;
@@ -2287,4 +2290,195 @@
   color: var(--iqu-blue);
   background: color-mix(in srgb, var(--iqu-blue) 10%, var(--iqu-bg1));
   border-color: color-mix(in srgb, var(--iqu-blue) 30%, var(--iqu-bg1));
+}
+/* ── Create Coupon (3.4.0 UI fixes): sections, segmented type, live summary ── */
+.iqu-cpn-create-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  align-items: start;
+  gap: 16px;
+}
+.iqu-cpn-create-main {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.iqu-cpn-create .iqu-cpn-section,
+.iqu-cpn-create .iqu-cpn-summary {
+  margin: 0;
+}
+.iqu-cpn-summary {
+  position: sticky;
+  top: 48px;
+}
+/* .iqu-admin-wrap hides h1/h2 by default; these section headings stay visible. */
+.iqu-admin-wrap .iqu-cpn-section-title,
+.iqu-cpn-create .iqu-cpn-section-title {
+  display: block;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--iqu-text1);
+}
+.iqu-cpn-section-body {
+  display: grid;
+  gap: 16px;
+  padding: 16px 18px 18px;
+}
+.iqu-cpn-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.iqu-cpn-create .iqu-fld {
+  margin: 0;
+  min-width: 0;
+}
+.iqu-cpn-create fieldset.iqu-fld {
+  border: 0;
+  padding: 0;
+}
+/* 36px inputs and the chevron selects used across the IQU pages */
+.iqu-admin-wrap.iqu-cpn-create input[type="text"],
+.iqu-admin-wrap.iqu-cpn-create input[type="number"],
+.iqu-admin-wrap.iqu-cpn-create input[type="date"] {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-md);
+  font-size: 13px;
+  width: 100%;
+}
+.iqu-admin-wrap.iqu-cpn-create .iqu-input-group input[type="number"] {
+  border: 0;
+  height: 34px;
+  min-height: 34px;
+}
+.iqu-admin-wrap.iqu-cpn-create input[aria-invalid="true"],
+.iqu-admin-wrap.iqu-cpn-create .iqu-input-group:has(input[aria-invalid="true"]) {
+  border-color: var(--iqu-red);
+}
+.iqu-fld-error {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iqu-red);
+}
+.iqu-fld-error[hidden] {
+  display: none;
+}
+/* Segmented discount type */
+.iqu-cpn-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--iqu-navy);
+  border-radius: var(--iqu-radius-md);
+  overflow: hidden;
+  margin: 4px 0 6px;
+}
+.iqu-cpn-seg-opt {
+  position: relative;
+  display: inline-flex;
+  margin: 0 !important;
+  cursor: pointer;
+}
+.iqu-cpn-seg-opt input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.iqu-cpn-seg-opt span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--iqu-navy);
+  background: var(--iqu-bg1);
+}
+.iqu-cpn-seg-opt + .iqu-cpn-seg-opt span {
+  border-left: 1px solid var(--iqu-navy);
+}
+.iqu-cpn-seg-opt input:checked + span {
+  color: var(--iqu-bg1);
+  background: var(--iqu-navy);
+}
+.iqu-cpn-seg-opt input:focus-visible + span {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: -4px;
+}
+/* Summary */
+.iqu-cpn-sum-code {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+.iqu-cpn-sum-code code {
+  align-self: flex-start;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--iqu-text2);
+  background: var(--iqu-bg2);
+  border-radius: var(--iqu-radius-sm);
+}
+.iqu-cpn-sum-line {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--iqu-text1);
+  background: color-mix(in srgb, var(--iqu-blue) 7%, var(--iqu-bg1));
+  border-radius: var(--iqu-radius-md);
+}
+.iqu-cpn-sum-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.iqu-cpn-sum-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.iqu-cpn-sum-list dt {
+  color: var(--iqu-text2);
+}
+.iqu-cpn-sum-list dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+.iqu-cpn-summary .iqu-cpn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.iqu-cpn-summary .iqu-cpn-actions > * {
+  flex: 1 1 auto;
+}
+.iqu-cpn-create .iqu-code-row .iqu-btn .dashicons {
+  margin-right: 4px;
+}
+@media (max-width: 1023px) {
+  .iqu-cpn-create-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .iqu-cpn-summary {
+    position: static;
+  }
+}
+@media (max-width: 600px) {
+  .iqu-cpn-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
