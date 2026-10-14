@@ -128,7 +128,9 @@ class IQU_Billing_Import
         fputs($out, "\xEF\xBB\xBF");
         fputcsv($out, array_column(self::COLUMNS, 0));
         fputcsv($out, array_column(self::COLUMNS, 3));
-        fputcsv($out, ['Omar', 'Rahman', '', 'omar.r@example.com', '+1 469 555 0172', '', 'arabic', '2', '30', 'Yes', '24', 'United States', 'Sat, Sun', '10:00 AM CST', '30 min', 'English, Arabic', 'any', 'Adult student, reduced fee agreed']);
+        // Second example: one value per column of COLUMNS (22), in the same order.
+        fputcsv($out, ['Omar', 'Rahman', '', 'omar.r@example.com', '+1 469 555 0172', '', 'arabic', '2', '30', 'Yes', '24', '', 'United States', '', '',
+            'Sat, Sun', '10:00 AM – 11:00 AM (CST)', '30', 'English, Arabic', 'No preference', '', 'Adult student, reduced fee agreed']);
         fclose($out);
         exit;
     }
