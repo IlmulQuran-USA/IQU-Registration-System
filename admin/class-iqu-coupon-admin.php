@@ -333,7 +333,11 @@ class IQU_Coupon_Admin
             wp_die('Permission denied.');
         }
 
-        $status      = sanitize_text_field($_GET['status'] ?? '');
+        // Filter tab = the coupon's state (IQU_Coupon::effective_status). "disabled" is the
+        // value older links used for the same thing.
+        $state = sanitize_key($_GET['status'] ?? '');
+        if ($state === IQU_Coupon_DB::STATUS_DISABLED) $state = IQU_Coupon::STATE_INACTIVE;
+        if (!isset(IQU_Coupon::STATE_LABELS[$state])) $state = '';
         $course_type = sanitize_text_field($_GET['course_type'] ?? '');
         $search      = sanitize_text_field($_GET['search'] ?? '');
         $paged       = max(1, absint($_GET['paged'] ?? 1));
@@ -343,7 +347,7 @@ class IQU_Coupon_Admin
         $per_page         = in_array($raw_per_page, $allowed_per_page, true) ? $raw_per_page : 20;
 
         $data  = IQU_Coupon_DB::get_coupons([
-            'status'      => $status,
+            'state'       => $state,
             'course_type' => $course_type,
             'search'      => $search,
             'per_page'    => $per_page,
@@ -372,7 +376,8 @@ class IQU_Coupon_Admin
         $cards = [
             ['total', 'tag', (int) $stats['total'], 'Total coupons', (int) $stats['total'] . ' created'],
             ['active', 'yes-alt', (int) $stats['active'], 'Active', 'can be used now'],
-            ['expired', 'clock', (int) $stats['expired'], 'Expired', 'past date or all uses taken'],
+            ['used_up', 'dismiss', (int) $stats['used_up'], 'Used up', 'all uses taken — create a new one if needed'],
+            ['expired', 'clock', (int) $stats['expired'], 'Expired', 'end date has passed'],
             ['redeemed', 'tickets-alt', (int) $stats['redeemed'], 'Times redeemed',
                 (int) $stats['unlimited'] > 0 || (int) $stats['capacity'] === 0 ? 'across all coupons' : (int) $stats['redeemed'] . ' of ' . (int) $stats['capacity'] . ' uses'],
         ];
@@ -380,7 +385,7 @@ class IQU_Coupon_Admin
     <div class="iqu-metrics iqu-metrics--coupons">
         <?php foreach ($cards as [$key, $icon, $num, $label, $line]): ?>
         <div class="iqu-metric iqu-cpn-card iqu-cpn-card--<?php echo esc_attr($key); ?>">
-            <div class="iqu-metric-accent iqu-metric-accent--<?php echo esc_attr(['total' => 'total', 'active' => 'free', 'expired' => 'expired', 'redeemed' => 'redeemed'][$key]); ?>"></div>
+            <div class="iqu-metric-accent iqu-metric-accent--<?php echo esc_attr(['total' => 'total', 'active' => 'free', 'used_up' => 'usedup', 'expired' => 'expired', 'redeemed' => 'redeemed'][$key]); ?>"></div>
             <span class="iqu-cpn-icon" aria-hidden="true"><span class="dashicons dashicons-<?php echo esc_attr($icon); ?>"></span></span>
             <div class="iqu-metric-num"><?php echo (int) $num; ?></div>
             <div class="iqu-metric-lbl"><?php echo esc_html($label); ?></div>
@@ -417,16 +422,29 @@ class IQU_Coupon_Admin
     </div>
     </div>
 
+    <!-- ── State tabs: same counts as the cards (IQU_Coupon::effective_status) ── -->
+    <?php
+        $tab_url = fn(string $s) => add_query_arg(array_filter([
+            'page' => self::PAGE_LIST, 'status' => $s, 'search' => $search, 'course_type' => $course_type,
+            'per_page' => $per_page !== 20 ? $per_page : null,
+        ], fn($v) => $v !== null && $v !== ''), admin_url('admin.php'));
+        $tabs = ['' => ['All', (int) $stats['total']]];
+        foreach (IQU_Coupon::STATE_LABELS as $k => $label) $tabs[$k] = [$label, (int) $stats[$k]];
+    ?>
+    <nav class="iqu-cpn-tabs" aria-label="Filter coupons by state">
+        <?php foreach ($tabs as $k => [$label, $n]): ?>
+        <a class="iqu-cpn-tab iqu-cpn-tab--<?php echo esc_attr($k !== '' ? $k : 'all'); ?>" href="<?php echo esc_url($tab_url($k)); ?>"<?php echo $state === $k ? ' aria-current="page"' : ''; ?>>
+            <?php echo esc_html($label); ?> <span class="iqu-cpn-tab-count"><?php echo (int) $n; ?></span>
+        </a>
+        <?php endforeach; ?>
+    </nav>
+
     <!-- ── Filter Bar ───────────────────────────────── -->
     <form method="GET" class="iqu-filter-bar">
         <input type="hidden" name="page" value="<?php echo esc_attr(self::PAGE_LIST); ?>">
+        <?php if ($state !== ''): ?><input type="hidden" name="status" value="<?php echo esc_attr($state); ?>"><?php endif; ?>
         <input type="search" name="search" value="<?php echo esc_attr($search); ?>"
             placeholder="Search code or occasion…">
-        <select name="status">
-            <option value="">All statuses</option>
-            <option value="active" <?php selected($status, 'active'); ?>>Active</option>
-            <option value="disabled" <?php selected($status, 'disabled'); ?>>Disabled</option>
-        </select>
         <select name="course_type">
             <option value="">All courses</option>
             <?php foreach (IQU_Pricing::course_options() as $key => $label): ?>
@@ -484,8 +502,8 @@ class IQU_Coupon_Admin
                                     $is_expired = !empty($row['expire_date']) && $row['expire_date'] < $today;
                                     $max_uses   = (int) $row['max_uses'];
                                     $used       = (int) $row['used_count'];
-                                    $exhausted  = $max_uses > 0 && $used >= $max_uses;
-                                    $is_active  = $row['status'] === IQU_Coupon_DB::STATUS_ACTIVE;
+                                    $row_state  = IQU_Coupon::effective_status($row, $today);
+                                    $is_active  = $row_state !== IQU_Coupon::STATE_INACTIVE; // Enable / Disable button
 
                                     $toggle_url = wp_nonce_url(
                                         admin_url('admin-post.php?action=iqu_toggle_coupon&coupon_id=' . $id),
@@ -496,16 +514,15 @@ class IQU_Coupon_Admin
                                         'iqu_delete_coupon_' . $id
                                     );
 
-                                    // ব্যাজ: নিষ্ক্রিয় > মেয়াদোত্তীর্ণ > সীমা শেষ > সক্রিয়
-                                    if (!$is_active) {
-                                        $badge = '<span class="iqu-status-badge iqu-sb-cancelled">Disabled</span>';
-                                    } elseif ($is_expired) {
-                                        $badge = '<span class="iqu-status-badge iqu-sb-cancelled">Expired</span>';
-                                    } elseif ($exhausted) {
-                                        $badge = '<span class="iqu-status-badge iqu-sb-contacted">Used Up</span>';
-                                    } else {
-                                        $badge = '<span class="iqu-status-badge iqu-sb-confirmed">Active</span>';
-                                    }
+                                    // ব্যাজ: নিষ্ক্রিয় > মেয়াদোত্তীর্ণ > সীমা শেষ > সক্রিয় (IQU_Coupon::effective_status)
+                                    $badge_class = [
+                                        IQU_Coupon::STATE_ACTIVE   => 'iqu-sb-confirmed',
+                                        IQU_Coupon::STATE_USED_UP  => 'iqu-sb-contacted',
+                                        IQU_Coupon::STATE_EXPIRED  => 'iqu-sb-cancelled',
+                                        IQU_Coupon::STATE_INACTIVE => 'iqu-sb-cancelled',
+                                    ][$row_state];
+                                    $badge = '<span class="iqu-status-badge ' . esc_attr($badge_class) . '" data-state="' . esc_attr($row_state) . '">'
+                                        . esc_html(IQU_Coupon::STATE_LABELS[$row_state]) . '</span>';
 
                                     $discount = $row['discount_type'] === IQU_Coupon_DB::TYPE_PERCENTAGE
                                         ? rtrim(rtrim(number_format((float) $row['discount_value'], 2), '0'), '.') . '%'
@@ -764,7 +781,7 @@ class IQU_Coupon_Admin
                 $r['expire_date'],
                 $r['max_uses'],
                 $r['used_count'],
-                $r['status'],
+                IQU_Coupon::STATE_LABELS[IQU_Coupon::effective_status($r)], // Active, Used up, Expired or Disabled
                 self::csv_safe($r['description']),
                 $r['created_at'],
             ]);

@@ -135,7 +135,8 @@ class IQU_Coupon_DB
     /**
      * অ্যাডমিন লিস্টের জন্য পেজিনেটেড কুপন।
      *
-     * @param array $args  status, course_type, search, orderby, order, per_page, paged
+     * @param array $args  status (stored column), state (effective state), course_type, search,
+     *                     orderby, order, per_page, paged
      * @return array{items: array, total: int}
      */
     public static function get_coupons(array $args = []): array
@@ -145,6 +146,7 @@ class IQU_Coupon_DB
 
         $defaults = [
             'status'      => '',
+            'state'       => '',
             'course_type' => '',
             'search'      => '',
             'orderby'     => 'created_at',
@@ -166,6 +168,18 @@ class IQU_Coupon_DB
         if ($args['status'] !== '') {
             $where[]  = '`status` = %s';
             $params[] = $args['status'];
+        }
+
+        // State filter (active | used_up | expired | inactive): the ids come from
+        // IQU_Coupon::effective_status(), so the list, its tab counts and the badges agree.
+        if (($args['state'] ?? '') !== '') {
+            $ids = array_keys(array_filter(self::states(), fn($s) => $s === $args['state']));
+            if ($ids) {
+                $where[] = '`id` IN (' . implode(',', array_fill(0, count($ids), '%d')) . ')';
+                $params  = array_merge($params, $ids);
+            } else {
+                $where[] = '1=0';
+            }
         }
 
         if ($args['course_type'] !== '') {
@@ -204,28 +218,46 @@ class IQU_Coupon_DB
         return ['items' => $items, 'total' => $total];
     }
 
-    /** ড্যাশবোর্ড কাউন্টার */
-    public static function get_stats(): array
+    /**
+     * Every coupon's state (id => active | used_up | expired | inactive), from
+     * IQU_Coupon::effective_status(). Coupon tables are small, so this reads only the
+     * four columns the rule needs.
+     */
+    public static function states(): array
     {
         global $wpdb;
         $table = self::table();
         $today = current_time('Y-m-d');
+        $out   = [];
+        foreach ((array) $wpdb->get_results("SELECT `id`, `status`, `expire_date`, `max_uses`, `used_count` FROM `{$table}`", ARRAY_A) as $row) {
+            $out[(int) $row['id']] = IQU_Coupon::effective_status($row, $today);
+        }
+        return $out;
+    }
 
-        // Active = can be used now (enabled, not past its date, uses left; max_uses 0 = no limit).
-        // Expired = past its date, or every use taken.
+    /** How many coupons are in each state; the keys of IQU_Coupon::STATE_LABELS. */
+    public static function state_counts(): array
+    {
+        $counts = array_fill_keys(array_keys(IQU_Coupon::STATE_LABELS), 0);
+        foreach (self::states() as $state) $counts[$state]++;
+        return $counts;
+    }
+
+    /** ড্যাশবোর্ড কাউন্টার */
+    public static function get_stats(): array
+    {
+        global $wpdb;
+        $table  = self::table();
+        $states = self::state_counts();
+
+        // Active, used up, expired and disabled come from IQU_Coupon::effective_status():
+        // expired = end date passed only; used up = every use taken (max_uses 0 = no limit).
         return [
             'total'     => (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$table}`"),
-            'active'    => (int) $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM `{$table}` WHERE `status` = %s AND (`expire_date` IS NULL OR `expire_date` >= %s)
-                   AND (`max_uses` = 0 OR `used_count` < `max_uses`)",
-                self::STATUS_ACTIVE,
-                $today
-            )),
-            'expired'   => (int) $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM `{$table}` WHERE (`expire_date` IS NOT NULL AND `expire_date` < %s)
-                   OR (`max_uses` > 0 AND `used_count` >= `max_uses`)",
-                $today
-            )),
+            'active'    => $states[IQU_Coupon::STATE_ACTIVE],
+            'used_up'   => $states[IQU_Coupon::STATE_USED_UP],
+            'expired'   => $states[IQU_Coupon::STATE_EXPIRED],
+            'inactive'  => $states[IQU_Coupon::STATE_INACTIVE],
             'redeemed'  => (int) $wpdb->get_var("SELECT COALESCE(SUM(`used_count`),0) FROM `{$table}`"),
             'capacity'  => (int) $wpdb->get_var("SELECT COALESCE(SUM(`max_uses`),0) FROM `{$table}`"),
             'unlimited' => (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$table}` WHERE `max_uses` = 0"),

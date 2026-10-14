@@ -1803,9 +1803,10 @@
   margin-bottom: 16px;
 }
 
-/* Coupon List: four small cards and the discount card. Cards are as tall as their content.
-   ≥1280px: one row (six columns, the discount card spans two). 1024–1279px: the four small
-   cards in a row, the discount card below. 601–1023px: two columns. ≤600px: one column. */
+/* Coupon List: five small cards (Total, Active, Used up, Expired, Times redeemed) and the
+   discount card. Cards are as tall as their content.
+   ≥1024px: the five cards in one row, the discount card full width below (its four rows side
+   by side). 601–1023px: Total full width, then two columns. ≤600px: one column. */
 .iqu-metrics.iqu-metrics--coupons {
   align-items: start;
 }
@@ -1813,28 +1814,84 @@
   margin-bottom: 0;
   grid-column: 1 / -1;
 }
-@media (min-width: 1024px) and (max-width: 1279px) {
+@media (min-width: 1024px) {
   .iqu-metrics.iqu-metrics--coupons {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .iqu-metrics--coupons .iqu-discount-rows {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1280px) {
-  .iqu-metrics.iqu-metrics--coupons {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-  .iqu-metrics--coupons .iqu-discount-card {
-    grid-column: span 2;
+    column-gap: 20px;
   }
 }
 @media (min-width: 601px) and (max-width: 1023px) {
   .iqu-metrics.iqu-metrics--coupons {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .iqu-metrics--coupons .iqu-cpn-card--total {
+    grid-column: 1 / -1;
+  }
+  .iqu-metrics--coupons .iqu-discount-rows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 20px;
+  }
 }
 @media (max-width: 600px) {
   .iqu-metrics.iqu-metrics--coupons {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+.iqu-metric-accent--usedup {
+  background: var(--iqu-gold);
+}
+.iqu-cpn-card--used_up .iqu-cpn-icon { color: var(--iqu-gold); background: color-mix(in srgb, var(--iqu-gold) 12%, var(--iqu-bg1)); }
+
+/* State tabs above the filter bar: All · Active · Used up · Expired · Disabled, each with its
+   count (the same numbers as the cards). They wrap on narrow screens. */
+.iqu-cpn-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.iqu-cpn-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: 999px;
+  background: var(--iqu-bg1);
+  color: var(--iqu-text1);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.iqu-cpn-tab:hover {
+  border-color: var(--iqu-navy);
+  color: var(--iqu-navy);
+}
+.iqu-cpn-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--iqu-blue);
+}
+.iqu-cpn-tab[aria-current="page"] {
+  background: var(--iqu-navy);
+  border-color: var(--iqu-navy);
+  color: #fff;
+}
+.iqu-cpn-tab-count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--iqu-bg2);
+  color: var(--iqu-text1);
+  font-size: 12px;
+  text-align: center;
+}
+.iqu-cpn-tab[aria-current="page"] .iqu-cpn-tab-count {
+  background: rgba(255, 255, 255, .2);
+  color: #fff;
 }
 /* Small cards: icon chip, number, label, and one line on what the number means. */
 .iqu-cpn-card {

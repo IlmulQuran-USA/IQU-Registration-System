@@ -35,6 +35,54 @@ class IQU_Coupon
     /** ইউনিক কোড বানানোর সর্বোচ্চ চেষ্টা */
     private const MAX_GENERATE_ATTEMPTS = 25;
 
+    // What a coupon is right now — see effective_status(). The stored `status` column only
+    // records the admin's Enable/Disable choice and is never rewritten.
+    public const STATE_ACTIVE   = 'active';
+    public const STATE_USED_UP  = 'used_up';
+    public const STATE_EXPIRED  = 'expired';
+    public const STATE_INACTIVE = 'inactive';
+
+    /** Labels, in the order the Coupon List shows them. */
+    public const STATE_LABELS = [
+        self::STATE_ACTIVE   => 'Active',
+        self::STATE_USED_UP  => 'Used up',
+        self::STATE_EXPIRED  => 'Expired',
+        self::STATE_INACTIVE => 'Disabled',
+    ];
+
+    // ════════════════════════════════════════════════════
+    // STATE
+    // ════════════════════════════════════════════════════
+
+    /**
+     * The one definition of a coupon's state, used by the Coupon List cards, filter tabs and
+     * badges, the CSV export, and checkout validation:
+     *   inactive — disabled by an admin (the admin's choice wins);
+     *   expired  — the end date has passed (wins over used up);
+     *   used_up  — every use taken (max_uses 0 = no limit), end date not passed;
+     *   active   — everything else: it can be used now.
+     * Dates compare in the site time zone; an empty or zero date means no end date.
+     *
+     * @param array       $coupon row with status, expire_date, max_uses, used_count
+     * @param string|null $today  Y-m-d, default today in the site time zone
+     */
+    public static function effective_status(array $coupon, ?string $today = null): string
+    {
+        if ((string) ($coupon['status'] ?? '') !== IQU_Coupon_DB::STATUS_ACTIVE) {
+            return self::STATE_INACTIVE;
+        }
+        $today  = $today ?? current_time('Y-m-d');
+        $expire = (string) ($coupon['expire_date'] ?? '');
+        if ($expire !== '' && $expire !== '0000-00-00' && $expire < $today) {
+            return self::STATE_EXPIRED;
+        }
+        $max = (int) ($coupon['max_uses'] ?? 0);
+        if ($max > 0 && (int) ($coupon['used_count'] ?? 0) >= $max) {
+            return self::STATE_USED_UP;
+        }
+        return self::STATE_ACTIVE;
+    }
+
     // ════════════════════════════════════════════════════
     // GENERATION
     // ════════════════════════════════════════════════════
@@ -159,22 +207,18 @@ class IQU_Coupon
             return $result;
         }
 
-        if ($coupon['status'] !== IQU_Coupon_DB::STATUS_ACTIVE) {
+        // State from the one shared rule (disabled, then end date in the site time zone, then
+        // the usage limit; max_uses = 0 means no limit). Messages are unchanged.
+        $state = self::effective_status($coupon);
+        if ($state === self::STATE_INACTIVE) {
             $result['error'] = 'This coupon code is not valid. Please check the code and try again.';
             return $result;
         }
-
-        // মেয়াদ — তুলনা সাইটের টাইমজোনে
-        if (!empty($coupon['expire_date']) && $coupon['expire_date'] !== '0000-00-00') {
-            if ($coupon['expire_date'] < current_time('Y-m-d')) {
-                $result['error'] = 'This coupon code has expired. Please contact us for a new one.';
-                return $result;
-            }
+        if ($state === self::STATE_EXPIRED) {
+            $result['error'] = 'This coupon code has expired. Please contact us for a new one.';
+            return $result;
         }
-
-        // ব্যবহারের সীমা (max_uses = 0 মানে সীমাহীন)
-        $max_uses = (int) $coupon['max_uses'];
-        if ($max_uses > 0 && (int) $coupon['used_count'] >= $max_uses) {
+        if ($state === self::STATE_USED_UP) {
             $result['error'] = 'This coupon code has already been used. Please contact us for a new one.';
             return $result;
         }
