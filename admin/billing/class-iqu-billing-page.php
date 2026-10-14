@@ -25,7 +25,8 @@ class IQU_Billing_Page
     private const CAP          = 'manage_options';
     private const A_BULK       = 'iqu_billing_bulk_send';
     private const TX           = 'iqu_billing_bulk_';
-    private const PER_PAGE     = 50;
+    /** Rows per page, as on the dashboard: 10 / 20 / 30, default 10. */
+    private const PER_PAGE_SIZES = [10, 20, 30];
     private const BULK_MAX     = 25;
 
     /** Programs billed monthly. Summer is a one-time fee paid at enrollment. */
@@ -213,10 +214,16 @@ class IQU_Billing_Page
             return strpos($hay, strtolower($q)) !== false;
         }));
 
+        $per   = absint($_GET['per_page'] ?? 10);
+        if (!in_array($per, self::PER_PAGE_SIZES, true)) $per = 10;
         $total = count($shown);
-        $pages = max(1, (int) ceil($total / self::PER_PAGE));
+        $pages = max(1, (int) ceil($total / $per));
         $page  = min($pages, max(1, absint($_GET['paged'] ?? 1)));
-        $shown = array_slice($shown, ($page - 1) * self::PER_PAGE, self::PER_PAGE);
+        $shown = array_slice($shown, ($page - 1) * $per, $per);
+        $from  = $total ? ($page - 1) * $per + 1 : 0;
+        $to    = min($total, $page * $per);
+        // The list with the current filter chip, search and page size (page links add "paged").
+        $list  = fn(array $args = []) => add_query_arg($args + ['page' => self::SLUG, 'show' => $filter, 'q' => $q !== '' ? $q : null, 'per_page' => $per], admin_url('admin.php'));
 
         $not_set_up_total = 0.0;
         foreach ($rows as $r) if ($r['group'] === 'not_set_up') $not_set_up_total += (float) $r['p']['net'];
@@ -252,7 +259,7 @@ class IQU_Billing_Page
             <!-- ── Status filter ────────────────────────────── -->
             <nav class="iqu-seg iqu-billing-filters" aria-label="Billing status">
                 <?php foreach (self::GROUPS as $key => $label): ?>
-                    <a href="<?php echo esc_url(add_query_arg(['page' => self::SLUG, 'show' => $key, 'q' => $q ?: null], admin_url('admin.php'))); ?>" class="iqu-seg-pill<?php echo $filter === $key ? ' is-active' : ''; ?>"<?php echo $filter === $key ? ' aria-current="page"' : ''; ?>><span class="iqu-seg-dot iqu-seg-dot--<?php echo esc_attr(self::GROUP_TONES[$key] ?? 'neutral'); ?>" aria-hidden="true"></span><?php echo esc_html($label); ?><span class="iqu-billing-count"><?php echo (int) $counts[$key]; ?></span></a>
+                    <a href="<?php echo esc_url($list(['show' => $key])); ?>" class="iqu-seg-pill<?php echo $filter === $key ? ' is-active' : ''; ?>"<?php echo $filter === $key ? ' aria-current="page"' : ''; ?>><span class="iqu-seg-dot iqu-seg-dot--<?php echo esc_attr(self::GROUP_TONES[$key] ?? 'neutral'); ?>" aria-hidden="true"></span><?php echo esc_html($label); ?><span class="iqu-billing-count"><?php echo (int) $counts[$key]; ?></span></a>
                 <?php endforeach; ?>
             </nav>
 
@@ -261,6 +268,7 @@ class IQU_Billing_Page
                 <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-filter-bar">
                     <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
                     <input type="hidden" name="show" value="<?php echo esc_attr($filter); ?>">
+                    <input type="hidden" name="per_page" value="<?php echo (int) $per; ?>">
                     <label class="screen-reader-text" for="iqu-q">Search students</label>
                     <input id="iqu-q" type="search" name="q" value="<?php echo esc_attr($q); ?>" placeholder="Name, email or IQU number">
                     <button type="submit" class="iqu-btn iqu-btn--secondary"><?php echo self::icon('search'); ?>Search</button>
@@ -279,16 +287,23 @@ class IQU_Billing_Page
                     <div class="iqu-card-head iqu-billing-bulkbar">
                         <div class="iqu-billing-bulkbar-left">
                             <button type="submit" class="iqu-btn-primary" id="iqu-bulk-btn" disabled>Send payment links to selected</button>
-                            <span class="iqu-fld-hint" id="iqu-bulk-count">Tick students who are “Not set up”. Brothers and sisters with the same email are billed together.</span>
+                            <span class="iqu-fld-hint" id="iqu-bulk-count">Tick students who are “Not set up”. “Select all” ticks only the students on this page. Brothers and sisters with the same email are billed together.</span>
                         </div>
-                        <span class="iqu-card-head-badge"><?php echo (int) $total; ?> shown</span>
+                        <div class="iqu-billing-bulkbar-right">
+                            <span class="iqu-card-head-badge" aria-live="polite"><?php echo $total ? esc_html('Showing ' . $from . '–' . $to . ' of ' . $total) : 'Showing 0 of 0'; ?></span>
+                            <div class="iqu-perpage-btns" role="group" aria-label="Students per page">
+                                <?php foreach (self::PER_PAGE_SIZES as $n): ?>
+                                    <a href="<?php echo esc_url($list(['per_page' => $n])); ?>" class="iqu-perpage-btn <?php echo $per === $n ? 'iqu-perpage-btn--active' : ''; ?>"<?php echo $per === $n ? ' aria-current="true"' : ''; ?>><?php echo (int) $n; ?></a>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="iqu-table-wrap">
                     <table class="iqu-tbl iqu-billing-tbl iqu-students-tbl">
                         <caption class="screen-reader-text">Students on monthly tuition. Select a row to open the family page.</caption>
                         <thead><tr>
-                            <td class="check-column"><label class="screen-reader-text" for="iqu-all">Select all</label><input id="iqu-all" type="checkbox"></td>
+                            <td class="check-column"><label class="screen-reader-text" for="iqu-all">Select all on this page</label><input id="iqu-all" type="checkbox"></td>
                             <th scope="col">Student and guardian</th><th scope="col">Course</th><th scope="col" class="is-num">Monthly</th><th scope="col">Billing</th><th scope="col">Actions</th>
                         </tr></thead>
                         <tbody>
@@ -306,10 +321,12 @@ class IQU_Billing_Page
                         <span>Page <?php echo (int) $page; ?> of <?php echo (int) $pages; ?></span>
                         <div>
                         <?php echo wp_kses_post(paginate_links([
-                            'base'    => add_query_arg('paged', '%#%'),
-                            'format'  => '',
-                            'current' => $page,
-                            'total'   => $pages,
+                            'base'     => $list(['paged' => '%#%']),
+                            'format'   => '',
+                            'current'  => $page,
+                            'total'    => $pages,
+                            'end_size' => 2,
+                            'mid_size' => 3,
                         ])); ?>
                         </div>
                     </div>

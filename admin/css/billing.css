@@ -201,7 +201,7 @@
 .iqu-billing .iqu-billing-tbl .check-column {
   width: 28px;
   padding: 10px 4px 10px 14px;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .iqu-billing .iqu-billing-tbl .check-column input[type="checkbox"] {
@@ -1887,7 +1887,7 @@ th[aria-sort="descending"] .iqu-sort::after {
 }
 .iqu-billing .iqu-students-tbl th.is-num,
 .iqu-billing .iqu-students-tbl td.is-num {
-  text-align: right;
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
 .iqu-billing .iqu-students-tbl tbody tr:nth-child(even) > * {
@@ -2051,4 +2051,12 @@ th[aria-sort="descending"] .iqu-sort::after {
   font-size: 12.5px;
   color: var(--iqu-text2);
   font-style: italic;
+}
+
+/* Student Billing bulk bar: "Showing 1–10 of 40" and the dashboard's 10 / 20 / 30 buttons */
+.iqu-billing .iqu-billing-bulkbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
 }
