@@ -301,8 +301,7 @@
       var std = standard();
       if (isNaN(a)) return "";
       if (a < 0) return "The agreed fee cannot be negative.";
-      if (std !== null && a > std) return "The agreed fee cannot be more than the standard fee (" + B.money(std) + ").";
-      return "";
+      return ""; // lower or higher than the standard fee: billed as agreed
     }
 
     function update() {
@@ -317,10 +316,10 @@
       var showAgreed = useAgreed.checked && agreed.value !== "" && !isNaN(Number(agreed.value)) && std !== null;
       var a = showAgreed ? Math.round(Number(agreed.value) * 100) / 100 : 0;
       sumRow("agreed", showAgreed);
-      sumRow("diff", showAgreed && a <= std);
+      sumRow("diff", showAgreed && a !== std);
       if (showAgreed) {
         sum("agreed", a === 0 ? "$0.00 — full scholarship" : B.money(a) + " a month");
-        sum("diff", "−" + B.money(Math.max(0, std - a)) + " a month");
+        sum("diff", (a < std ? "−" : "+") + B.money(Math.abs(std - a)) + " a month");
       }
       sumRow("zakat", !!(zakat && zakat.checked));
     }

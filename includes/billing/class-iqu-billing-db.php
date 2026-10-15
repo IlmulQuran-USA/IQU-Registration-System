@@ -382,6 +382,14 @@ class IQU_Billing_DB
         ], ['%d', '%d', '%s', '%f', '%s', '%s']);
     }
 
+    /** The monthly amount of one student inside an account (used before the subscription exists). */
+    public static function set_member_amount(int $account_id, int $registration_id, float $amount): bool
+    {
+        global $wpdb;
+        return false !== $wpdb->update(self::members_table(), ['amount' => $amount],
+            ['account_id' => $account_id, 'registration_id' => $registration_id, 'mode' => IQU_Stripe::expected_mode()], ['%f'], ['%d', '%d', '%s']);
+    }
+
     public static function get_members(int $account_id): array
     {
         global $wpdb;

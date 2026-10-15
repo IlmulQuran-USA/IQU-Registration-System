@@ -60,6 +60,7 @@ class IQU_Admin
     add_action('wp_ajax_iqu_delete_reg', [$this, 'handle_delete']);
     add_action('admin_post_iqu_set_existing_student', [$this, 'handle_set_existing_student']);
     add_action('admin_post_iqu_set_course', [$this, 'handle_set_course']);
+    add_action('admin_post_iqu_set_agreed_fee', [$this, 'handle_set_agreed_fee']);
   }
 
   /**
@@ -106,23 +107,76 @@ class IQU_Admin
   }
 
   /**
-   * A note when a fee was agreed (agreed_fee): before the course is set it waits; once it is
-   * set and the agreed fee differs from the standard price, both are shown. A note, not an error.
+   * Student page: set, change or clear the agreed monthly fee (billed exactly as agreed).
+   * Locked once a Stripe subscription exists; before that, an existing billing account is
+   * priced again so the family's payment link charges the new amount.
    */
-  public static function agreed_fee_note(array $row): string
+  public function handle_set_agreed_fee(): void
   {
-    if (!isset($row['agreed_fee']) || $row['agreed_fee'] === null || $row['agreed_fee'] === '') return '';
-    $agreed = (float) $row['agreed_fee'];
-    $course = (string) ($row['course_type'] ?? '');
-    if (!IQU_Pricing::is_valid_course($course)) {
-      return 'Agreed fee ' . IQU_Pricing::format($agreed) . ' saved — it is checked against the standard price once the course is set.';
+    if (!current_user_can('manage_options')) wp_die('Permission denied.', 403);
+    $id = absint($_POST['id'] ?? 0);
+    check_admin_referer('iqu_set_agreed_fee_' . $id);
+    $row = $id ? IQU_Database::get_registration($id) : null;
+    $acc = $row && class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
+    $raw = trim(str_replace(['$', ',', ' '], '', (string) wp_unslash($_POST['agreed_fee'] ?? '')));
+    if (!$row || $row['form_type'] !== IQU_Database::FORM_FREE) {
+      $msg = 'fee_failed';
+    } elseif ($acc && !empty($acc['stripe_subscription_id'])) {
+      $msg = 'fee_locked';
+    } elseif (!empty($_POST['clear'])) {
+      $msg = IQU_Database::set_agreed_fee($id, null) ? 'fee_cleared' : 'fee_failed';
+    } elseif (!preg_match('/^\d+(\.\d{1,2})?$/', $raw)) {
+      $msg = 'fee_invalid'; // empty, negative or not a number
+    } else {
+      $msg = IQU_Database::set_agreed_fee($id, (float) $raw) ? 'fee_saved' : 'fee_failed';
     }
-    $calc = IQU_Pricing::calculate($course, (int) $row['days_per_week']);
-    if (empty($calc['valid'])) return '';
-    $standard = round((float) $calc['monthly_amount'], 2);
-    if (abs($standard - $agreed) < 0.01) return '';
-    return sprintf('Agreed fee %s differs from the standard price %s (%s, %d days a week).%s', IQU_Pricing::format($agreed), IQU_Pricing::format($standard),
-      IQU_Pricing::label($course), (int) $row['days_per_week'], $agreed > $standard ? ' The standard price is billed.' : ' The agreed fee is billed.');
+    if ($acc && in_array($msg, ['fee_saved', 'fee_cleared'], true)) IQU_Billing_Service::reprice_account((int) $acc['id']);
+    wp_safe_redirect(add_query_arg(['page' => 'iqu-view-registration', 'id' => $id, 'iqu_msg' => $msg], admin_url('admin.php')));
+    exit;
+  }
+
+  /** The "Agreed fee" line on the student page: the fee, the note against the standard price, the editor. */
+  private static function render_agreed_fee_item(array $row): void
+  {
+    if ($row['form_type'] !== IQU_Database::FORM_FREE || !class_exists('IQU_Billing_Pricing') || !IQU_Database::student_fee_columns_ready()) return;
+    $id     = (int) $row['id'];
+    $p      = IQU_Billing_Pricing::for_registration($row);
+    if (!empty($p['legacy'])) return; // older enrollment, billed at the fee chosen then
+    $agreed = IQU_Billing_Pricing::agreed_fee($row);
+    $note   = IQU_Billing_Pricing::agreed_note($row, $p);
+    $acc    = class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
+    $msg    = sanitize_key($_GET['iqu_msg'] ?? '');
+    $texts  = [
+      'fee_saved'   => ['status', 'Agreed fee saved.' . ($acc ? ' The payment link now charges this amount; send the message again if the family already has it.' : '')],
+      'fee_cleared' => ['status', 'Agreed fee cleared: the standard price applies.'],
+      'fee_invalid' => ['alert', 'Enter an amount like 30 or 30.50 (0 = full scholarship). Negative or non-numeric amounts are not accepted.'],
+      'fee_locked'  => ['alert', 'Monthly billing is already running in Stripe, so the fee cannot be changed here.'],
+      'fee_failed'  => ['alert', 'The fee could not be changed.'],
+    ];
+    ?>
+                <div class="iqu-detail-item iqu-detail-full" data-agreed-fee="<?php echo $agreed === null ? 'none' : esc_attr(number_format($agreed, 2, '.', '')); ?>">
+                    <div class="iqu-detail-lbl">Agreed fee</div>
+                    <div class="iqu-detail-val">
+                        <strong><?php echo $agreed === null ? 'None — standard price' : esc_html(IQU_Pricing::format($agreed) . ' a month' . ($agreed <= 0 ? ' (full scholarship)' : '')); ?></strong>
+                        <?php if ($note !== ''): ?><br><span class="iqu-agreed-note" data-agreed-fee-note><?php echo esc_html($note); ?></span><?php endif; ?>
+                        <?php if (isset($texts[$msg])): ?><p class="iqu-free-month-note" role="<?php echo esc_attr($texts[$msg][0]); ?>"><?php echo esc_html($texts[$msg][1]); ?></p><?php endif; ?>
+                        <?php if ($acc && !empty($acc['stripe_subscription_id'])): ?>
+                            <p class="iqu-free-month-note">Monthly billing is already running in Stripe, so the fee can no longer be changed here.</p>
+                        <?php else: ?>
+                            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-set-course-form iqu-agreed-form">
+                                <input type="hidden" name="action" value="iqu_set_agreed_fee">
+                                <input type="hidden" name="id" value="<?php echo $id; ?>">
+                                <?php wp_nonce_field('iqu_set_agreed_fee_' . $id); ?>
+                                <label class="screen-reader-text" for="iqu-agreed-fee">Agreed monthly fee in dollars</label>
+                                <input id="iqu-agreed-fee" name="agreed_fee" type="text" inputmode="decimal" size="8" placeholder="e.g. 30" value="<?php echo $agreed === null ? '' : esc_attr(number_format($agreed, 2, '.', '')); ?>">
+                                <button type="submit" class="iqu-action-btn iqu-action-btn--view"><?php echo $agreed === null ? 'Set agreed fee' : 'Save'; ?></button>
+                                <?php if ($agreed !== null): ?><button type="submit" name="clear" value="1" class="iqu-action-btn">Clear (use standard price)</button><?php endif; ?>
+                            </form>
+                            <?php if ($acc): ?><p class="iqu-free-month-note">Billing is set up but not started yet: a change updates the amount on the family's payment link.</p><?php endif; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+    <?php
   }
 
   /** The "Free first month" line on the student page, with the admin override. */
@@ -1535,12 +1589,7 @@ class IQU_Admin
                 <div class="iqu-detail-item iqu-detail-full"><div class="iqu-detail-val"><p class="iqu-free-month-note" role="status">Course saved. Billing can now be set up in Student Billing.</p></div></div>
                 <?php endif; ?>
 
-                <?php $agreed_note = self::agreed_fee_note($row); if ($agreed_note !== ''): ?>
-                <div class="iqu-detail-item iqu-detail-full" data-agreed-fee-note>
-                    <div class="iqu-detail-lbl">Agreed fee</div>
-                    <div class="iqu-detail-val"><span class="iqu-agreed-note"><?php echo esc_html($agreed_note); ?></span></div>
-                </div>
-                <?php endif; ?>
+                <?php self::render_agreed_fee_item($row); ?>
 
                 <?php if ($d_course !== ''): ?>
                 <!-- ── নতুন সিস্টেম (v2.8.0+) ── -->

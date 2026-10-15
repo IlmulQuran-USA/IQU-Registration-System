@@ -38,6 +38,31 @@ class IQU_Billing_Pricing
         return (string) ($reg['course_type'] ?? '') !== '' || self::legacy_fee($reg) === null;
     }
 
+    /** The monthly fee agreed with the family (agreed_fee), or null when none was agreed. */
+    public static function agreed_fee(array $reg): ?float
+    {
+        if (!array_key_exists('agreed_fee', $reg) || $reg['agreed_fee'] === null || $reg['agreed_fee'] === '') return null;
+        return round((float) $reg['agreed_fee'], 2);
+    }
+
+    /**
+     * "Agreed fee $X (standard $Y for <course>, N days a week)" when an agreed fee differs from
+     * the standard price; '' when there is none or it is the same. Same wording either way.
+     * $p: for_registration() of the row (with the course chosen in Check and send, if any).
+     */
+    public static function agreed_note(array $reg, ?array $p = null): string
+    {
+        $agreed = self::agreed_fee($reg);
+        if ($agreed === null) return '';
+        $p = $p ?? self::for_registration($reg);
+        if (!isset($p['standard'])) {
+            return 'Agreed fee ' . IQU_Pricing::format($agreed) . ' (standard price once the course is set)';
+        }
+        if (abs($agreed - (float) $p['standard']) < 0.005) return '';
+        return sprintf('Agreed fee %s (standard %s for %s, %d %s a week)', IQU_Pricing::format($agreed), IQU_Pricing::format((float) $p['standard']),
+            $p['course_label'], (int) $p['days_per_week'], (int) $p['days_per_week'] === 1 ? 'day' : 'days');
+    }
+
     public static function for_registration(array $reg, ?string $course = null, ?int $days = null): array
     {
         $out = [
@@ -120,18 +145,26 @@ class IQU_Billing_Pricing
                     IQU_Pricing::format($gross)
                 );
             }
-        } elseif (isset($reg['agreed_fee']) && $reg['agreed_fee'] !== null && $reg['agreed_fee'] !== '') {
-            // A fee agreed before the course was known (CSV import): applied now that a course
-            // is chosen. It can only lower the price; a higher one bills the standard price.
-            $agreed = round((float) $reg['agreed_fee'], 2);
+        } elseif (self::agreed_fee($reg) === null && (!empty($reg['coupon_code']) || !empty($reg['zakat_declaration']) || !empty($reg['special_discount']))) {
+            $out['warnings'][] = 'This record has a coupon or discount, but the course or days were chosen by the admin. No discount is applied — check before sending.';
+        }
+
+        // An agreed fee is a price already agreed with the family: it is billed exactly, lower or
+        // higher than the standard price. Lower: the standard price with the difference as the
+        // reduction. Higher: the agreed fee is the monthly price. The standard price is kept in
+        // 'standard' for the note (agreed_note()).
+        $agreed = self::agreed_fee($reg);
+        if ($agreed !== null) {
+            $out['standard'] = $gross;
+            $out['agreed']   = $agreed;
             if ($agreed <= $gross) {
                 $discount = round($gross - $agreed, 2);
                 $label    = $discount > 0 ? (!empty($reg['zakat_declaration']) ? 'Zakat Fund support' : 'Agreed reduced fee') : '';
             } else {
-                $out['warnings'][] = sprintf('The agreed fee %s is more than the standard price %s; the standard price is used.', IQU_Pricing::format($agreed), IQU_Pricing::format($gross));
+                $gross    = $agreed;
+                $discount = 0.0;
+                $label    = '';
             }
-        } elseif (!empty($reg['coupon_code']) || !empty($reg['zakat_declaration']) || !empty($reg['special_discount'])) {
-            $out['warnings'][] = 'This record has a coupon or discount, but the course or days were chosen by the admin. No discount is applied — check before sending.';
         }
 
         $net = round($gross - $discount, 2);

@@ -272,6 +272,28 @@ class IQU_Billing_Service
         return ['ok' => true, 'errors' => [], 'account_id' => $account_id];
     }
 
+    /**
+     * Price an account again from its students' records, while no Stripe subscription exists
+     * yet (link not used): the member amounts and totals the checkout link will charge. Used
+     * after an agreed fee is changed on the student page. Returns false once billing is running.
+     */
+    public static function reprice_account(int $account_id): bool
+    {
+        $acc = IQU_Billing_DB::get_account($account_id);
+        if (!$acc || !empty($acc['stripe_subscription_id'])) return false;
+        $gross = $discount = $net = 0.0;
+        foreach (IQU_Billing_DB::get_members($account_id) as $m) {
+            $reg = IQU_Database::get_registration((int) $m['registration_id']);
+            if (!$reg) continue;
+            $p = IQU_Billing_Pricing::for_registration($reg);
+            IQU_Billing_DB::set_member_amount($account_id, (int) $m['registration_id'], (float) $p['net']);
+            $gross += (float) $p['gross']; $discount += (float) $p['discount']; $net += (float) $p['net'];
+        }
+        return IQU_Billing_DB::update_account($account_id, [
+            'monthly_amount' => round($gross, 2), 'discount_amount' => round($discount, 2), 'net_amount' => round($net, 2),
+        ]);
+    }
+
     /** Remove a local account that never reached Stripe. */
     private static function delete_local(int $account_id): void
     {

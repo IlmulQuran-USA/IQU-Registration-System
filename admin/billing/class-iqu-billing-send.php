@@ -179,7 +179,7 @@ class IQU_Billing_Send
                                     <?php echo esc_html($p['course_label']); ?><br><span class="iqu-billing-sub"><?php echo (int) $p['days_per_week']; ?> days/week · <?php echo (int) $p['classes_per_month']; ?> classes × <?php echo esc_html(IQU_Pricing::format($p['per_class_rate'])); ?></span>
                                 <?php endif; ?>
                             </td>
-                            <td><?php echo $p['gross'] > 0 ? esc_html(IQU_Pricing::format($p['gross'])) : '—'; ?></td>
+                            <td><?php $std = (float) ($p['standard'] ?? $p['gross']); echo $std > 0 ? esc_html(IQU_Pricing::format($std)) : '—'; ?></td>
                             <td><?php echo $p['discount'] > 0 ? esc_html('−' . IQU_Pricing::format($p['discount']) . ' ' . $p['discount_label']) : '—'; ?></td>
                             <td><strong><?php echo $p['billable'] ? esc_html(IQU_Pricing::format($p['net'])) : '—'; ?></strong></td>
                             <td class="iqu-billing-wrap">
@@ -187,6 +187,7 @@ class IQU_Billing_Send
                                 <?php elseif ($p['needs_input']): ?><span class="iqu-billing-warn"><?php echo esc_html($p['reason']); ?></span>
                                 <?php elseif (!$p['billable']): ?><span><?php echo esc_html($p['reason']); ?></span><?php endif; ?>
                                 <?php foreach ($p['warnings'] as $w): ?><br><span class="iqu-billing-sub iqu-billing-warn"><?php echo esc_html($w); ?></span><?php endforeach; ?>
+                                <?php $an = IQU_Billing_Pricing::agreed_note($reg, $p); if ($an !== ''): ?><br><span class="iqu-billing-sub" data-agreed-note><?php echo esc_html($an); ?></span><?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>

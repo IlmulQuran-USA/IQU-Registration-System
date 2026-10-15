@@ -405,6 +405,30 @@ class IQU_Database
         return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, ['existing_student' => $existing ? 1 : 0], ['id' => $id], ['%d'], ['%d']);
     }
 
+    /**
+     * Set (a number) or clear (null) the agreed monthly fee of a registration. The fee is billed
+     * exactly (IQU_Billing_Pricing). Setting it also records the note and, when the standard price
+     * is known, the reduction it means (shown in reports); clearing it removes an agreed reduction
+     * so the standard price applies again (a website coupon's discount is left as it was).
+     */
+    public static function set_agreed_fee(int $id, ?float $fee): bool
+    {
+        global $wpdb;
+        $row = self::get_registration($id);
+        if (!$row || !self::student_fee_columns_ready()) return false;
+        $table    = $wpdb->prefix . IQU_TABLE_NAME;
+        $standard = round((float) ($row['calculated_amount'] ?? 0), 2);
+        $agreed_n = strpos((string) ($row['flexible_fee_note'] ?? ''), 'Agreed monthly fee') === 0;
+        if ($fee === null) {
+            $ok = false !== $wpdb->query($wpdb->prepare("UPDATE {$table} SET agreed_fee = NULL WHERE id = %d", $id));
+            if ($ok && $agreed_n) $ok = false !== $wpdb->update($table, ['flexible_fee_note' => '', 'discount_amount' => 0], ['id' => $id], ['%s', '%f'], ['%d']);
+            return $ok;
+        }
+        $set = ['agreed_fee' => round($fee, 2), 'flexible_fee_note' => 'Agreed monthly fee ' . IQU_Pricing::format($fee)];
+        if ($standard > 0 && ($agreed_n || (float) $row['discount_amount'] <= 0)) $set['discount_amount'] = max(0.0, round($standard - $fee, 2));
+        return false !== $wpdb->update($table, $set, ['id' => $id]);
+    }
+
     public static function waitlist_table(): string
     {
         global $wpdb;

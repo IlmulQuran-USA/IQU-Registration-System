@@ -309,10 +309,10 @@ class IQU_Billing_Add_Student
             $agreed = round((float) $in['agreed_fee'], 2);
             if ($agreed < 0) {
                 $errors[] = 'The agreed fee cannot be negative.';
-            } elseif ($agreed > $gross) {
-                $errors[] = sprintf('The agreed fee cannot be more than the standard fee (%s).', IQU_Pricing::format($gross));
             } else {
-                $discount = round($gross - $agreed, 2);
+                // Billed exactly as agreed, lower or higher than the standard fee (a higher one
+                // is no reduction; IQU_Billing_Pricing bills agreed_fee as the monthly price).
+                $discount = max(0.0, round($gross - $agreed, 2));
             }
         }
 
@@ -367,7 +367,7 @@ class IQU_Billing_Add_Student
             if ($col !== 'referral') $row[$col] = $value;
         }
 
-        return ['errors' => [], 'warnings' => $warnings, 'row' => $row, 'gross' => $gross, 'net' => round($gross - $discount, 2), 'course_missing' => $course_missing];
+        return ['errors' => [], 'warnings' => $warnings, 'row' => $row, 'gross' => $gross, 'net' => $agreed !== null && !$course_missing ? $agreed : round($gross - $discount, 2), 'course_missing' => $course_missing];
     }
 
     /**
@@ -716,7 +716,7 @@ class IQU_Billing_Add_Student
                                 <div class="iqu-agreed-panel" id="iqu-agreed-panel" data-show="<?php echo $show_fee ? '1' : '0'; ?>">
                                     <label for="agreed_fee" class="iqu-billing-sublabel">Agreed monthly fee ($)</label>
                                     <input id="agreed_fee" name="agreed_fee" type="number" min="0" step="0.01" class="iqu-fld-narrow" aria-describedby="iqu-hint-agreed iqu-err-agreed_fee" value="<?php echo $v('agreed_fee'); ?>"<?php echo $invalid('agreed_fee'); ?>>
-                                    <p class="iqu-fld-hint" id="iqu-hint-agreed">Cannot be more than the standard fee. Enter 0 for a full scholarship (they will not be billed).</p>
+                                    <p class="iqu-fld-hint" id="iqu-hint-agreed">Billed exactly as entered, lower or higher than the standard fee. Enter 0 for a full scholarship (they will not be billed).</p>
                                     <?php echo $err('agreed_fee'); ?>
                                     <label class="iqu-billing-check-label"><input type="checkbox" name="zakat" value="1" <?php checked(!empty($old['zakat'])); ?>> The reduction is paid by the Zakat Fund</label>
                                 </div>
@@ -749,7 +749,7 @@ class IQU_Billing_Add_Student
                         <dl class="iqu-sum-fees">
                             <div><dt>Standard fee</dt><dd data-sum="std">—</dd></div>
                             <div data-sum-row="agreed" hidden><dt>Agreed fee</dt><dd data-sum="agreed">—</dd></div>
-                            <div data-sum-row="diff" hidden><dt>Reduction</dt><dd data-sum="diff">—</dd></div>
+                            <div data-sum-row="diff" hidden><dt>Difference from standard</dt><dd data-sum="diff">—</dd></div>
                         </dl>
                         <p class="iqu-sum-note" data-sum-row="zakat" hidden><span class="dashicons dashicons-heart" aria-hidden="true"></span>The Zakat Fund pays the reduction.</p>
                         <p class="iqu-sum-next-title">What happens next</p>
