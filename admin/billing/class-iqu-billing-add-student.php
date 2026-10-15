@@ -278,6 +278,10 @@ class IQU_Billing_Add_Student
         }
 
         $errors = self::validate($in, $course_missing);
+        if (!empty($in['agreed_fee_invalid'])) {
+            $errors[] = 'The agreed fee must be one amount, for example 30 or 30.50.';
+            $in['use_agreed'] = false;
+        }
         [$extra_cols, $extra_errors, $extra_warnings] = self::clean_extra(is_array($in['extra'] ?? null) ? $in['extra'] : [], (int) ($in['days'] ?? 0));
         $errors   = array_merge($errors, $extra_errors);
         $warnings = array_merge($warnings, $extra_warnings);

@@ -316,7 +316,9 @@ class IQU_Billing_Import
         if ($wa === '') $wa = $r['guardian_whatsapp'] ?? '';
         $wa = trim(substr(preg_replace('/[^0-9+\-\s()]/', '', $wa), 0, 25));
 
-        $fee_raw = preg_replace('/[^0-9.]/', '', (string) ($r['agreed_fee'] ?? ''));
+        // Keep a leading minus so "-5" is rejected as negative instead of read as 5.
+        $fee_raw = preg_replace('/[^0-9.\-]/', '', (string) ($r['agreed_fee'] ?? ''));
+        $fee_bad = $fee_raw !== '' && !preg_match('/^-?(\d+\.?\d*|\.\d+)$/', $fee_raw); // e.g. "5-10": not one amount
         $zak     = strtolower((string) ($r['zakat'] ?? ''));
 
         return [
@@ -330,6 +332,7 @@ class IQU_Billing_Import
             'days'          => (int) preg_replace('/\D/', '', (string) ($r['days'] ?? '')),
             'use_agreed'    => $fee_raw !== '',
             'agreed_fee'    => $fee_raw !== '' ? (float) $fee_raw : 0.0,
+            'agreed_fee_invalid' => $fee_bad,
             'zakat'         => in_array($zak, ['yes', 'y', 'true', '1'], true),
             'note'          => sanitize_textarea_field((string) ($r['note'] ?? '')),
             'via'           => IQU_Database::VIA_IMPORT,
