@@ -36,6 +36,12 @@ class IQU_Billing_Import
     private const TX        = 'iqu_billing_import_';
     private const MAX_BYTES = 1048576;
     private const MAX_ROWS  = 500;
+    /**
+     * How long a checked file is kept for "Import". Kept only as this user's import state
+     * (a transient with the parsed rows), never as a file on the server; replaced by a short
+     * summary as soon as it is imported.
+     */
+    private const KEEP      = HOUR_IN_SECONDS;
 
     /** Sample file columns, in order. Names match the existing CSV export. */
     private const COLUMNS = [
@@ -247,6 +253,10 @@ class IQU_Billing_Import
             'file'    => sanitize_file_name($name),
             'key'     => wp_generate_password(20, false),
             'dry'     => $dry,
+            // The checked copy belongs to this user and expires after KEEP seconds (handle_confirm).
+            'user'    => get_current_user_id(),
+            'created' => time(),
+            'sha'     => (string) hash_file('sha256', $path),
         ];
     }
 
@@ -381,9 +391,28 @@ class IQU_Billing_Import
             self::store(['error' => 'This preview has expired. Please upload the file again.']);
             self::back();
         }
-        if (!empty($state['dry'])) {
-            self::store(['error' => 'That file was only validated. To import it, upload it again without "Validate only".']);
+        // The state is stored under this user's own key; the user id inside it is a second check.
+        // (A preview saved before these fields existed has neither, and is at most 30 minutes old.)
+        if (isset($state['user']) && (int) $state['user'] !== get_current_user_id()) {
+            delete_transient(self::TX . get_current_user_id());
+            self::store(['error' => 'This checked file belongs to another user. Please upload the file again.']);
             self::back();
+        }
+        if (isset($state['created']) && time() - (int) $state['created'] > self::KEEP) {
+            self::store(['error' => 'The checked file has expired (it is kept for 1 hour). Please upload it again.']);
+            self::back();
+        }
+        // "Import these rows" after Validate only: import exactly what was checked. If any row
+        // would now come out differently (e.g. a student was added meanwhile), stop and ask for
+        // the file again, so the import always matches the results that were shown.
+        if (!empty($state['dry'])) {
+            foreach ($state['preview'] as $r) {
+                $now = IQU_Billing_Add_Student::prepare($r['in']);
+                if (self::level($now['errors'], $now['warnings']) !== ($r['level'] ?? '') && !$r['errors']) {
+                    self::store(['error' => 'Something changed since the file was checked (row ' . (int) $r['line'] . '). Nothing was imported. Please upload the file again to check it.']);
+                    self::back();
+                }
+            }
         }
 
         $added = 0; $billed = 0; $warned = 0; $no_course = 0; $failed = [];
@@ -427,7 +456,7 @@ class IQU_Billing_Import
 
     private static function store(array $data): void
     {
-        set_transient(self::TX . get_current_user_id(), $data, 30 * MINUTE_IN_SECONDS);
+        set_transient(self::TX . get_current_user_id(), $data, self::KEEP);
     }
 
     private static function load(): array
@@ -530,7 +559,7 @@ class IQU_Billing_Import
                         <p class="iqu-fld-hint" id="iqu-csv-hint">CSV only, up to 1 MB and <?php echo (int) self::MAX_ROWS; ?> students. The file is checked and then discarded; it is not stored on the server.</p>
                         <p class="iqu-dropzone-status" id="iqu-csv-status" role="status" aria-live="polite"></p>
                         <label class="iqu-billing-check-label iqu-import-dry"><input type="checkbox" name="dry_run" value="1" aria-describedby="iqu-dry-hint"> Validate only</label>
-                        <p class="iqu-fld-hint" id="iqu-dry-hint">Runs every check and shows the results, which you can download as CSV. Nothing is saved, and there is no Import button.</p>
+                        <p class="iqu-fld-hint" id="iqu-dry-hint">Runs every check and shows the results, which you can download as CSV. Nothing is saved until you press "Import these rows" (within 1 hour).</p>
                     </div>
                     <div class="iqu-form-actions iqu-btn-group">
                         <button type="submit" name="submit" value="Upload and check" class="iqu-btn iqu-btn--primary"><?php echo IQU_Billing_Page::icon('upload'); ?>Upload and check</button>
@@ -621,7 +650,7 @@ class IQU_Billing_Import
             <div class="iqu-billing-body">
                 <p class="iqu-import-summary" role="status" data-import-summary><strong><?php echo esc_html(self::summary_line($n)); ?></strong></p>
                 <?php if ($dry): ?>
-                    <p class="iqu-fld-hint">Validate only: nothing was saved. Download the results, fix the file, then upload it again without "Validate only" to import.</p>
+                    <p class="iqu-fld-hint">Validate only: nothing was saved. Download the results if you need them. To import these rows as checked, press "Import these rows" below (within 1 hour); if you change the file, upload it again.</p>
                 <?php endif; ?>
                 <?php if ($nocrs): ?>
                     <p class="iqu-fld-hint" data-course-missing-hint><?php echo (int) $nocrs; ?> <?php echo $nocrs === 1 ? 'student has' : 'students have'; ?> no course: <?php echo $nocrs === 1 ? 'it is' : 'they are'; ?> imported with the course left blank, and billing waits until it is set<?php echo $tocheck ? '; agreed fees are saved and checked against the standard price then' : ''; ?>.</p>
@@ -704,8 +733,10 @@ class IQU_Billing_Import
 
             <div class="iqu-sticky-bar">
                 <p class="iqu-sticky-bar-note">
-                    <?php if ($dry): ?>
-                        Nothing was saved (Validate only).
+                    <?php if ($dry && $ok): ?>
+                        Nothing was saved (Validate only). "Import these rows" imports exactly the rows checked above, within 1 hour; if you change the file, upload it again.
+                    <?php elseif ($dry): ?>
+                        Nothing was saved (Validate only). No rows can be imported; fix the file and upload it again.
                     <?php elseif (!$ok): ?>
                         No rows can be imported. Fix the file and upload it again.
                     <?php elseif ($n[self::LEVEL_ERROR]): ?>
@@ -722,12 +753,12 @@ class IQU_Billing_Import
                         <?php wp_nonce_field(self::A_CANCEL); ?>
                         <button type="submit" name="submit" value="<?php echo $dry ? 'Start over' : 'Cancel'; ?>" class="iqu-btn iqu-btn--secondary"><?php echo $dry ? 'Start over' : 'Cancel'; ?></button>
                     </form>
-                    <?php if ($ok && !$dry): ?>
+                    <?php if ($ok): $label = $dry ? 'Import these rows (' . count($ok) . ')' : 'Import ' . count($ok) . ' students'; ?>
                     <form method="post" action="<?php echo $post; ?>">
                         <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CONFIRM); ?>">
                         <input type="hidden" name="key" value="<?php echo esc_attr((string) $state['key']); ?>">
                         <?php wp_nonce_field(self::A_CONFIRM); ?>
-                        <button type="submit" name="submit" value="<?php echo esc_attr('Import ' . count($ok) . ' students'); ?>" class="iqu-btn iqu-btn--primary"><?php echo esc_html('Import ' . count($ok) . ' students'); ?></button>
+                        <button type="submit" name="submit" value="<?php echo esc_attr($label); ?>" class="iqu-btn iqu-btn--primary"><?php echo esc_html($label); ?></button>
                     </form>
                     <?php endif; ?>
                 </div>
