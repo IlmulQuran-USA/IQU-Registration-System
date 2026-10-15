@@ -58,6 +58,68 @@ class IQU_Admin
     add_action('wp_ajax_iqu_update_status', [$this, 'handle_update_status']);
     add_action('wp_ajax_iqu_export_csv', [$this, 'handle_export_csv']);
     add_action('wp_ajax_iqu_delete_reg', [$this, 'handle_delete']);
+    add_action('admin_post_iqu_set_existing_student', [$this, 'handle_set_existing_student']);
+  }
+
+  /**
+   * Student page: mark a website enrollment "Existing student — no free month", or undo it.
+   * Only for Enroll for Free rows from the website, before billing is set up for them.
+   */
+  public function handle_set_existing_student(): void
+  {
+    if (!current_user_can('manage_options')) wp_die('Permission denied.', 403);
+    $id = absint($_POST['id'] ?? 0);
+    check_admin_referer('iqu_set_existing_student_' . $id);
+    $row = $id ? IQU_Database::get_registration($id) : null;
+    $msg = 'existing_failed';
+    if ($row && $row['form_type'] === IQU_Database::FORM_FREE && IQU_Database::is_public_row($row)
+        && !(class_exists('IQU_Billing_DB') && IQU_Billing_DB::account_for_registration($id))) {
+      $on  = ($_POST['existing'] ?? '') === '1';
+      $msg = IQU_Database::set_existing_student($id, $on) ? ($on ? 'existing_on' : 'existing_off') : 'existing_failed';
+    }
+    wp_safe_redirect(add_query_arg(['page' => 'iqu-view-registration', 'id' => $id, 'iqu_msg' => $msg], admin_url('admin.php')));
+    exit;
+  }
+
+  /** The "Free first month" line on the student page, with the admin override. */
+  private static function render_free_month_item(array $row): void
+  {
+    if ($row['form_type'] !== IQU_Database::FORM_FREE || !class_exists('IQU_Billing_Service')) return;
+    $id       = (int) $row['id'];
+    $eligible = IQU_Billing_Service::is_free_month_eligible($row);
+    $acc      = class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
+    $msg      = sanitize_key($_GET['iqu_msg'] ?? '');
+    ?>
+                <div class="iqu-detail-item iqu-detail-full" data-free-month="<?php echo $eligible ? 'eligible' : 'none'; ?>">
+                    <div class="iqu-detail-lbl">Free first month</div>
+                    <div class="iqu-detail-val">
+                        <?php if ($eligible): ?>
+                            <span class="iqu-status-badge iqu-sb-confirmed">Eligible — new student</span>
+                        <?php else: ?>
+                            <span class="iqu-status-badge iqu-sb-cancelled">No free month</span>
+                            <small><?php echo esc_html(ucfirst(IQU_Billing_Service::no_free_month_reason($row))); ?></small>
+                        <?php endif; ?>
+                        <?php if ($msg === 'existing_on' || $msg === 'existing_off'): ?>
+                            <p class="iqu-free-month-note" role="status"><?php echo $msg === 'existing_on' ? 'Saved: existing student — no free month.' : 'Saved: treated as a new student again.'; ?></p>
+                        <?php elseif ($msg === 'existing_failed'): ?>
+                            <p class="iqu-free-month-note" role="alert">This could not be changed.</p>
+                        <?php endif; ?>
+                        <?php if ($acc): ?>
+                            <p class="iqu-free-month-note">Billing is already set up (<?php echo esc_html(($acc['student_type'] ?? '') === 'new' ? 'with a free first month' : 'no free month'); ?>), so this can no longer be changed here.</p>
+                        <?php elseif (IQU_Database::is_public_row($row) && IQU_Database::student_fee_columns_ready()): $existing = !empty($row['existing_student']); ?>
+                            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-free-month-form">
+                                <input type="hidden" name="action" value="iqu_set_existing_student">
+                                <input type="hidden" name="id" value="<?php echo $id; ?>">
+                                <input type="hidden" name="existing" value="<?php echo $existing ? '0' : '1'; ?>">
+                                <?php wp_nonce_field('iqu_set_existing_student_' . $id); ?>
+                                <button type="submit" class="iqu-action-btn<?php echo $existing ? '' : ' iqu-action-btn--view'; ?>">
+                                    <?php echo $existing ? 'Undo: treat as a new student (free month)' : 'Mark as existing student — no free month'; ?>
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+    <?php
   }
 
   public function register_menu(): void
@@ -1398,6 +1460,8 @@ class IQU_Admin
                 $d_rate     = (float) ($row['per_class_rate'] ?? 0);
                 $d_days     = (int) ($row['days_per_week'] ?? 0);
                 ?>
+
+                <?php self::render_free_month_item($row); ?>
 
                 <?php if (class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::course_missing($row)): ?>
                 <div class="iqu-detail-item iqu-detail-full">

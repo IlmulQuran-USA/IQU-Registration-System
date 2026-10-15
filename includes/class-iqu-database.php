@@ -155,6 +155,8 @@ class IQU_Database
             billing_account_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
             reminders_sent     TINYINT(3) UNSIGNED NOT NULL DEFAULT 0,
             created_via        VARCHAR(10)         NOT NULL DEFAULT 'public',
+            existing_student   TINYINT(1)          NOT NULL DEFAULT 0,
+            agreed_fee         DECIMAL(8,2)        NULL DEFAULT NULL,
             PRIMARY KEY        (id),
             KEY                email (email),
             KEY                form_type (form_type),
@@ -327,6 +329,82 @@ class IQU_Database
         ], false);
     }
 
+    // ------------------------------------------------------------
+    // existing_student and agreed_fee
+    // ------------------------------------------------------------
+
+    /** Set once both columns exist and existing_student is backfilled: ['at', 'existing_student'] */
+    private const OPT_STUDENT_FEE = 'iqu_student_fee_columns_migrated';
+
+    /**
+     * existing_student: 1 when the family answered "already an Ilm-ul-Quran student = Yes" on
+     *   the website form, or an admin marked the row "Existing student — no free month".
+     * agreed_fee: the monthly fee agreed with an admin (Add existing student / CSV import);
+     *   NULL when none was agreed (0 is a real value: a full scholarship).
+     * Only written or queried once this returns true.
+     */
+    public static function student_fee_columns_ready(): bool
+    {
+        return is_array(get_option(self::OPT_STUDENT_FEE));
+    }
+
+    /** What the migration recorded (['at', 'existing_student' => rows set from the form answer]), or []. */
+    public static function student_fee_backfill(): array
+    {
+        $o = get_option(self::OPT_STUDENT_FEE);
+        return is_array($o) ? $o : [];
+    }
+
+    /**
+     * One-time migration: add existing_student (NOT NULL DEFAULT 0) and agreed_fee (NULL),
+     * through apply_schema() first and an explicit ALTER where dbDelta did not add them. Backfill
+     * existing_student = 1 on rows whose review reasons include "existing_student" (the website
+     * answer, which was stored only there until now). Nothing else is changed.
+     */
+    public static function maybe_migrate_student_fee_columns(): void
+    {
+        global $wpdb;
+        if (self::student_fee_columns_ready()) return;
+        $table = $wpdb->prefix . IQU_TABLE_NAME;
+        $defs  = ['existing_student' => 'TINYINT(1) NOT NULL DEFAULT 0', 'agreed_fee' => 'DECIMAL(8,2) NULL DEFAULT NULL'];
+
+        $cols = self::registration_columns();
+        if (!$cols) return;
+        if (array_diff_key($defs, $cols)) {
+            self::create_table();
+            $cols = self::registration_columns();
+        }
+        foreach ($defs as $col => $def) {
+            if (!isset($cols[$col])) $wpdb->query("ALTER TABLE {$table} ADD COLUMN {$col} {$def}");
+        }
+        $cols = self::registration_columns();
+        if ($missing = array_diff(array_keys($defs), array_keys($cols))) {
+            error_log('[IQU] Columns could not be added: ' . implode(', ', $missing) . ' (' . $wpdb->last_error . '); will retry.');
+            return;
+        }
+        $wpdb->query("UPDATE {$table} SET existing_student = 0 WHERE existing_student IS NULL");
+        $wpdb->query($wpdb->prepare(
+            // No other review reason contains this text (help, sibling, card_country, payment_setup …).
+            "UPDATE {$table} SET existing_student = 1 WHERE existing_student = 0 AND review_reason LIKE %s",
+            '%existing_student%'
+        ));
+        update_option(self::OPT_STUDENT_FEE, [
+            'at'               => gmdate('Y-m-d H:i:s'),
+            'existing_student' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE existing_student = 1"),
+        ], false);
+    }
+
+    /**
+     * Admin override on the student page: mark a row "Existing student — no free month" (true)
+     * or undo it (false). Stored in existing_student, never in the referral.
+     */
+    public static function set_existing_student(int $id, bool $existing): bool
+    {
+        global $wpdb;
+        if (!self::student_fee_columns_ready() || !self::get_registration($id)) return false;
+        return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, ['existing_student' => $existing ? 1 : 0], ['id' => $id], ['%d'], ['%d']);
+    }
+
     public static function waitlist_table(): string
     {
         global $wpdb;
@@ -456,8 +534,9 @@ class IQU_Database
         if ($stored !== IQU_VERSION) {
             self::create_table();
         }
-        // Own flag rather than the version: it also runs on sites already at this version.
+        // Own flags rather than the version: they also run on sites already at this version.
         self::maybe_migrate_created_via();
+        self::maybe_migrate_student_fee_columns();
         // One-time import from the legacy IUQ plugin table, if present.
         self::maybe_migrate_from_iuq();
     }

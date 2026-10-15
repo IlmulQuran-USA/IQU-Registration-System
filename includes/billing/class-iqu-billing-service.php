@@ -86,11 +86,41 @@ class IQU_Billing_Service
         return ($acc['student_type'] ?? '') === 'new';
     }
 
+    /**
+     * Only genuinely new students get the free first month. Not eligible when ANY of:
+     * - the row was added by an admin or a CSV import (IQU_Database::created_via, which also
+     *   reads the older Billing markers);
+     * - the family answered "already an Ilm-ul-Quran student = Yes", or an admin marked the row
+     *   "Existing student — no free month" (existing_student). Before that column is migrated,
+     *   the website answer is read from the review reasons, where it was stored until now.
+     * Used for every free-month decision and label (student_type() below).
+     */
+    public static function is_free_month_eligible(array $reg): bool
+    {
+        if (!IQU_Database::is_public_row($reg)) return false;
+        if (!empty($reg['existing_student'])) return false;
+        if (!IQU_Database::student_fee_columns_ready()
+            && in_array('existing_student', explode(',', (string) ($reg['review_reason'] ?? '')), true)) return false;
+        return true;
+    }
+
+    /** Why a row gets no free month, in a few words ('' when it is eligible). */
+    public static function no_free_month_reason(array $reg): string
+    {
+        if (self::is_free_month_eligible($reg)) return '';
+        $via = IQU_Database::created_via($reg);
+        if ($via === IQU_Database::VIA_ADMIN) return 'added by an admin';
+        if ($via === IQU_Database::VIA_IMPORT) return 'imported from CSV';
+        return in_array('existing_student', explode(',', (string) ($reg['review_reason'] ?? '')), true)
+            ? 'existing student (answered Yes on the website form)'
+            : 'existing student (marked by an admin)';
+    }
+
     /** 'new' while the free first month is still running, otherwise 'current'. */
     public static function student_type(array $reg): string
     {
-        // Added via Billing (Add existing student / Import) — always current: no free month.
-        if (!IQU_Database::is_public_row($reg)) return 'current';
+        // Existing students (and rows added by an admin or an import) are always current.
+        if (!self::is_free_month_eligible($reg)) return 'current';
         $created = strtotime((string) ($reg['created_at'] ?? '') . ' UTC');
         if ($created && $created > time() - self::FREE_MONTH_DAYS * DAY_IN_SECONDS) return 'new';
         return 'current';

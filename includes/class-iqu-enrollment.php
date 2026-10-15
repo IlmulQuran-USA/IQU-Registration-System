@@ -111,7 +111,12 @@ class IQU_Enrollment
 
         $reasons = [];
         if (!empty($clean['coupon_code']) || (float) ($clean['payment_amount'] ?? 0) <= 0) $reasons[] = 'help';
-        if ($answer === 'yes') $reasons[] = 'existing_student';
+        if ($answer === 'yes') {
+            $reasons[] = 'existing_student';
+            // The answer is also kept as a field of its own: an existing student never gets the
+            // free first month (IQU_Billing_Service::is_free_month_eligible).
+            if (IQU_Database::student_fee_columns_ready()) $clean['existing_student'] = 1;
+        }
         if (self::account_for_email((string) ($clean['email'] ?? ''))) $reasons[] = 'sibling';
 
         if ($reasons) {
@@ -174,7 +179,7 @@ class IQU_Enrollment
         IQU_Database::update_enrollment($reg_id, ['pay_session_id' => substr((string) ($co['id'] ?? ''), 0, 100)]);
 
         self::telegram('🕓 Enrollment started — card pending', self::reg_rows($clean, $reg_id) + [
-            'Monthly' => IQU_Telegram::esc(IQU_Pricing::format((float) $acc['net_amount'])) . ' (first month free)',
+            'Monthly' => IQU_Telegram::esc(IQU_Pricing::format((float) $acc['net_amount'])) . (IQU_Billing_Service::has_free_first_month($acc) ? ' (first month free)' : ''),
         ], 'Sent to Stripe to add a card or bank account. Completes when Stripe confirms.');
 
         $response['message']      = self::TO_STRIPE;
@@ -247,7 +252,7 @@ class IQU_Enrollment
                 'Monthly'      => IQU_Telegram::esc(IQU_Pricing::format((float) $acc['net_amount'])),
                 'First charge' => IQU_Telegram::esc($first ? wp_date('j M Y', (int) strtotime($first . ' UTC')) : '—'),
                 'Method'       => IQU_Telegram::esc((string) ($acc['payment_method_label'] ?: $method)),
-            ], 'Card or bank confirmed by Stripe. First month free.');
+            ], 'Card or bank confirmed by Stripe.' . (IQU_Billing_Service::has_free_first_month($acc) ? ' First month free.' : ' No free month (existing student).'));
 
             if ($country !== '' && !in_array($country, ['US', 'CA'], true)) {
                 foreach ($done as $reg) IQU_Database::add_review_reason((int) $reg['id'], 'card_country');
@@ -290,12 +295,13 @@ class IQU_Enrollment
         $kids = implode(', ', array_map(fn($r) => trim((string) $r['first_name']), $regs));
         $first = $acc['first_charge_date'] ? wp_date('j F Y', (int) strtotime($acc['first_charge_date'] . ' 15:00:00 UTC')) : '';
         $guardian = trim((string) ($acc['guardian_name'] ?? ''));
+        $free  = IQU_Billing_Service::has_free_first_month($acc); // existing students: no free month
         $table = array_merge(IQU_Billing_Email::student_rows($acc), IQU_Billing_Email::tuition_rows($acc),
-            [['First payment', $first !== '' ? $first . ' (after the free first month)' : ''], ['Paying with', (string) ($acc['payment_method_label'] ?? '')]]);
+            [['First payment', $first !== '' ? $first . ($free ? ' (after the free first month)' : '') : ''], ['Paying with', (string) ($acc['payment_method_label'] ?? '')]]);
 
         IQU_Billing_Email::send($to, 'Welcome to Ilm-ul-Quran USA — enrollment complete', [
             'title'     => 'Enrollment complete',
-            'preheader' => "{$kids}'s enrollment is complete. The first month is free.",
+            'preheader' => "{$kids}'s enrollment is complete." . ($free ? ' The first month is free.' : ''),
             'greeting'  => 'Assalamu alaikum' . ($guardian !== '' ? ' ' . explode(' ', $guardian)[0] : '') . ',',
             'private'   => true,
             'help'      => 'If the fee ever becomes a burden, please talk to us — no child\'s place is ever affected by cost.',
@@ -304,8 +310,8 @@ class IQU_Enrollment
                 ['table', $table],
                 ['button', 'Open my billing page', IQU_Billing_Service::link_for($acc)],
                 ['list', 'Good to know', [
-                    'Nothing is charged during the free first month.',
-                    'After that, tuition is taken automatically on the same date every month, and you will receive a receipt by email each time.',
+                    $free ? 'Nothing is charged during the free first month.' : ($first !== '' ? "Nothing is charged before {$first}." : 'Nothing is charged before the first payment date.'),
+                    ($free ? 'After that, tuition' : 'Tuition') . ' is taken automatically on the same date every month, and you will receive a receipt by email each time.',
                     "Our team will contact you on WhatsApp within 24–48 hours to arrange the class schedule, in-sha'-Allah.",
                     'You can change your bank account or card at any time from your private billing page.',
                 ]],
