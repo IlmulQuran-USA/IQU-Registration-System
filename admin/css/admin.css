@@ -265,22 +265,42 @@
 }
 
 /* ── Section Row (breakdown | status overview + online enrollment) ── */
-/* Each column is as tall as its own content (the two may end at different heights).
-   The breakdown chart has a fixed height, so Chart.js (responsive, no aspect ratio)
-   sizes the canvas to the box and never feeds back into the row height. */
+/* The RIGHT column sets the row height: its two cards at their natural height plus the gap
+   (never stretched). The left card is stretched to that height as a flex column, and the
+   bar chart takes what is left (flex: 1), never less than 180px. The canvas is positioned
+   inside its box, so Chart.js (responsive, no aspect ratio) follows the box and can never
+   push the row taller. If the right column is ever shorter than the left card's minimum,
+   the left card is taller and the right column keeps its natural height. */
 .iqu-section-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
-  align-items: start;
+  align-items: stretch;
   gap: 12px;
   margin-bottom: 16px;
 }
+.iqu-section-row > .iqu-card {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  min-width: 0;
+}
 .iqu-section-row .iqu-breakdown-chart {
-  height: 210px;
+  flex: 1 1 0;
+  height: auto;
+  min-height: 180px;
+}
+.iqu-section-row .iqu-breakdown-chart canvas {
+  position: absolute;
+  left: 0;
+  top: 14px; /* below the dashed rule (padding-top of the box) */
+  right: 0;
+  bottom: 0;
+  height: calc(100% - 14px) !important;
 }
 .iqu-dash-stack {
   display: flex;
   flex-direction: column;
+  align-self: start;
   gap: 12px;
   min-width: 0;
 }
@@ -299,7 +319,9 @@
   .iqu-section-row {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* Stacked: each card at its natural height, as before (chart 190px). */
   .iqu-section-row .iqu-breakdown-chart {
+    flex: none;
     height: 190px;
   }
 }
