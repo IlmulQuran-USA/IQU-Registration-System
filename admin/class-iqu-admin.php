@@ -427,15 +427,25 @@ class IQU_Admin
   // ════════════════════════════════════════════════════
 
   /** Tabs of the shared top bar (dashboard, lists, coupons, waitlist). */
+  /**
+   * The two pages both headers link to. The main tab row (TOP_TABS) and the Billing tab row
+   * (IQU_Billing_Page::TABS) are built from these, so the Dashboard and Billing headers can
+   * never point to different pages or use different names.
+   */
+  public const DASHBOARD_SLUG  = 'iqu-registrations';
+  public const DASHBOARD_LABEL = 'Dashboard';
+  public const BILLING_SLUG    = 'iqu-billing';
+  public const BILLING_LABEL   = 'Billing';
+
   public const TOP_TABS = [
-    'iqu-registrations'   => 'All',
+    self::DASHBOARD_SLUG  => self::DASHBOARD_LABEL,
     'iqu-list-free'       => 'Free',
     'iqu-list-summer-l1'  => 'Level 1',
     'iqu-list-summer-l2'  => 'Level 2',
     'iqu-list-weekend'    => 'Weekend Program',
     'iqu-coupon-create'   => 'Create Coupon',
     'iqu-coupon-list'     => 'Coupon List',
-    'iqu-billing'         => 'Billing',
+    self::BILLING_SLUG    => self::BILLING_LABEL,
     'iqu-waitlist'        => 'Waitlist',
     'iqu-zeffy-payments'  => 'Zeffy Payments',
   ];

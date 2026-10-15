@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) exit;
  */
 class IQU_Billing_Page
 {
-    public const SLUG          = 'iqu-billing';
+    public const SLUG          = IQU_Admin::BILLING_SLUG; // the main tab row's "Billing" opens this page
     public const PAYMENTS_SLUG = 'iqu-billing-payments';
     public const BULK_SLUG     = 'iqu-billing-bulk';
     private const CAP          = 'manage_options';
@@ -72,16 +72,23 @@ class IQU_Billing_Page
     }
 
     /** Shared top bar with the tabs for every billing screen (same markup as the other IQU screens). */
+    /**
+     * The Billing tab row: the main Dashboard first (the same page as the main tab row's
+     * "Dashboard", from IQU_Admin), then the Billing pages. key => [label, page slug].
+     */
+    public const TABS = [
+        'dashboard' => [IQU_Admin::DASHBOARD_LABEL, IQU_Admin::DASHBOARD_SLUG],
+        'students'  => ['Student Billing', self::SLUG],
+        'payments'  => ['Payments', self::PAYMENTS_SLUG],
+        'reports'   => ['Reports', 'iqu-billing-reports'],
+        'add'       => ['Add Student', 'iqu-billing-add-student'],
+        'import'    => ['Import', 'iqu-billing-import'],
+        'settings'  => ['Settings', 'iqu-billing-settings'],
+    ];
+
     public static function tabs(string $active): void
     {
-        $tabs = [
-            'students' => ['Student Billing', self::SLUG],
-            'payments' => ['Payments', self::PAYMENTS_SLUG],
-            'reports'  => ['Reports', 'iqu-billing-reports'],
-            'add'      => ['Add Student', 'iqu-billing-add-student'],
-            'import'   => ['Import', 'iqu-billing-import'],
-            'settings' => ['Settings', 'iqu-billing-settings'],
-        ];
+        $tabs = self::TABS;
         echo '<div class="iqu-top-bar"><div class="iqu-top-bar-left">'
             . '<div class="iqu-logo-mark iqu-billing-logo" role="img" aria-label="IQU Logo"></div>'
             . '<div><div class="iqu-page-title">Billing</div><div class="iqu-page-sub">Ilm-ul-Quran USA — Monthly tuition</div></div>'
