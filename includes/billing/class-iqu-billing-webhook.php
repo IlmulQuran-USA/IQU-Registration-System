@@ -123,6 +123,18 @@ class IQU_Billing_Webhook
 
         switch ($event['type']) {
             case 'checkout.session.completed':
+                // Second line of defence against an old Checkout page: the subscription must charge
+                // what the family pays now. If not, no activation (no "method added", no enrollment
+                // completion) — the account goes to review and the admins are alerted.
+                if (($before['review_reason'] ?? '') !== '') return ['in_review', $id, 'waiting for an admin'];
+                if (!empty($sync['subscription'])) {
+                    $check = IQU_Billing_Service::amount_check($acc, $sync['subscription'], $obj);
+                    if (!$check['match']) {
+                        IQU_Billing_Service::flag_amount_mismatch($acc, $check, (string) ($obj['id'] ?? ''));
+                        return ['amount_mismatch', $id, 'charged ' . $check['charged'] . ' expected ' . $check['expected']];
+                    }
+                }
+                IQU_Billing_DB::update_account($id, ['checkout_session_id' => '', 'link_outdated' => 0]);
                 $had_method = in_array($sync['old'], ['free_month', 'waiting_first_charge', 'active', 'past_due', 'unpaid', 'paused'], true);
                 if (!$had_method && in_array($sync['new'], ['free_month', 'waiting_first_charge', 'active'], true)) {
                     IQU_Billing_Notify::method_added($acc);

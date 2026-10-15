@@ -302,6 +302,7 @@ class IQU_Billing_Portal
         'unpaid'               => ['On hold — please contact us', 'bad'],
         'paused'               => ['On hold — please contact us', 'bad'],
         'canceled'             => ['Stopped', 'muted'],
+        'review'               => ['Set up — we are checking the details', 'muted'],
     ];
 
     private static function pill(string $status): string

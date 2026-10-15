@@ -50,6 +50,8 @@ class IQU_Billing_Sync
         }
 
         $status = self::status_from($sub);
+        // An account under review (amount mismatch) stays in review until an admin clears it.
+        if ((string) ($acc['review_reason'] ?? '') !== '') $status = 'review';
         $upd = [
             'stripe_subscription_id' => (string) $sub['id'],
             'status'                 => $status,
@@ -58,8 +60,9 @@ class IQU_Billing_Sync
         ];
         IQU_Billing_DB::update_account((int) $acc['id'], $upd);
 
-        $res['ok']      = true;
-        $res['new']     = $status;
+        $res['ok']           = true;
+        $res['new']          = $status;
+        $res['subscription'] = $sub; // its items: what Stripe charges (IQU_Billing_Service::amount_check)
         $res['account'] = IQU_Billing_DB::get_account((int) $acc['id']) ?: $acc;
         return $res;
     }

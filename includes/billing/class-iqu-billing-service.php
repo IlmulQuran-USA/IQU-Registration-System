@@ -303,6 +303,108 @@ class IQU_Billing_Service
         return IQU_Billing_DB::update_account($account_id, $set);
     }
 
+    /**
+     * Close the family's open Stripe Checkout page (if any) so it can no longer set up a
+     * subscription. True when nothing is open any more (expired now, or already expired or
+     * completed); false when Stripe could not be reached or refused. Needs only Checkout
+     * Sessions (write), which creating the page already needs.
+     */
+    public static function expire_open_session(array $acc): bool
+    {
+        $sid = (string) ($acc['checkout_session_id'] ?? '');
+        if ($sid === '' || !empty($acc['stripe_subscription_id'])) return true;
+        if (!preg_match('/^cs_[A-Za-z0-9_]+$/', $sid)) return true;
+        $r = IQU_Stripe::post('/checkout/sessions/' . $sid . '/expire', []);
+        $closed = $r['ok'];
+        if (!$closed) {
+            // Stripe refuses to expire a page that is not open; check which it is.
+            $g = IQU_Stripe::get('/checkout/sessions/' . $sid);
+            $closed = $g['ok'] && (string) ($g['data']['status'] ?? '') !== 'open';
+        }
+        if ($closed) IQU_Billing_DB::update_account((int) $acc['id'], ['checkout_session_id' => '']);
+        return $closed;
+    }
+
+    /**
+     * Change something that changes what a family pays (agreed fee, course, a student's fee to
+     * $0 ...): first close the family's open Checkout page, then save, then price the account
+     * again. If the page cannot be closed, the change is still saved and the account is marked
+     * "Link outdated — resend". Only for accounts without a subscription (after that the fee is
+     * locked). Returns what $save returned.
+     */
+    public static function change_amount(int $registration_id, callable $save): bool
+    {
+        $acc  = IQU_Billing_DB::account_for_registration($registration_id);
+        $open = $acc && empty($acc['stripe_subscription_id']);
+        if ($open && !self::expire_open_session($acc)) {
+            IQU_Billing_DB::update_account((int) $acc['id'], ['link_outdated' => 1]);
+        }
+        $ok = (bool) $save();
+        if ($ok && $open) self::reprice_account((int) $acc['id']);
+        return $ok;
+    }
+
+    /** What the family should pay each month now, in cents, from the students' records. */
+    public static function billable_cents(array $acc): int
+    {
+        $cents = 0;
+        foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
+            $reg = IQU_Database::get_registration((int) $m['registration_id']);
+            if (!$reg) continue;
+            $p = IQU_Billing_Pricing::for_registration($reg);
+            if ($p['billable']) $cents += IQU_Billing_Pricing::to_cents((float) $p['net']);
+        }
+        return $cents;
+    }
+
+    /**
+     * checkout.session.completed: the monthly amount the new subscription charges (its items;
+     * else the amount kept with the session) compared with billable_cents().
+     * @return array{match:bool, charged:?int, expected:int}
+     */
+    public static function amount_check(array $acc, ?array $sub, array $session): array
+    {
+        $charged = null;
+        foreach ((array) ($sub['items']['data'] ?? []) as $it) {
+            // An item without a price is "unknown", never $0 (then the amount kept with the session is used).
+            if (!isset($it['price']['unit_amount'])) { $charged = null; break; }
+            $charged = (int) $charged + (int) $it['price']['unit_amount'] * max(1, (int) ($it['quantity'] ?? 1));
+        }
+        if ($charged === null && isset($session['metadata']['iqu_amount_cents'])) $charged = (int) $session['metadata']['iqu_amount_cents'];
+        if ($charged === null && (string) ($session['id'] ?? '') !== '' && (string) $session['id'] === (string) ($acc['checkout_session_id'] ?? '')) {
+            $charged = IQU_Billing_Pricing::to_cents((float) $acc['checkout_amount']);
+        }
+        $expected = self::billable_cents($acc);
+        return ['match' => $charged === null || $charged === $expected, 'charged' => $charged, 'expected' => $expected];
+    }
+
+    /**
+     * An old Checkout page set up a subscription at a different amount: the family is not marked
+     * active. The account goes to "Review: amount mismatch" with both amounts, and the admins get
+     * the usual Telegram alert. The subscription is not cancelled.
+     */
+    public static function flag_amount_mismatch(array $acc, array $check, string $session_id): void
+    {
+        $note = sprintf('Stripe Checkout set up %s a month; the billing record is %s a month%s.',
+            IQU_Pricing::format(((int) $check['charged']) / 100), IQU_Pricing::format($check['expected'] / 100),
+            $session_id !== '' ? ' (Checkout ' . $session_id . ')' : '');
+        IQU_Billing_DB::update_account((int) $acc['id'], ['status' => 'review', 'review_reason' => 'amount_mismatch', 'review_note' => substr($note, 0, 255)]);
+        if (class_exists('IQU_Billing_Notify')) IQU_Billing_Notify::amount_mismatch(IQU_Billing_DB::get_account((int) $acc['id']) ?: $acc, $note);
+    }
+
+    /**
+     * An admin has checked the mismatch: clear it, read the real state back from Stripe, and
+     * finish a website enrollment that was waiting for it.
+     */
+    public static function clear_review(int $account_id): bool
+    {
+        if (!IQU_Billing_DB::update_account($account_id, ['review_reason' => '', 'review_note' => ''])) return false;
+        $acc  = IQU_Billing_DB::get_account($account_id);
+        $sync = $acc ? IQU_Billing_Sync::sync($acc) : ['ok' => false];
+        if (!empty($sync['ok']) && class_exists('IQU_Enrollment')) IQU_Enrollment::on_checkout_completed($sync['account']);
+        return true;
+    }
+
     /** Remove a local account that never reached Stripe. */
     private static function delete_local(int $account_id): void
     {
@@ -399,8 +501,23 @@ class IQU_Billing_Service
             $params['custom_text'] = ['submit' => ['message' => 'Nothing is charged today. Your first payment is on ' . gmdate('j F Y', $first_ts) . ', then on the same date every month.']];
         }
 
+        // The amount this page sets up, kept with the session (and on the record below) so an old
+        // page can be recognised; the webhook compares the subscription with the current amount.
+        $cents = array_sum(array_map(fn($i) => (int) $i['price_data']['unit_amount'] * (int) $i['quantity'], $items));
+        $params['metadata']['iqu_amount_cents'] = (string) $cents;
+        // One open page per family: close the previous one first (if that fails, it stays guarded
+        // by the webhook's amount check).
+        $previous_closed = self::expire_open_session($acc);
+
         $res = IQU_Stripe::post('/checkout/sessions', $params);
         if (!$res['ok'] || empty($res['data']['url'])) return $fail('Could not open the payment page: ' . $res['error']);
+        $set = [
+            'checkout_session_id' => substr((string) ($res['data']['id'] ?? ''), 0, 100),
+            'checkout_amount'     => round($cents / 100, 2),
+            'checkout_created_at' => current_time('mysql', true),
+        ];
+        if ($previous_closed) $set['link_outdated'] = 0;
+        IQU_Billing_DB::update_account((int) $acc['id'], $set);
         return ['ok' => true, 'url' => (string) $res['data']['url'], 'error' => '', 'id' => (string) ($res['data']['id'] ?? '')];
     }
 

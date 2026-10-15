@@ -61,6 +61,7 @@ class IQU_Admin
     add_action('admin_post_iqu_set_existing_student', [$this, 'handle_set_existing_student']);
     add_action('admin_post_iqu_set_course', [$this, 'handle_set_course']);
     add_action('admin_post_iqu_set_agreed_fee', [$this, 'handle_set_agreed_fee']);
+    add_action('admin_post_iqu_billing_review_done', [$this, 'handle_billing_review_done']);
   }
 
   /**
@@ -98,7 +99,8 @@ class IQU_Admin
     if ($row && class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::course_missing($row) && IQU_Pricing::is_valid_course($course)) {
       $days = (int) $row['days_per_week'] > 0 ? (int) $row['days_per_week'] : absint($_POST['days'] ?? 0);
       $calc = IQU_Pricing::calculate($course, $days);
-      if (!empty($calc['valid']) && IQU_Database::fill_course($id, $course, $days, (float) $calc['per_class_rate'], (float) $calc['monthly_amount'])) {
+      $fill = fn() => IQU_Database::fill_course($id, $course, $days, (float) $calc['per_class_rate'], (float) $calc['monthly_amount']);
+      if (!empty($calc['valid']) && (class_exists('IQU_Billing_Service') ? IQU_Billing_Service::change_amount($id, $fill) : $fill())) {
         $msg = 'course_set';
       }
     }
@@ -124,13 +126,13 @@ class IQU_Admin
     } elseif ($acc && !empty($acc['stripe_subscription_id'])) {
       $msg = 'fee_locked';
     } elseif (!empty($_POST['clear'])) {
-      $msg = IQU_Database::set_agreed_fee($id, null) ? 'fee_cleared' : 'fee_failed';
+      $msg = IQU_Billing_Service::change_amount($id, fn() => IQU_Database::set_agreed_fee($id, null)) ? 'fee_cleared' : 'fee_failed';
     } elseif (!preg_match('/^\d+(\.\d{1,2})?$/', $raw)) {
       $msg = 'fee_invalid'; // empty, negative or not a number
     } else {
-      $msg = IQU_Database::set_agreed_fee($id, (float) $raw) ? 'fee_saved' : 'fee_failed';
+      $msg = IQU_Billing_Service::change_amount($id, fn() => IQU_Database::set_agreed_fee($id, (float) $raw)) ? 'fee_saved' : 'fee_failed';
     }
-    if ($acc && in_array($msg, ['fee_saved', 'fee_cleared'], true)) IQU_Billing_Service::reprice_account((int) $acc['id']);
+    // (change_amount() closed the open Checkout page first and priced the account again.)
     wp_safe_redirect(add_query_arg(['page' => 'iqu-view-registration', 'id' => $id, 'iqu_msg' => $msg], admin_url('admin.php')));
     exit;
   }
@@ -179,6 +181,51 @@ class IQU_Admin
                     </div>
                 </div>
     <?php
+  }
+
+  /** Student page: an admin has checked an amount-mismatch review (IQU_Billing_Service::clear_review). */
+  public function handle_billing_review_done(): void
+  {
+    if (!current_user_can('manage_options')) wp_die('Permission denied.', 403);
+    $id = absint($_POST['id'] ?? 0);
+    check_admin_referer('iqu_billing_review_done_' . $id);
+    $acc = $id && class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
+    $ok  = $acc && (string) $acc['review_reason'] !== '' && IQU_Billing_Service::clear_review((int) $acc['id']);
+    wp_safe_redirect(add_query_arg(['page' => 'iqu-view-registration', 'id' => $id, 'iqu_msg' => $ok ? 'review_done' : 'review_failed'], admin_url('admin.php')));
+    exit;
+  }
+
+  /** Student page: billing review (amount mismatch, with both amounts) and "Link outdated — resend". */
+  private static function render_billing_alerts(array $row): void
+  {
+    if (!class_exists('IQU_Billing_DB')) return;
+    $acc = IQU_Billing_DB::account_for_registration((int) $row['id']);
+    $msg = sanitize_key($_GET['iqu_msg'] ?? '');
+    if ($msg === 'review_done') echo '<div class="iqu-detail-item iqu-detail-full"><div class="iqu-detail-val"><p class="iqu-free-month-note" role="status">Marked as reviewed. The billing status now follows Stripe again.</p></div></div>';
+    if (!$acc) return;
+    if ((string) $acc['review_reason'] === 'amount_mismatch'): ?>
+                <div class="iqu-detail-item iqu-detail-full iqu-billing-review" data-billing-review role="alert">
+                    <div class="iqu-detail-lbl">Billing review</div>
+                    <div class="iqu-detail-val">
+                        <span class="iqu-status-badge iqu-sb-cancelled">Review: amount mismatch</span>
+                        <p class="iqu-free-month-note"><?php echo esc_html((string) $acc['review_note']); ?> The family is not marked active and nothing was cancelled. Check the subscription in Stripe first.</p>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-free-month-form">
+                            <input type="hidden" name="action" value="iqu_billing_review_done">
+                            <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+                            <?php wp_nonce_field('iqu_billing_review_done_' . (int) $row['id']); ?>
+                            <button type="submit" class="iqu-action-btn iqu-action-btn--view">Mark as reviewed</button>
+                        </form>
+                    </div>
+                </div>
+    <?php elseif (!empty($acc['link_outdated']) && empty($acc['stripe_subscription_id'])): ?>
+                <div class="iqu-detail-item iqu-detail-full" data-link-outdated>
+                    <div class="iqu-detail-lbl">Payment link</div>
+                    <div class="iqu-detail-val">
+                        <span class="iqu-status-badge iqu-sb-pending">Link outdated — resend</span>
+                        <small>The amount changed but an open Stripe page could not be closed. Send the message again so the family starts from the new amount.</small>
+                    </div>
+                </div>
+    <?php endif;
   }
 
   /** The "Free first month" line on the student page, with the admin override. */
@@ -1561,6 +1608,7 @@ class IQU_Admin
                 $d_days     = (int) ($row['days_per_week'] ?? 0);
                 ?>
 
+                <?php self::render_billing_alerts($row); ?>
                 <?php self::render_free_month_item($row); ?>
 
                 <?php if (class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::course_missing($row)): $cmsg = sanitize_key($_GET['iqu_msg'] ?? ''); ?>

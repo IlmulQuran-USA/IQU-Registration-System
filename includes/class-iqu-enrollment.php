@@ -340,12 +340,13 @@ class IQU_Enrollment
             $age  = $now - (int) strtotime($reg['created_at'] . ' UTC');
             $bits = (int) $reg['reminders_sent'];
 
+            $acc = class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
             if ($age >= self::EXPIRE_DAYS * DAY_IN_SECONDS) {
-                IQU_Database::set_status($id, 'expired');
+                // A card or bank is already on file (e.g. waiting for an amount review): not expired.
+                if (!$acc || empty($acc['stripe_subscription_id'])) IQU_Database::set_status($id, 'expired');
                 continue;
             }
 
-            $acc = class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
             // Card already added (the webhook will complete it), or no account to link to: no reminder.
             if (!$acc || !empty($acc['stripe_subscription_id']) || in_array((string) $acc['status'], self::ACTIVE, true)) continue;
 

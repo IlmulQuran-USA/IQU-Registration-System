@@ -87,7 +87,16 @@ Public details in Stripe (name, support email, website, statement descriptor ILM
 
 1. Apply patches/01 to iqu-registration.
 2. Move this code into the plugin (or its own plugin) and commit on `stripe-billing`.
-3. Create a RESTRICTED live key (no refunds, payouts, transfers, balance).
+3. Create a RESTRICTED live key (no refunds, payouts, transfers, balance) with exactly:
+   - Customers: Write (create the family's customer; the Settings "Test connection" reads one)
+   - Checkout Sessions: Write (create the payment page, expire an old one, read its status; Summer payments)
+   - Customer portal: Write (the family's "Change bank or card" page)
+   - Subscriptions: Read
+   - Invoices: Read (also the invoice payments list)
+   - Charges: Read
+   - PaymentIntents: Read (Summer payment details)
+   - PaymentMethods: Read (card / bank label, card country)
+   Everything else: None. Try the same set as a TEST restricted key first (Test connection + one enrollment).
 4. Live webhook destination with the same 9 events; new whsec in wp-config.
 5. Set site mode to live (iqu_billing_mode option) only after the security review.
 6. Delete test data: registration IQU-159 "Test Family", billing account 1, the test Stripe customer/subscription.

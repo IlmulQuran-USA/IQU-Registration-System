@@ -66,6 +66,7 @@ class IQU_Billing_Send
             'unpaid'               => 'Unpaid — contact family',
             'paused'               => 'Paused',
             'canceled'             => 'Canceled',
+            'review'               => 'Review: amount mismatch',
         ];
         return $labels[$status] ?? ucfirst(str_replace('_', ' ', $status));
     }
@@ -185,7 +186,7 @@ class IQU_Billing_Send
                             <td><?php echo $p['discount'] > 0 ? esc_html('−' . IQU_Pricing::format($p['discount']) . ' ' . $p['discount_label']) : '—'; ?></td>
                             <td><strong><?php echo $p['billable'] ? esc_html(IQU_Pricing::format($p['net'])) : '—'; ?></strong></td>
                             <td class="iqu-billing-wrap">
-                                <?php if ($r['existing']): ?><span class="iqu-billing-error">Already has billing.</span>
+                                <?php if ($r['existing']): ?><span class="iqu-billing-error">Already has billing.</span><?php if (!empty($r['existing']['link_outdated']) && empty($r['existing']['stripe_subscription_id'])): ?> <span class="iqu-chip iqu-chip--gold" data-link-outdated>Link outdated — resend</span><?php endif; ?>
                                 <?php elseif ($p['needs_input']): ?><span class="iqu-billing-warn"><?php echo esc_html($p['reason']); ?></span>
                                 <?php elseif (!empty($p['scholarship'])): ?><span class="iqu-chip iqu-chip--neutral" data-scholarship>Full scholarship — no billing</span>
                                 <?php elseif (!$p['billable']): ?><span><?php echo esc_html($p['reason']); ?></span><?php endif; ?>
@@ -612,7 +613,7 @@ class IQU_Billing_Send
     public static function handle_whatsapp(): void
     {
         $acc = self::account_for_action(self::A_WA);
-        $upd = ['whatsapp_sent_at' => current_time('mysql', true)];
+        $upd = ['whatsapp_sent_at' => current_time('mysql', true), 'link_outdated' => 0]; // sent again: the family starts from the current amount
         if ($acc['status'] === 'not_sent') $upd['status'] = 'link_sent';
         IQU_Billing_DB::update_account((int) $acc['id'], $upd);
         self::notice(['type' => 'success', 'items' => ['Marked as sent on WhatsApp.']]);
@@ -912,7 +913,7 @@ class IQU_Billing_Send
         [$subject, $content] = self::email_content($acc);
         $ok = IQU_Billing_Email::send($acc['contact_email'], $subject, $content);
         if ($ok) {
-            $upd = ['email_sent_at' => current_time('mysql', true)];
+            $upd = ['email_sent_at' => current_time('mysql', true), 'link_outdated' => 0];
             if ($acc['status'] === 'not_sent') $upd['status'] = 'link_sent';
             IQU_Billing_DB::update_account((int) $acc['id'], $upd);
         }

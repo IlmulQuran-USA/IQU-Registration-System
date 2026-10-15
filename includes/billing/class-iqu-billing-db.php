@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) exit;
  */
 class IQU_Billing_DB
 {
-    public const DB_VERSION = '1.3.0';
+    public const DB_VERSION = '1.4.0';
     private const OPT_VERSION = 'iqu_billing_db_version';
 
     /** Columns update_account() may change, with their formats. */
@@ -43,11 +43,19 @@ class IQU_Billing_DB
         'last_failure_reason'    => '%s',
         'email_sent_at'          => '%s',
         'whatsapp_sent_at'       => '%s',
+        // 1.4.0: the open Stripe Checkout page and the amount-mismatch review (migrate_accounts_140)
+        'checkout_session_id'    => '%s',
+        'checkout_amount'        => '%f',
+        'checkout_created_at'    => '%s',
+        'link_outdated'          => '%d',
+        'review_reason'          => '%s',
+        'review_note'            => '%s',
     ];
 
     public const STATUSES = [
         'not_sent', 'link_sent', 'free_month', 'waiting_first_charge',
         'active', 'past_due', 'unpaid', 'paused', 'canceled',
+        'review', // 1.4.0: set up through an old Checkout page at a different amount; an admin checks it
     ];
 
     // ------------------------------------------------------------
@@ -111,6 +119,12 @@ class IQU_Billing_DB
             last_failure_reason VARCHAR(255) NOT NULL DEFAULT '',
             email_sent_at DATETIME DEFAULT NULL,
             whatsapp_sent_at DATETIME DEFAULT NULL,
+            checkout_session_id VARCHAR(100) NOT NULL DEFAULT '',
+            checkout_amount DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+            checkout_created_at DATETIME DEFAULT NULL,
+            link_outdated TINYINT(1) NOT NULL DEFAULT 0,
+            review_reason VARCHAR(30) NOT NULL DEFAULT '',
+            review_note VARCHAR(255) NOT NULL DEFAULT '',
             created_by BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
@@ -186,6 +200,7 @@ class IQU_Billing_DB
 
         $problem = self::migrate_payments_120();
         if ($problem === '') $problem = self::migrate_payments_130();
+        if ($problem === '') $problem = self::migrate_accounts_140();
         if ($problem !== '') {
             // Leave the version behind so the next page load tries again.
             error_log('IQU Billing: payments table upgrade to ' . self::DB_VERSION . ' not finished — ' . $problem);
@@ -216,6 +231,36 @@ class IQU_Billing_DB
             $cols = self::payment_columns();
         }
         return isset($cols['receipt_sent_at']) ? '' : 'missing column: receipt_sent_at (' . $wpdb->last_error . ')';
+    }
+
+    /** Columns added to the accounts table in 1.4.0, with their definitions. */
+    private const ACCOUNT_COLUMNS_140 = [
+        'checkout_session_id' => "VARCHAR(100) NOT NULL DEFAULT ''",
+        'checkout_amount'     => 'DECIMAL(8,2) NOT NULL DEFAULT 0.00',
+        'checkout_created_at' => 'DATETIME DEFAULT NULL',
+        'link_outdated'       => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'review_reason'       => "VARCHAR(30) NOT NULL DEFAULT ''",
+        'review_note'         => "VARCHAR(255) NOT NULL DEFAULT ''",
+    ];
+
+    /**
+     * 1.4.0: the open Checkout Session of each account (id, amount, when), "Link outdated —
+     * resend" and the amount-mismatch review. The table is created with CREATE TABLE IF NOT
+     * EXISTS, so existing tables get the columns here, then they are verified.
+     * @return string '' when every column exists, otherwise the reason.
+     */
+    private static function migrate_accounts_140(): string
+    {
+        global $wpdb;
+        $cols = [];
+        foreach ((array) $wpdb->get_results('SHOW COLUMNS FROM ' . self::accounts_table(), ARRAY_A) as $c) $cols[(string) $c['Field']] = true;
+        foreach (self::ACCOUNT_COLUMNS_140 as $col => $def) {
+            if (!isset($cols[$col])) $wpdb->query('ALTER TABLE ' . self::accounts_table() . " ADD COLUMN {$col} {$def}");
+        }
+        $cols = [];
+        foreach ((array) $wpdb->get_results('SHOW COLUMNS FROM ' . self::accounts_table(), ARRAY_A) as $c) $cols[(string) $c['Field']] = true;
+        $missing = array_diff(array_keys(self::ACCOUNT_COLUMNS_140), array_keys($cols));
+        return $missing ? 'missing account columns: ' . implode(', ', $missing) . ' (' . $wpdb->last_error . ')' : '';
     }
 
     /** paid_at column metadata from SHOW COLUMNS, keyed by column name. */

@@ -166,7 +166,7 @@ class IQU_Billing_Page
     {
         if (in_array($status, ['not_sent', 'link_sent'], true)) return 'link_sent';
         if (in_array($status, ['free_month', 'waiting_first_charge', 'active'], true)) return 'active';
-        if (in_array($status, ['past_due', 'unpaid', 'paused'], true)) return 'failed';
+        if (in_array($status, ['past_due', 'unpaid', 'paused', 'review'], true)) return 'failed';
         return 'not_billed';
     }
 
@@ -417,6 +417,7 @@ class IQU_Billing_Page
                 <?php
                 if ($acc) {
                     echo $pill(IQU_Billing_Send::status_label($acc['status']), self::status_tone($acc['status']));
+                    if (!empty($acc['link_outdated']) && empty($acc['stripe_subscription_id'])) echo ' <span class="iqu-chip iqu-chip--gold" data-link-outdated>Link outdated — resend</span>';
                     $bits = [];
                     if ($acc['first_charge_date']) $bits[] = 'first charge ' . wp_date('j M', strtotime($acc['first_charge_date'] . ' 12:00:00 UTC'));
                     $bits[] = $acc['email_sent_at'] ? 'email sent' : 'email not sent';
