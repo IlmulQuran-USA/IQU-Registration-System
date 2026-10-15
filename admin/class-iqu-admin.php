@@ -147,7 +147,9 @@ class IQU_Admin
     $acc    = class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
     $msg    = sanitize_key($_GET['iqu_msg'] ?? '');
     $texts  = [
-      'fee_saved'   => ['status', 'Agreed fee saved.' . ($acc ? ' The payment link now charges this amount; send the message again if the family already has it.' : '')],
+      'fee_saved'   => ['status', 'Agreed fee saved.' . (!$acc ? '' : ($acc['status'] === 'canceled' && (float) $acc['net_amount'] <= 0
+          ? ' Nothing is left to pay, so the unused payment link was closed: no charge, invoice or receipt will be made.'
+          : ' The payment link now charges this amount; send the message again if the family already has it.'))],
       'fee_cleared' => ['status', 'Agreed fee cleared: the standard price applies.'],
       'fee_invalid' => ['alert', 'Enter an amount like 30 or 30.50 (0 = full scholarship). Negative or non-numeric amounts are not accepted.'],
       'fee_locked'  => ['alert', 'Monthly billing is already running in Stripe, so the fee cannot be changed here.'],

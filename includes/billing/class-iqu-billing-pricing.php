@@ -67,6 +67,7 @@ class IQU_Billing_Pricing
     {
         $out = [
             'billable'          => false,
+            'scholarship'       => false, // priced at $0: a full scholarship, never billed
             'needs_input'       => false,
             'reason'            => '',
             'registration_id'   => (int) ($reg['id'] ?? 0),
@@ -180,7 +181,8 @@ class IQU_Billing_Pricing
         $out['net']               = $net;
 
         if ($net <= 0) {
-            $out['reason'] = 'Full scholarship — not billed.';
+            $out['reason']      = 'Full scholarship — not billed.';
+            $out['scholarship'] = true;
             return $out;
         }
 
@@ -227,7 +229,8 @@ class IQU_Billing_Pricing
             : sprintf('Fee chosen at enrollment: %s a month.', IQU_Pricing::format($amt));
 
         if ($amt <= 0) {
-            $out['reason'] = 'Full scholarship — not billed.';
+            $out['reason']      = 'Full scholarship — not billed.';
+            $out['scholarship'] = true;
             return $out;
         }
         $out['billable'] = true;

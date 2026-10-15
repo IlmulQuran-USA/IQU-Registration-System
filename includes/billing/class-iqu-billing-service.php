@@ -166,6 +166,7 @@ class IQU_Billing_Service
         $regs = [];
         $priced = [];
         $errors = [];
+        $scholarship = [];
         foreach ($ids as $id) {
             $reg = IQU_Database::get_registration($id);
             if (!$reg) { $errors[] = "Enrollment #{$id} was not found."; continue; }
@@ -176,11 +177,15 @@ class IQU_Billing_Service
                 isset($opts['courses'][$id]) ? sanitize_key((string) $opts['courses'][$id]) : null,
                 isset($opts['days'][$id]) ? absint($opts['days'][$id]) : null
             );
+            // A full-scholarship student ($0) is never billed: left out of the account, so a mixed
+            // family is billed only for the paid students and an all-$0 family gets no Stripe customer.
+            if (!empty($p['scholarship'])) { $scholarship[] = $name; continue; }
             if (!$p['billable']) { $errors[] = "{$name}: " . ($p['reason'] ?: 'cannot be billed.'); continue; }
             $regs[$id] = $reg;
             $priced[$id] = $p;
         }
         if ($errors) return $fail($errors);
+        if (!$priced) return $fail(['Full scholarship — no billing. ' . implode(', ', $scholarship) . (count($scholarship) === 1 ? ' is' : ' are') . ' not charged, so no Stripe customer or payment link is created.']);
 
         // One family = one billing email.
         $emails = array_unique(array_map(fn($r) => strtolower(trim($r['email'])), $regs));
@@ -289,9 +294,13 @@ class IQU_Billing_Service
             IQU_Billing_DB::set_member_amount($account_id, (int) $m['registration_id'], (float) $p['net']);
             $gross += (float) $p['gross']; $discount += (float) $p['discount']; $net += (float) $p['net'];
         }
-        return IQU_Billing_DB::update_account($account_id, [
-            'monthly_amount' => round($gross, 2), 'discount_amount' => round($discount, 2), 'net_amount' => round($net, 2),
-        ]);
+        $set = ['monthly_amount' => round($gross, 2), 'discount_amount' => round($discount, 2), 'net_amount' => round($net, 2)];
+        // Everyone on it is now a full scholarship: nothing to pay, so the unused payment link is
+        // closed (no subscription exists, so there is nothing to cancel in Stripe).
+        if ($net <= 0) $set['status'] = 'canceled';
+        // A paid fee again on a link closed that way: open it again, to be sent again.
+        elseif ($acc['status'] === 'canceled') $set['status'] = 'not_sent';
+        return IQU_Billing_DB::update_account($account_id, $set);
     }
 
     /** Remove a local account that never reached Stripe. */

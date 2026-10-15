@@ -430,7 +430,7 @@ class IQU_Billing_Page
                         ? 'Billing cannot start until a course is chosen'
                         : 'No course or fee on the record') . '</span>';
                 } else {
-                    echo $pill('Not billed', 'neutral');
+                    echo $pill(!empty($p['scholarship']) ? 'Full scholarship' : 'Not billed', 'neutral');
                     if ($p['reason']) echo '<br><span class="iqu-billing-sub">' . esc_html($p['reason']) . '</span>';
                 }
                 ?>

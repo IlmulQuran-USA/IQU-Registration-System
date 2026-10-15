@@ -118,14 +118,16 @@ class IQU_Billing_Send
         $siblings = array_values(array_filter($siblings, fn($s) => !IQU_Billing_DB::account_for_registration((int) $s['id'])));
 
         $rows = [];
-        $total = 0.0; $ready = true; $types = [];
+        $total = 0.0; $ready = true; $types = []; $free = []; $paid = 0;
         foreach ($ids as $id) {
             $reg = IQU_Database::get_registration($id);
             if (!$reg) continue;
             $existing = IQU_Billing_DB::account_for_registration($id);
             $p = IQU_Billing_Pricing::for_registration($reg, $courses[$id] ?? null, $days[$id] ?? null);
-            if ($existing || (!$p['billable'] && !$p['needs_input']) || $p['needs_input']) $ready = false;
-            if ($p['billable']) $total += $p['net'];
+            // A full-scholarship ($0) student never blocks the family: it is simply not billed.
+            if (!empty($p['scholarship']) && !$existing) { $free[] = trim($reg['first_name'] . ' ' . $reg['last_name']); }
+            elseif ($existing || !$p['billable'] || $p['needs_input']) $ready = false;
+            if ($p['billable']) { $total += $p['net']; $paid++; }
             $types[] = IQU_Billing_Service::student_type($reg);
             $rows[] = ['reg' => $reg, 'p' => $p, 'existing' => $existing];
         }
@@ -185,6 +187,7 @@ class IQU_Billing_Send
                             <td class="iqu-billing-wrap">
                                 <?php if ($r['existing']): ?><span class="iqu-billing-error">Already has billing.</span>
                                 <?php elseif ($p['needs_input']): ?><span class="iqu-billing-warn"><?php echo esc_html($p['reason']); ?></span>
+                                <?php elseif (!empty($p['scholarship'])): ?><span class="iqu-chip iqu-chip--neutral" data-scholarship>Full scholarship — no billing</span>
                                 <?php elseif (!$p['billable']): ?><span><?php echo esc_html($p['reason']); ?></span><?php endif; ?>
                                 <?php foreach ($p['warnings'] as $w): ?><br><span class="iqu-billing-sub iqu-billing-warn"><?php echo esc_html($w); ?></span><?php endforeach; ?>
                                 <?php $an = IQU_Billing_Pricing::agreed_note($reg, $p); if ($an !== ''): ?><br><span class="iqu-billing-sub" data-agreed-note><?php echo esc_html($an); ?></span><?php endif; ?>
@@ -210,6 +213,17 @@ class IQU_Billing_Send
                 <div class="iqu-cpn-actions"><?php submit_button('Recalculate', 'secondary', '', false); ?></div>
             </form>
         </div>
+
+        <?php if ($free && !$paid && $ready): ?>
+        <!-- ── Everyone here is on a full scholarship: nothing to create or send ── -->
+        <div class="iqu-card" data-full-scholarship>
+            <div class="iqu-card-head"><span class="iqu-card-head-title">Full scholarship — no billing</span></div>
+            <div class="iqu-billing-body">
+                <p><strong><?php echo esc_html(implode(', ', $free)); ?></strong> <?php echo count($free) === 1 ? 'is' : 'are'; ?> on a full scholarship ($0 a month). Nothing is charged, so no payment link, Stripe customer, invoice or receipt is created, and there is nothing to send.</p>
+            </div>
+        </div>
+        </div>
+        <?php return; endif; ?>
 
         <!-- ── Create ─────────────────────────────────────── -->
         <div class="iqu-card">
@@ -243,6 +257,9 @@ class IQU_Billing_Send
                     </div>
                 </div>
 
+                <?php if ($free && $paid): ?>
+                    <p class="iqu-fld-hint" data-scholarship-note><?php echo esc_html(implode(', ', $free)); ?> <?php echo count($free) === 1 ? 'is' : 'are'; ?> on a full scholarship and not added to the billing. Only <?php echo esc_html(IQU_Pricing::format($total)); ?> a month is charged, for the other <?php echo $paid === 1 ? 'student' : 'students'; ?>.</p>
+                <?php endif; ?>
                 <div class="iqu-cpn-actions">
                     <?php if ($ready): ?>
                         <button type="submit" name="then" value="email" class="iqu-btn-primary">Create billing and send email</button>
