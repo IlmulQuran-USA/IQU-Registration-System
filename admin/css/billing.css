@@ -2192,12 +2192,36 @@ th[aria-sort="descending"] .iqu-sort::after {
   font-style: italic;
 }
 
-/* Student Billing bulk bar: "Showing 1–10 of 40" and the dashboard's 10 / 20 / 30 buttons */
+/* Student Billing bulk bar: "Showing 1–10 of 40" immediately left of the 10 / 20 / 30 buttons,
+   centred with them. The chip and the buttons are one group that never splits; at narrow
+   widths the whole group moves to its own line. */
 .iqu-billing .iqu-billing-bulkbar-right {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 8px 12px;
+  gap: 10px;
+  max-width: 100%;
+}
+.iqu-billing .iqu-billing-bulkbar-right > .iqu-card-head-badge {
+  flex: none;
+  white-space: nowrap;
+}
+.iqu-billing .iqu-billing-bulkbar-right > .iqu-perpage-btns {
+  flex: none;
+}
+
+/* Student Billing table: every cell centred vertically (body and header), so the checkbox,
+   course, monthly amount, billing badge and buttons sit level with the three-line student
+   block. Horizontal alignment is unchanged. */
+.iqu-billing .iqu-students-tbl > thead > tr > th,
+.iqu-billing .iqu-students-tbl > thead > tr > td,
+.iqu-billing .iqu-students-tbl > tbody > tr > th,
+.iqu-billing .iqu-students-tbl > tbody > tr > td {
+  vertical-align: middle;
+}
+.iqu-billing .iqu-students-tbl .iqu-billing-actions {
+  align-items: center;
 }
 /* ── Add existing student (3.4.0 UI fixes): the Enroll for Free fields ── */
 .iqu-billing .iqu-fld-grid.iqu-fld-grid--3 {
