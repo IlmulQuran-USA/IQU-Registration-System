@@ -120,6 +120,16 @@ class IQU_Billing_Pricing
                     IQU_Pricing::format($gross)
                 );
             }
+        } elseif (isset($reg['agreed_fee']) && $reg['agreed_fee'] !== null && $reg['agreed_fee'] !== '') {
+            // A fee agreed before the course was known (CSV import): applied now that a course
+            // is chosen. It can only lower the price; a higher one bills the standard price.
+            $agreed = round((float) $reg['agreed_fee'], 2);
+            if ($agreed <= $gross) {
+                $discount = round($gross - $agreed, 2);
+                $label    = $discount > 0 ? (!empty($reg['zakat_declaration']) ? 'Zakat Fund support' : 'Agreed reduced fee') : '';
+            } else {
+                $out['warnings'][] = sprintf('The agreed fee %s is more than the standard price %s; the standard price is used.', IQU_Pricing::format($agreed), IQU_Pricing::format($gross));
+            }
         } elseif (!empty($reg['coupon_code']) || !empty($reg['zakat_declaration']) || !empty($reg['special_discount'])) {
             $out['warnings'][] = 'This record has a coupon or discount, but the course or days were chosen by the admin. No discount is applied — check before sending.';
         }

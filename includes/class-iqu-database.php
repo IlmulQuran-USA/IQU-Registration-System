@@ -509,6 +509,11 @@ class IQU_Database
         if (!$row || !IQU_Pricing::is_valid_course($course) || IQU_Pricing::is_valid_course((string) $row['course_type'])) return false;
         $set = ['course_type' => $course, 'per_class_rate' => round($rate, 2), 'calculated_amount' => round($amount, 2)];
         if ((int) $row['days_per_week'] <= 0 && $days > 0) $set['days_per_week'] = (string) $days;
+        // A fee agreed before the course was known becomes the reduction from the standard price
+        // (never an increase), so the record prices the same way as Add existing student.
+        if (isset($row['agreed_fee']) && $row['agreed_fee'] !== null && (float) $row['discount_amount'] <= 0) {
+            $set['discount_amount'] = max(0.0, round($amount - (float) $row['agreed_fee'], 2));
+        }
         return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, $set, ['id' => $id]);
     }
 

@@ -262,14 +262,18 @@ class IQU_Billing_Add_Student
     public static function prepare(array $in): array
     {
         $warnings = [];
-        // CSV only (course_raw is the cell as typed): a course that matches no course on the
-        // website is saved blank with a warning; billing then waits until a course is chosen.
-        // An empty Course cell is still a missing required field. The form's course is a menu.
+        // CSV only (course_raw = the cell as typed): an empty course, or one that matches no
+        // course on the website, is never a reason to reject the row. It is saved blank with a
+        // warning, and billing waits until a course is set (IQU_Billing_Pricing::course_missing).
+        // The form's course is a menu and stays required there.
+        $from_csv       = array_key_exists('course_raw', $in);
         $raw            = trim((string) ($in['course_raw'] ?? ''));
-        $course_missing = $raw !== '' && !IQU_Pricing::is_valid_course((string) $in['course']);
+        $course_missing = $from_csv && !IQU_Pricing::is_valid_course((string) $in['course']);
         if ($course_missing) {
             $allowed = implode(', ', array_map(fn($k) => IQU_Pricing::label($k) . " ({$k})", IQU_Pricing::course_keys()));
-            $warnings[]   = "Course '{$raw}' not found — left blank. Allowed: {$allowed}.";
+            $warnings[]   = $raw === ''
+                ? 'Course empty — left blank. Set it before billing starts.'
+                : "Course '{$raw}' not found — left blank. Allowed: {$allowed}.";
             $in['course'] = '';
         }
 
@@ -287,8 +291,16 @@ class IQU_Billing_Add_Student
 
         $gross    = $calc ? round((float) $calc['monthly_amount'], 2) : 0.0;
         $discount = 0.0;
+        $agreed   = null;
         if (!$errors && !empty($in['use_agreed']) && $course_missing) {
-            $errors[] = 'The agreed fee needs a course from the list, so it can be checked against the standard fee.';
+            // No course to price against yet: keep the fee exactly as given (agreed_fee); it is
+            // applied, and compared with the standard price, once a course is set.
+            $agreed = round((float) $in['agreed_fee'], 2);
+            if ($agreed < 0) {
+                $errors[] = 'The agreed fee cannot be negative.';
+            } else {
+                $warnings[] = 'Agreed fee ' . IQU_Pricing::format($agreed) . ' saved — check against the standard price once the course is set.';
+            }
         } elseif (!$errors && !empty($in['use_agreed'])) {
             $agreed = round((float) $in['agreed_fee'], 2);
             if ($agreed < 0) {
@@ -333,7 +345,7 @@ class IQU_Billing_Add_Student
             'discount_amount'    => $discount,
             'zakat_declaration'  => !empty($in['zakat']) ? 1 : 0,
             'special_discount'   => 0,
-            'flexible_fee_note'  => !empty($in['use_agreed']) ? substr('Agreed monthly fee ' . IQU_Pricing::format($gross - $discount), 0, 300) : '',
+            'flexible_fee_note'  => !empty($in['use_agreed']) ? substr('Agreed monthly fee ' . IQU_Pricing::format($agreed ?? ($gross - $discount)), 0, 300) : '',
             'status'             => 'enrolled',
             'admin_note'         => $note,
             'ip_address'         => '',
@@ -344,6 +356,8 @@ class IQU_Billing_Add_Student
         // Written once the column is migrated; until then IQU_Database::created_via() reads the
         // "IQU Billing (…)" user agent above, so the rules are the same either way.
         if (IQU_Database::created_via_ready()) $row['created_via'] = $via;
+        // The agreed monthly fee as given (NULL = none agreed); see IQU_Billing_Pricing.
+        if ($agreed !== null && IQU_Database::student_fee_columns_ready()) $row['agreed_fee'] = $agreed;
 
         foreach ($extra_cols as $col => $value) {
             if ($col !== 'referral') $row[$col] = $value;

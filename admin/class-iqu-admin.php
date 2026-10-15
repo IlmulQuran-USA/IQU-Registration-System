@@ -59,6 +59,7 @@ class IQU_Admin
     add_action('wp_ajax_iqu_export_csv', [$this, 'handle_export_csv']);
     add_action('wp_ajax_iqu_delete_reg', [$this, 'handle_delete']);
     add_action('admin_post_iqu_set_existing_student', [$this, 'handle_set_existing_student']);
+    add_action('admin_post_iqu_set_course', [$this, 'handle_set_course']);
   }
 
   /**
@@ -79,6 +80,49 @@ class IQU_Admin
     }
     wp_safe_redirect(add_query_arg(['page' => 'iqu-view-registration', 'id' => $id, 'iqu_msg' => $msg], admin_url('admin.php')));
     exit;
+  }
+
+  /**
+   * Student page: set the course of a monthly student who has none (CSV import with an empty
+   * or unknown course). Fills only the missing course (and days); see IQU_Database::fill_course.
+   */
+  public function handle_set_course(): void
+  {
+    if (!current_user_can('manage_options')) wp_die('Permission denied.', 403);
+    $id = absint($_POST['id'] ?? 0);
+    check_admin_referer('iqu_set_course_' . $id);
+    $row    = $id ? IQU_Database::get_registration($id) : null;
+    $course = sanitize_key($_POST['course'] ?? '');
+    $msg    = 'course_failed';
+    if ($row && class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::course_missing($row) && IQU_Pricing::is_valid_course($course)) {
+      $days = (int) $row['days_per_week'] > 0 ? (int) $row['days_per_week'] : absint($_POST['days'] ?? 0);
+      $calc = IQU_Pricing::calculate($course, $days);
+      if (!empty($calc['valid']) && IQU_Database::fill_course($id, $course, $days, (float) $calc['per_class_rate'], (float) $calc['monthly_amount'])) {
+        $msg = 'course_set';
+      }
+    }
+    wp_safe_redirect(add_query_arg(['page' => 'iqu-view-registration', 'id' => $id, 'iqu_msg' => $msg], admin_url('admin.php')));
+    exit;
+  }
+
+  /**
+   * A note when a fee was agreed (agreed_fee): before the course is set it waits; once it is
+   * set and the agreed fee differs from the standard price, both are shown. A note, not an error.
+   */
+  public static function agreed_fee_note(array $row): string
+  {
+    if (!isset($row['agreed_fee']) || $row['agreed_fee'] === null || $row['agreed_fee'] === '') return '';
+    $agreed = (float) $row['agreed_fee'];
+    $course = (string) ($row['course_type'] ?? '');
+    if (!IQU_Pricing::is_valid_course($course)) {
+      return 'Agreed fee ' . IQU_Pricing::format($agreed) . ' saved — it is checked against the standard price once the course is set.';
+    }
+    $calc = IQU_Pricing::calculate($course, (int) $row['days_per_week']);
+    if (empty($calc['valid'])) return '';
+    $standard = round((float) $calc['monthly_amount'], 2);
+    if (abs($standard - $agreed) < 0.01) return '';
+    return sprintf('Agreed fee %s differs from the standard price %s (%s, %d days a week).%s', IQU_Pricing::format($agreed), IQU_Pricing::format($standard),
+      IQU_Pricing::label($course), (int) $row['days_per_week'], $agreed > $standard ? ' The standard price is billed.' : ' The agreed fee is billed.');
   }
 
   /** The "Free first month" line on the student page, with the admin override. */
@@ -1463,13 +1507,38 @@ class IQU_Admin
 
                 <?php self::render_free_month_item($row); ?>
 
-                <?php if (class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::course_missing($row)): ?>
+                <?php if (class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::course_missing($row)): $cmsg = sanitize_key($_GET['iqu_msg'] ?? ''); ?>
                 <div class="iqu-detail-item iqu-detail-full">
                     <div class="iqu-detail-lbl">Course</div>
                     <div class="iqu-detail-val">
                         <span class="iqu-status-badge iqu-sb-pending" data-course-missing>Course missing</span>
-                        <small>Billing cannot start until a course is chosen: Student Billing → Needs course → Choose course.</small>
+                        <small>Billing cannot start until a course is set. Set it here, or choose it in Student Billing → Check and send.</small>
+                        <?php if ($cmsg === 'course_failed'): ?><p class="iqu-free-month-note" role="alert">The course could not be set. Choose a course and the classes a week.</p><?php endif; ?>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-set-course-form">
+                            <input type="hidden" name="action" value="iqu_set_course">
+                            <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+                            <?php wp_nonce_field('iqu_set_course_' . (int) $row['id']); ?>
+                            <label class="screen-reader-text" for="iqu-set-course">Course</label>
+                            <select id="iqu-set-course" name="course" required>
+                                <option value="">Choose course…</option>
+                                <?php foreach (IQU_Pricing::course_keys() as $ck): ?><option value="<?php echo esc_attr($ck); ?>"><?php echo esc_html(IQU_Pricing::label($ck)); ?></option><?php endforeach; ?>
+                            </select>
+                            <?php if ((int) $row['days_per_week'] <= 0): ?>
+                                <label class="screen-reader-text" for="iqu-set-days">Classes a week</label>
+                                <select id="iqu-set-days" name="days" required><option value="">Days…</option><?php for ($i = 1; $i <= 7; $i++): ?><option value="<?php echo $i; ?>"><?php echo $i; ?></option><?php endfor; ?></select>
+                            <?php endif; ?>
+                            <button type="submit" class="iqu-action-btn iqu-action-btn--view">Set course</button>
+                        </form>
                     </div>
+                </div>
+                <?php elseif (sanitize_key($_GET['iqu_msg'] ?? '') === 'course_set'): ?>
+                <div class="iqu-detail-item iqu-detail-full"><div class="iqu-detail-val"><p class="iqu-free-month-note" role="status">Course saved. Billing can now be set up in Student Billing.</p></div></div>
+                <?php endif; ?>
+
+                <?php $agreed_note = self::agreed_fee_note($row); if ($agreed_note !== ''): ?>
+                <div class="iqu-detail-item iqu-detail-full" data-agreed-fee-note>
+                    <div class="iqu-detail-lbl">Agreed fee</div>
+                    <div class="iqu-detail-val"><span class="iqu-agreed-note"><?php echo esc_html($agreed_note); ?></span></div>
                 </div>
                 <?php endif; ?>
 

@@ -45,9 +45,9 @@ class IQU_Billing_Import
         ['Email',              true,  'Billing email. The payment link and receipts go here. Siblings may share one.', 'sara.k@example.com'],
         ['WhatsApp',           true,  'With country code. If empty, Guardian WhatsApp is used.', '+1 214 555 0148'],
         ['Guardian WhatsApp',  false, 'Used when WhatsApp is empty.',                          ''],
-        ['Course',             true,  'qaidah, hifz or arabic (the full course name also works). A course that is not on the website is saved blank with a warning, and billing waits until you choose one.', 'qaidah'],
+        ['Course',             true,  'qaidah, hifz or arabic (the full course name also works). If the cell is empty or the course is not on the website, the student is still imported with a warning and the course left blank; billing waits until you set it.', 'qaidah'],
         ['Days/Week',          true,  'Classes per week, 1 to 7. Hifz needs at least 3.',     '4'],
-        ['Agreed Monthly Fee', false, 'Only for families who pay less than the standard fee. Number only. 0 means full scholarship. Leave empty for the standard fee.', ''],
+        ['Agreed Monthly Fee', false, 'Only for families who pay less than the standard fee. Number only. 0 means full scholarship. Leave empty for the standard fee. Without a recognised course the fee is saved as given, with a warning, and checked once the course is set.', ''],
         ['Zakat',              false, 'Yes if the reduced fee is paid by the Zakat Fund. Otherwise leave empty or No.', 'No'],
         ['Age',                false, 'Student age, a number up to 100. Under 4 is saved with a warning.', '9'],
         ['Country Origin',     false, 'Country the student is from.',                          'Bangladesh'],
@@ -596,6 +596,7 @@ class IQU_Billing_Import
         $ok     = array_filter($rows, fn($r) => !$r['errors']);
         $free   = count(array_filter($ok, fn($r) => (float) $r['net'] <= 0 && empty($r['course_missing'])));
         $nocrs  = count(array_filter($ok, fn($r) => !empty($r['course_missing'])));
+        $tocheck = count(array_filter($ok, fn($r) => !empty($r['course_missing']) && !empty($r['in']['use_agreed'])));
         $total  = array_sum(array_map(fn($r) => (float) $r['net'], $ok));
         $post   = esc_url(admin_url('admin-post.php'));
         $labels = array_column(self::COLUMNS, 0);
@@ -619,11 +620,15 @@ class IQU_Billing_Import
                 <?php if ($dry): ?>
                     <p class="iqu-fld-hint">Validate only: nothing was saved. Download the results, fix the file, then upload it again without "Validate only" to import.</p>
                 <?php endif; ?>
+                <?php if ($nocrs): ?>
+                    <p class="iqu-fld-hint" data-course-missing-hint><?php echo (int) $nocrs; ?> <?php echo $nocrs === 1 ? 'student has' : 'students have'; ?> no course: <?php echo $nocrs === 1 ? 'it is' : 'they are'; ?> imported with the course left blank, and billing waits until it is set<?php echo $tocheck ? '; agreed fees are saved and checked against the standard price then' : ''; ?>.</p>
+                <?php endif; ?>
                 <ul class="iqu-import-chips" aria-label="Summary">
                     <li class="iqu-ichip iqu-ichip--ok"><span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>OK <strong><?php echo (int) $n[self::LEVEL_OK]; ?></strong></li>
                     <li class="iqu-ichip iqu-ichip--warn"><span class="dashicons dashicons-warning" aria-hidden="true"></span>With warnings <strong><?php echo (int) $n[self::LEVEL_WARNING]; ?></strong></li>
                     <li class="iqu-ichip iqu-ichip--bad"><span class="dashicons dashicons-dismiss" aria-hidden="true"></span>Rejected <strong><?php echo (int) $n[self::LEVEL_ERROR]; ?></strong></li>
                     <?php if ($nocrs): ?><li class="iqu-ichip iqu-ichip--warn"><span class="dashicons dashicons-info" aria-hidden="true"></span>Course missing <strong><?php echo (int) $nocrs; ?></strong></li><?php endif; ?>
+                    <?php if ($tocheck): ?><li class="iqu-ichip iqu-ichip--warn"><span class="dashicons dashicons-info" aria-hidden="true"></span>Agreed fee to check <strong><?php echo (int) $tocheck; ?></strong></li><?php endif; ?>
                     <?php if ($free): ?><li class="iqu-ichip"><span class="dashicons dashicons-info" aria-hidden="true"></span>Full scholarship <strong><?php echo (int) $free; ?></strong></li><?php endif; ?>
                     <li class="iqu-ichip"><span class="dashicons dashicons-money-alt" aria-hidden="true"></span>Monthly tuition <strong><?php echo esc_html(IQU_Pricing::format($total)); ?></strong></li>
                 </ul>
