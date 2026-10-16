@@ -289,13 +289,12 @@
   height: auto;
   min-height: 180px;
 }
+/* Out of the flow, so the canvas never pushes the row taller; Chart.js gives it the box's
+   content size itself (no CSS width / height: stretching it blurred the text). */
 .iqu-section-row .iqu-breakdown-chart canvas {
   position: absolute;
   left: 0;
   top: 14px; /* below the dashed rule (padding-top of the box) */
-  right: 0;
-  bottom: 0;
-  height: calc(100% - 14px) !important;
 }
 .iqu-dash-stack {
   display: flex;
@@ -331,9 +330,10 @@
   position: relative;
   height: 200px;
 }
+/* Chart canvases are sized by Chart.js (responsive, whole device pixels). Never stretch them
+   with CSS (width / height: 100% !important): that rescales the drawing and blurs the text. */
 .iqu-chart-body canvas {
-  width: 100% !important;
-  height: 100% !important;
+  display: block;
 }
 /* Donut center overlay */
 .iqu-chart-body-donut {
@@ -367,8 +367,8 @@
 }
 .iqu-donut-lbl {
   display: block;
-  font-size: 10px;
-  color: var(--iqu-text2);
+  font-size: 12px;
+  color: var(--iqu-text1); /* centre text: the main dark text colour, like the chart labels */
   text-transform: uppercase;
   letter-spacing: 0.4px;
   margin-top: 2px;
@@ -1333,8 +1333,7 @@
   height: 200px;
 }
 .iqu-chart-body--referral canvas {
-  width: 100% !important;
-  height: 100% !important;
+  display: block;
 }
 /* Under the referral chart: rows added by an admin or a CSV import (not a referral source). */
 .iqu-chart-note {
@@ -2156,8 +2155,7 @@
 }
 
 .iqu-breakdown-chart canvas {
-  width: 100% !important;
-  height: 100% !important;
+  display: block; /* sized by Chart.js, never stretched by CSS (that blurred the text) */
 }
 /* ── 3.3.0 online enrollment: statuses and review badges ───── */
 .iqu-sb-card_pending {

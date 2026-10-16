@@ -604,9 +604,10 @@
   height: 220px;
 }
 
+/* No CSS size on the canvas: Chart.js (responsive) sizes it to this box in whole device pixels.
+   Stretching it with width / height: 100% !important rescaled the drawing and blurred the text. */
 .iqu-chart-box canvas {
-  width: 100% !important;
-  height: 100% !important;
+  display: block;
 }
 
 .iqu-view-toggle {

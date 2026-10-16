@@ -308,8 +308,10 @@ class IQU_Admin
 
     // Chart.js from CDN
     wp_enqueue_script('chartjs', 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js', [], '4.4.1', true);
+    // Shared Chart.js defaults (dark text, admin font, 12px) for every IQU chart; admin.js and billing.js depend on it.
+    wp_enqueue_script('iqu-chart-defaults', IQU_PLUGIN_URL . 'admin/js/chart-defaults.js', ['chartjs'], IQU_VERSION, true);
 
-    wp_enqueue_script('iqu-admin-script', IQU_PLUGIN_URL . 'admin/js/admin.js', ['jquery', 'chartjs'], IQU_VERSION, true);
+    wp_enqueue_script('iqu-admin-script', IQU_PLUGIN_URL . 'admin/js/admin.js', ['jquery', 'chartjs', 'iqu-chart-defaults'], IQU_VERSION, true);
 
     // Build chart data from DB for dashboard
     $chart_data = $this->build_chart_data();

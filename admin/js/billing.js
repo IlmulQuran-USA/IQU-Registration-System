@@ -190,18 +190,19 @@
       maintainAspectRatio: false,
       animation: reduce ? false : { duration: 400 },
       plugins: {
-        // Compact cards ask for the legend below, so it never squeezes the canvas.
+        // Compact cards ask for the legend below, so it never squeezes the canvas. Text colour,
+        // font and size come from the shared defaults (admin/js/chart-defaults.js).
         legend: cfg.legend === "bottom"
-          ? { position: "bottom", labels: { boxWidth: 10, padding: 8, font: { size: 11 }, color: token("text1") } }
-          : { position: round ? "right" : "bottom", labels: { boxWidth: 12, color: token("text1") } },
+          ? { position: "bottom", labels: { boxWidth: 10, padding: 8 } }
+          : { position: round ? "right" : "bottom", labels: { boxWidth: 12 } },
         tooltip: { callbacks: { label: function (ctx) { return " " + (ctx.dataset.label ? ctx.dataset.label + ": " : ctx.label + ": ") + fmt(ctx.parsed.y !== undefined && !round ? ctx.parsed.y : ctx.parsed); } } }
       }
     };
     if (!round) {
       options.scales = {
-        // Axis labels in the body-text colour (read from the theme token, so a dark theme stays readable); grid lines stay light.
-        x: { stacked: !!cfg.stacked, grid: { display: false }, ticks: { color: token("text1") } },
-        y: { stacked: !!cfg.stacked, beginAtZero: true, ticks: { color: token("text1"), precision: 0, callback: function (v) { return money ? "$" + Number(v).toLocaleString("en-US") : v; } }, grid: { color: token("bdr") } }
+        // Axis label colour and font come from the shared defaults (admin/js/chart-defaults.js); grid lines stay light.
+        x: { stacked: !!cfg.stacked, grid: { display: false } },
+        y: { stacked: !!cfg.stacked, beginAtZero: true, ticks: { precision: 0, callback: function (v) { return money ? "$" + Number(v).toLocaleString("en-US") : v; } }, grid: { color: token("bdr") } }
       };
     } else {
       options.cutout = "62%";

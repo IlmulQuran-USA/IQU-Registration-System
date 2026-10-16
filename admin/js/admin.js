@@ -56,11 +56,11 @@
           scales: {
             y: {
               beginAtZero: true,
-              ticks: { precision: 0, font: { size: 11 }, color: "#6b7280" },
+              ticks: { precision: 0 },
               grid: { color: "rgba(0,0,0,0.04)" },
             },
             x: {
-              ticks: { font: { size: 10.5 }, color: "#6b7280" },
+              ticks: {},
               grid: { display: false },
             },
           },
@@ -112,11 +112,11 @@
           scales: {
             y: {
               beginAtZero: true,
-              ticks: { stepSize: 1, font: { size: 11 }, color: "#6b7280" },
+              ticks: { stepSize: 1 },
               grid: { color: "rgba(0,0,0,0.04)" },
             },
             x: {
-              ticks: { font: { size: 11 }, color: "#6b7280" },
+              ticks: {},
               grid: { display: false },
             },
           },
@@ -148,8 +148,6 @@
                 display: true,
                 position: "bottom",
                 labels: {
-                  font: { size: 11 },
-                  color: "#6b7280",
                   padding: 12,
                   boxWidth: 10,
                   boxHeight: 10,
@@ -341,12 +339,12 @@ if (refCtx && IQU_Admin.chart_data && IQU_Admin.chart_data.referral) {
       scales: {
         x: {
           grid: { color: "rgba(0,0,0,0.04)" },
-          ticks: { font: { size: 11 }, color: "#6b7280", stepSize: 1 },
+          ticks: { stepSize: 1 },
           beginAtZero: true,
         },
         y: {
           grid: { display: false },
-          ticks: { font: { size: 11, weight: "600" }, color: "#374151" },
+          ticks: { font: { weight: "600" } },
         },
       },
     },
