@@ -120,6 +120,12 @@ class IQU_Billing_Page
             . '</div>';
     }
 
+    /** "Test mode. …" as a slim note for the page header's right side (escaped HTML). */
+    public static function mode_note(string $text): string
+    {
+        return '<p class="iqu-mode-note" role="note"><span class="iqu-mode-dot" aria-hidden="true"></span><strong>Test mode.</strong> ' . esc_html($text) . '</p>';
+    }
+
     /** A Dashicon for a button label (decorative: the button text says what it does). */
     public static function icon(string $name): string
     {

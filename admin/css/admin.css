@@ -46,7 +46,7 @@
   --iqu-radius-icon: 10px; /* tinted icon squares */
   --iqu-avatar-size: 42px; /* initials avatar: Student Billing, Payments tables, student and family pages */
   --iqu-tint: 11%; /* soft tinted squares / pills: color-mix(in srgb, <accent> var(--iqu-tint), var(--iqu-bg1)) */
-  --iqu-focus-ring: 0 0 0 2px var(--iqu-bg1), 0 0 0 4px var(--iqu-blue);
+  --iqu-focus-outline: 2px solid var(--iqu-blue); /* keyboard focus: outline + outline-offset 2px */
 }
 
 /* ── Base ───────────────────────────────────────────────────── */
@@ -154,8 +154,8 @@
 .iqu-top-bar-actions .iqu-btn-primary:focus-visible,
 .iqu-top-bar-actions .iqu-btn-ghost:focus-visible,
 .iqu-tab:focus-visible {
-  outline: none;
-  box-shadow: var(--iqu-focus-ring);
+  outline: var(--iqu-focus-outline);
+  outline-offset: 2px;
 }
 .iqu-badge-live {
   background: #e6f5ec;
@@ -516,8 +516,8 @@
   font-weight: 600;
 }
 .iqu-stat-sub a:focus-visible {
-  outline: none;
-  box-shadow: var(--iqu-focus-ring);
+  outline: var(--iqu-focus-outline);
+  outline-offset: 2px;
   border-radius: 2px;
 }
 

@@ -31,6 +31,25 @@ class IQU_Billing_Reports
         'not_set_up'     => 'Not set up',
     ];
 
+    /** One line under each report's title: what it shows. */
+    private const SUBTITLES = [
+        'students'       => 'Every student on monthly tuition: contact, course, fee, family status and key dates.',
+        'payments'       => 'Every invoice of the month: amount due, paid and refunded, status and receipt.',
+        'reconciliation' => 'Per family: what was expected this month against what was paid.',
+        'not_set_up'     => 'Families who have not added a bank or card yet, and when their link was sent.',
+    ];
+
+    /**
+     * Screen only (the CSV never reads this): columns kept in view while the table scrolls sideways,
+     * and the column groups shown above the headings (label => number of columns, in order).
+     */
+    private const SCREEN = [
+        'students'       => ['freeze' => 2, 'groups' => ['Student' => 2, 'Contact' => 3, 'Course' => 2, 'Money' => 2, 'Status and dates' => 6]],
+        'payments'       => ['freeze' => 1, 'groups' => ['Family' => 2, 'Money' => 3, 'Status' => 2, 'Receipt' => 3]],
+        'reconciliation' => ['freeze' => 1, 'groups' => ['Family' => 2, 'Money' => 3, 'Status' => 2]],
+        'not_set_up'     => ['freeze' => 1, 'groups' => []],
+    ];
+
     public static function init(): void
     {
         add_action('admin_menu', [__CLASS__, 'register_menu'], 22);
@@ -231,20 +250,10 @@ class IQU_Billing_Reports
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('reports'); ?>
-            <?php
-            // Page actions: Import CSV (secondary) and the Download CSV form (primary, same fields and nonce as before).
-            ob_start(); ?>
-                <a class="iqu-btn iqu-btn--secondary" href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>"><?php echo IQU_Billing_Page::icon('upload'); ?>Import CSV</a>
-                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CSV); ?>">
-                    <input type="hidden" name="dataset" value="<?php echo esc_attr($key); ?>">
-                    <input type="hidden" name="month" value="<?php echo esc_attr($ym); ?>">
-                    <?php wp_nonce_field(self::A_CSV); ?>
-                    <button type="submit" class="iqu-btn iqu-btn--primary"><?php echo IQU_Billing_Page::icon('download'); ?>Download CSV</button>
-                </form>
-            <?php IQU_Billing_Page::page_header('Reports', 'Pick a month and a report, check it here, then download it as a CSV file.', ob_get_clean()); ?>
-            <?php if (IQU_Stripe::expected_mode() === 'test'): ?><div class="notice notice-warning inline"><p><strong>Test mode.</strong> These reports show test data, not real money.</p></div><?php endif; ?>
+            <?php IQU_Billing_Page::page_header('Reports', 'Pick a month and a report, check it here, then download it as a CSV file.', IQU_Stripe::expected_mode() === 'test' ? IQU_Billing_Page::mode_note('These reports show test data, not real money.') : ''); ?>
 
+            <!-- ── Toolbar: Month, Report, Show · Import CSV / Download CSV on the right ── -->
+            <div class="iqu-toolbar">
             <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-period-bar">
                 <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
                 <span class="iqu-period-field">
@@ -261,12 +270,26 @@ class IQU_Billing_Reports
                 </span>
                 <button type="submit" class="iqu-btn iqu-btn--secondary">Show</button>
             </form>
+            <div class="iqu-toolbar-actions">
+                <a class="iqu-btn iqu-btn--secondary" href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>"><?php echo IQU_Billing_Page::icon('upload'); ?>Import CSV</a>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CSV); ?>">
+                    <input type="hidden" name="dataset" value="<?php echo esc_attr($key); ?>">
+                    <input type="hidden" name="month" value="<?php echo esc_attr($ym); ?>">
+                    <?php wp_nonce_field(self::A_CSV); ?>
+                    <button type="submit" class="iqu-btn iqu-btn--primary"><?php echo IQU_Billing_Page::icon('download'); ?>Download CSV</button>
+                </form>
+            </div>
+            </div>
 
             <?php self::month_cards($ym); ?>
 
             <div class="iqu-card">
                 <div class="iqu-card-head">
-                    <span class="iqu-card-head-title"><?php echo esc_html(self::DATASETS[$key] . ' — ' . IQU_Billing_History::month_label($ym)); ?></span>
+                    <div class="iqu-card-head-text">
+                        <span class="iqu-card-head-title"><?php echo esc_html(self::DATASETS[$key] . ' — ' . IQU_Billing_History::month_label($ym)); ?></span>
+                        <span class="iqu-card-head-sub"><?php echo esc_html(self::SUBTITLES[$key]); ?></span>
+                    </div>
                 </div>
                 <div class="iqu-billing-body"><p class="iqu-fld-hint"><?php echo esc_html($ds['note']); ?></p></div>
 
@@ -279,34 +302,50 @@ class IQU_Billing_Reports
                         <span class="iqu-dt-count" data-count-for="<?php echo esc_attr($tid); ?>" aria-live="polite"></span>
                     </div>
                     <div class="iqu-table-wrap iqu-dt-wrap">
-                    <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="<?php echo esc_attr($tid); ?>">
-                        <thead><tr>
-                        <?php foreach ($cols as $c => [$label, $type]): $num = in_array($type, ['num', 'money'], true); ?>
-                            <th<?php echo $num ? ' class="is-num"' : ''; ?> data-type="<?php echo esc_attr($num ? 'num' : 'text'); ?>" aria-sort="none"><button type="button" class="iqu-sort"><?php echo esc_html($label); ?></button></th>
-                        <?php endforeach; ?>
+                    <?php
+                    $screen = self::SCREEN[$key];
+                    $groups = array_sum($screen['groups']) === count($cols) ? $screen['groups'] : [];
+                    $freeze = (int) $screen['freeze'];
+                    $fz = fn(int $i) => $i < $freeze ? ' iqu-col-frozen' . ($i === $freeze - 1 ? ' iqu-col-frozen--last' : '') : '';
+                    ?>
+                    <table class="iqu-tbl iqu-dt iqu-billing-tbl iqu-rep-tbl" id="<?php echo esc_attr($tid); ?>" data-freeze="<?php echo $freeze; ?>">
+                        <thead>
+                        <?php if ($groups): ?>
+                        <tr class="iqu-dt-groups">
+                            <?php $gi = 0; foreach ($groups as $glabel => $span): ?>
+                                <th scope="colgroup" colspan="<?php echo (int) $span; ?>" class="iqu-dt-group<?php echo $gi === 0 && (int) $span === $freeze ? ' iqu-col-frozen iqu-col-frozen--last' : ''; ?>"><?php echo esc_html($glabel); ?></th>
+                            <?php $gi++; endforeach; ?>
+                        </tr>
+                        <?php endif; ?>
+                        <tr>
+                        <?php $i = 0; foreach ($cols as $c => [$label, $type]): $num = in_array($type, ['num', 'money'], true); ?>
+                            <th class="<?php echo trim(($num ? 'is-num' : '') . $fz($i)); ?>" data-type="<?php echo esc_attr($num ? 'num' : 'text'); ?>" aria-sort="none"><button type="button" class="iqu-sort"><?php echo esc_html($label); ?></button></th>
+                        <?php $i++; endforeach; ?>
                         </tr></thead>
                         <tbody>
                         <?php foreach ($ds['rows'] as $r): ?>
                             <tr>
-                            <?php foreach ($cols as $c => [$label, $type]): $v = $r[$c] ?? ''; ?>
+                            <?php $i = -1; foreach ($cols as $c => [$label, $type]): $v = $r[$c] ?? ''; $i++; $fc = $fz($i); ?>
                                 <?php if ($type === 'money' && $c === 'difference'): $d = (float) $v; ?>
-                                    <td class="is-num iqu-diff <?php echo $d > 0 ? 'is-pos' : ($d < 0 ? 'is-neg' : 'is-zero'); ?>" data-sort="<?php echo esc_attr(number_format($d, 2, '.', '')); ?>"><?php echo esc_html(($d > 0 ? '+' : ($d < 0 ? '−' : '')) . IQU_Pricing::format(abs($d))); ?></td>
+                                    <td class="is-num iqu-diff <?php echo $d > 0 ? 'is-pos' : ($d < 0 ? 'is-neg' : 'is-zero'); ?><?php echo $fc; ?>" data-sort="<?php echo esc_attr(number_format($d, 2, '.', '')); ?>"><?php echo esc_html(($d > 0 ? '+' : ($d < 0 ? '−' : '')) . IQU_Pricing::format(abs($d))); ?></td>
                                 <?php elseif ($type === 'money'): ?>
-                                    <td class="is-num" data-sort="<?php echo esc_attr(number_format((float) $v, 2, '.', '')); ?>"><?php echo esc_html(IQU_Pricing::format((float) $v)); ?></td>
+                                    <td class="is-num<?php echo $fc; ?>" data-sort="<?php echo esc_attr(number_format((float) $v, 2, '.', '')); ?>"><?php echo esc_html(IQU_Pricing::format((float) $v)); ?></td>
                                 <?php elseif ($type === 'num'): ?>
-                                    <td class="is-num"><?php echo esc_html((string) $v); ?></td>
+                                    <td class="is-num<?php echo $fc; ?>"><?php echo esc_html((string) $v); ?></td>
                                 <?php elseif ($type === 'date'): ?>
-                                    <td class="iqu-td-date" data-sort="<?php echo esc_attr((string) $v); ?>"><?php echo esc_html(self::day((string) $v)); ?></td>
+                                    <td class="iqu-td-date<?php echo $fc; ?>" data-sort="<?php echo esc_attr((string) $v); ?>"><?php echo esc_html(self::day((string) $v)); ?></td>
                                 <?php elseif ($type === 'url'): ?>
-                                    <td><?php if ($v !== ''): ?><a href="<?php echo esc_url((string) $v); ?>" target="_blank" rel="noopener noreferrer">Invoice</a><?php else: ?>—<?php endif; ?></td>
+                                    <td class="<?php echo trim($fc); ?>"><?php if ($v !== ''): ?><a href="<?php echo esc_url((string) $v); ?>" target="_blank" rel="noopener noreferrer">Invoice</a><?php else: ?>—<?php endif; ?></td>
                                 <?php elseif ($c === 'family' && !empty($r['_account'])): ?>
-                                    <td><a class="iqu-family-link" href="<?php echo esc_url(IQU_Billing_Page::family_url((int) $r['_account'])); ?>"><?php echo esc_html((string) $v); ?></a></td>
+                                    <td class="iqu-td-name<?php echo $fc; ?>"><a class="iqu-family-link" href="<?php echo esc_url(IQU_Billing_Page::family_url((int) $r['_account'])); ?>"><?php echo esc_html((string) $v); ?></a></td>
                                 <?php elseif (isset($r['_tones'][$c]) && $v !== ''): ?>
-                                    <td class="iqu-billing-wrap" data-sort="<?php echo esc_attr((string) $v); ?>"><span class="iqu-chip iqu-chip--<?php echo esc_attr($r['_tones'][$c]); ?>"><?php echo esc_html((string) $v); ?></span></td>
+                                    <td class="iqu-billing-wrap<?php echo $fc; ?>" data-sort="<?php echo esc_attr((string) $v); ?>"><span class="iqu-chip iqu-chip--<?php echo esc_attr($r['_tones'][$c]); ?>"><?php echo esc_html((string) $v); ?></span></td>
                                 <?php elseif ($c === 'student' && !empty($r['_account'])): ?>
-                                    <td class="iqu-td-name"><a class="iqu-family-link" href="<?php echo esc_url(IQU_Billing_Page::family_url((int) $r['_account'])); ?>"><?php echo esc_html((string) $v); ?></a></td>
+                                    <td class="iqu-td-name<?php echo $fc; ?>"><a class="iqu-family-link" href="<?php echo esc_url(IQU_Billing_Page::family_url((int) $r['_account'])); ?>"><?php echo esc_html((string) $v); ?></a></td>
+                                <?php elseif ($c === 'method' && $v !== ''): // the payment method, compact: card icon + label, one line ?>
+                                    <td class="iqu-td-method<?php echo $fc; ?>"><span class="iqu-method"><?php echo IQU_Icons::svg(stripos((string) $v, 'bank') !== false ? 'banknote' : 'credit-card', 14); ?><?php echo esc_html((string) $v); ?></span></td>
                                 <?php else: ?>
-                                    <td<?php echo in_array($c, ['discount', 'status', 'students'], true) ? ' class="iqu-billing-wrap"' : ''; ?>><?php echo esc_html((string) ($v === '' ? '—' : $v)); ?></td>
+                                    <td class="<?php echo trim((in_array($c, ['discount', 'status', 'students'], true) ? 'iqu-billing-wrap' : '') . $fc); ?>"><?php echo esc_html((string) ($v === '' ? '—' : $v)); ?></td>
                                 <?php endif; ?>
                             <?php endforeach; ?>
                             </tr>
@@ -319,7 +358,7 @@ class IQU_Billing_Reports
                                 <?php if ($type === 'money'): ?>
                                     <td class="is-num"><?php echo esc_html(IQU_Pricing::format(array_sum(array_map(fn($r) => (float) ($r[$c] ?? 0), $ds['rows'])))); ?></td>
                                 <?php else: ?>
-                                    <td><?php echo $first ? esc_html('Total (' . count($ds['rows']) . ')') : ''; ?></td>
+                                    <td<?php echo $first ? ' class="iqu-col-frozen iqu-col-frozen--last"' : ''; ?>><?php echo $first ? esc_html('Total (' . count($ds['rows']) . ')') : ''; ?></td>
                                 <?php endif; $first = false; ?>
                             <?php endforeach; ?>
                         </tr></tfoot>
@@ -415,13 +454,15 @@ class IQU_Billing_Reports
             ['Refunded', IQU_Pricing::format($sum['refunded']), $sum['refunded'] > 0 ? 'purple' : 'neutral', 'In ' . IQU_Billing_History::month_label($ym), 'rotate-ccw'],
             ['Not set up', (string) count($not_set_up), count($not_set_up) ? 'gold' : 'neutral', IQU_Pricing::format($owed) . ' a month waiting', 'user-plus'],
         ];
-        echo '<div class="iqu-kpis iqu-rep-kpis" aria-label="' . esc_attr(IQU_Billing_History::month_label($ym)) . '">';
-        foreach ($cards as [$label, $value, $tone, $sub, $icon]) {
-            echo '<div class="iqu-metric iqu-stat iqu-rep-kpi iqu-rep-kpi--' . esc_attr($tone) . '"><div class="iqu-metric-accent"></div>'
+        echo '<div class="iqu-kpi-board" aria-label="' . esc_attr(IQU_Billing_History::month_label($ym)) . '">';
+        foreach ($cards as $n => [$label, $value, $tone, $sub, $icon]) {
+            if ($n === 0) echo '<div class="iqu-kpis iqu-rep-kpis iqu-kpi-row iqu-kpi-row--primary">';
+            if ($n === 3) echo '</div><div class="iqu-kpis iqu-rep-kpis iqu-kpi-row iqu-kpi-row--secondary iqu-kpi-row--two">';
+            echo '<div class="iqu-metric iqu-stat iqu-kpi iqu-kpi--' . ($n < 3 ? 'lg' : 'sm') . ' iqu-rep-kpi iqu-rep-kpi--' . esc_attr($tone) . '"><div class="iqu-metric-accent"></div>'
                 . IQU_Icons::stat_head($icon, $tone, esc_html($value)) . '<div class="iqu-metric-lbl">' . esc_html($label) . '</div>'
                 . '<div class="iqu-metric-sub">' . esc_html($sub) . '</div></div>';
         }
-        echo '</div>';
+        echo '</div></div>';
     }
 
     private static function accounts_by_id(): array

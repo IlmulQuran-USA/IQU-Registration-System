@@ -67,8 +67,14 @@
     });
   }
 
+  /** The column headings: the last header row (a row of column groups may sit above it). */
+  function headRow(table) {
+    return table.tHead && table.tHead.rows.length ? table.tHead.rows[table.tHead.rows.length - 1] : null;
+  }
+
   function initSort(table) {
-    var heads = table.tHead ? table.tHead.rows[0].cells : [];
+    var hr = headRow(table);
+    var heads = hr ? hr.cells : [];
     Array.prototype.forEach.call(heads, function (th, col) {
       var btn = th.querySelector("button.iqu-sort");
       if (!btn) return;
@@ -105,7 +111,7 @@
 
   /** CSV of the visible rows: header row (columns without data-csv-skip) + shown body rows. */
   B.tableRows = function (table) {
-    var heads = Array.prototype.slice.call(table.tHead.rows[0].cells);
+    var heads = Array.prototype.slice.call(headRow(table).cells);
     var keep = heads.map(function (th) { return !th.hasAttribute("data-csv-skip"); });
     var out = [heads.filter(function (th, i) { return keep[i]; }).map(function (th) { return th.textContent.trim(); })];
     rowsOf(table).forEach(function (r) {
@@ -508,10 +514,52 @@
     apply();
   };
 
+  /**
+   * Frozen columns (table[data-freeze="n"], cells .iqu-col-frozen): each one's left offset is the width
+   * of the frozen columns before it, so they stay in view while the table scrolls sideways.
+   */
+  B.freeze = function (table) {
+    var n = parseInt(table.getAttribute("data-freeze") || "0", 10), hr = headRow(table);
+    if (!n || !hr) return;
+    var place = function () {
+      var lefts = [], x = 0;
+      for (var i = 0; i < n && i < hr.cells.length; i++) { lefts.push(x); x += hr.cells[i].getBoundingClientRect().width; }
+      Array.prototype.forEach.call(table.rows, function (row) {
+        for (var i = 0, col = 0; i < row.cells.length && col < n; i++) {
+          var c = row.cells[i];
+          if (c.classList.contains("iqu-col-frozen")) c.style.left = lefts[col] + "px";
+          col += c.colSpan || 1;
+        }
+      });
+    };
+    place();
+    root.addEventListener("resize", place);
+  };
+
+  /** Row menus (details.iqu-menu): one open at a time; Escape or a click elsewhere closes them. */
+  B.menus = function () {
+    var menus = document.querySelectorAll("details.iqu-menu");
+    if (!menus.length) return;
+    menus.forEach(function (m) {
+      m.addEventListener("toggle", function () {
+        if (m.open) menus.forEach(function (o) { if (o !== m) o.open = false; });
+      });
+    });
+    document.addEventListener("click", function (e) {
+      menus.forEach(function (m) { if (m.open && !m.contains(e.target)) m.open = false; });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      menus.forEach(function (m) { if (m.open) { m.open = false; m.querySelector("summary").focus(); } });
+    });
+  };
+
   B.init = function () {
     document.querySelectorAll("table.iqu-students-tbl").forEach(B.rowLinks);
     document.querySelectorAll("[data-receipt-sender]").forEach(B.receiptSender);
     document.querySelectorAll("table.iqu-dt").forEach(function (t) { initSort(t); updateCount(t); });
+    document.querySelectorAll("table[data-freeze]").forEach(B.freeze);
+    B.menus();
     document.querySelectorAll("input[data-filter-for]").forEach(initFilter);
     document.querySelectorAll("button[data-csv-for]").forEach(initCsv);
     document.querySelectorAll("button[data-toggle-view]").forEach(initToggle);

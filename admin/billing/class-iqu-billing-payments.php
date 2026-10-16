@@ -64,11 +64,10 @@ class IQU_Billing_Payments_Screen
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('payments'); ?>
-            <?php IQU_Billing_Page::page_header('Payments', 'Tuition collected and billed, payment problems and the charges coming up.'); ?>
-            <?php if ($mode === 'test'): ?><div class="notice notice-warning inline"><p><strong>Test mode.</strong> These are test payments, not real money.</p></div><?php endif; ?>
+            <?php IQU_Billing_Page::page_header('Payments', 'Tuition collected and billed, payment problems and the charges coming up.', $mode === 'test' ? IQU_Billing_Page::mode_note('These are test payments, not real money.') : ''); ?>
 
-            <!-- ── Period ────────────────────────────────────── -->
-            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-period-bar">
+            <!-- ── Toolbar: tuition month, 6 / 12 months, Show ──── -->
+            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-period-bar iqu-toolbar">
                 <input type="hidden" name="page" value="<?php echo esc_attr(IQU_Billing_Page::PAYMENTS_SLUG); ?>">
                 <label class="iqu-period-label" for="iqu-pay-month">Tuition month</label>
                 <input id="iqu-pay-month" type="month" name="month" value="<?php echo esc_attr($month); ?>">
@@ -80,13 +79,13 @@ class IQU_Billing_Payments_Screen
                 <button type="submit" class="iqu-btn iqu-btn--secondary">Show</button>
             </form>
 
-            <details class="iqu-howto">
-                <summary>How these numbers work</summary>
+            <details class="iqu-howto iqu-help">
+                <summary><?php echo IQU_Icons::svg('info', 16); ?><span>How these numbers work</span><?php echo IQU_Icons::svg('chevron-down', 16); ?></summary>
                 <dl>
                     <dt>1. Collected</dt><dd>Money received for this tuition month's invoices. Fully refunded invoices are not counted. Partial refunds are not subtracted here; they are shown under Outstanding.</dd>
                     <dt>2. Expected</dt><dd>Everything already billed for the month (shown as "Billed", without cancelled invoices) plus the monthly amount of families whose next payment falls in this month but who have not been billed yet (families in their free month, waiting for the first charge, or active).</dd>
-                    <dt>3. Collection rate</dt><dd>Collected ÷ Billed. Fully refunded invoices stay in Billed, so they lower the rate.</dd>
-                    <dt>4. Outstanding</dt><dd>Billed but not paid yet (failed, open or unpaid invoices). Refunds for the month are shown under it.</dd>
+                    <dt>3. Outstanding</dt><dd>Billed but not paid yet (failed, open or unpaid invoices). Refunds for the month are shown under it.</dd>
+                    <dt>4. Collection rate</dt><dd>Collected ÷ Billed. Fully refunded invoices stay in Billed, so they lower the rate.</dd>
                     <dt>5. Families on billing</dt><dd>Families in their free month, waiting for the first charge, active, or past due (Stripe is still retrying a failed payment). The line under counts every payment problem, including unpaid and paused families, who are not in this number.</dd>
                     <dt>6. Monthly recurring</dt><dd>The total monthly tuition of all families on billing (the same families as above).</dd>
                     <dt>7. Average per family</dt><dd>Monthly recurring ÷ Families on billing.</dd>
@@ -94,24 +93,33 @@ class IQU_Billing_Payments_Screen
                 <p class="iqu-howto-note">A payment counts toward its tuition month — the invoice's period start, in the site's time zone — not the day it was paid.</p>
             </details>
 
-            <!-- ── KPIs ──────────────────────────────────────── -->
-            <div class="iqu-kpis">
+            <!-- ── KPIs: the three that matter most, then the rest ─ -->
+            <div class="iqu-kpi-board" aria-label="<?php echo esc_attr($mlabel); ?>">
+                <div class="iqu-kpis iqu-kpi-row iqu-kpi-row--primary">
                 <?php
-                self::kpi('Collected', IQU_Pricing::format($cur['collected']), 'revenue', self::delta_money($cur['collected'], $prev['collected'] ?? null, $plabel), $mlabel, false, 'banknote', 'purple');
-                self::kpi('Expected', IQU_Pricing::format($cur['expected']), 'total', '', 'Billed ' . IQU_Pricing::format($cur['billed']), false, 'receipt', 'navy');
-                self::kpi('Collection rate', $cur['rate'] === null ? '—' : $cur['rate'] . '%', 'l1', self::delta_points($cur['rate'], $prev['rate'] ?? null, $plabel), $cur['rate'] === null ? 'Nothing billed yet' : '', false, 'percent', 'green');
-                self::kpi('Outstanding', IQU_Pricing::format($cur['outstanding']), 'problem', '', $cur['refunded'] > 0 ? 'Refunded ' . IQU_Pricing::format($cur['refunded']) : '', $cur['outstanding'] > 0, 'clock', 'red');
-                self::kpi('Families on billing', (string) $families, 'free', '', count($problems) ? count($problems) . ' with a payment problem' : '', false, 'users', 'blue');
-                self::kpi('Monthly recurring', IQU_Pricing::format($recurring), 'l2', '', 'a month', false, 'repeat', 'gold');
-                self::kpi('Average per family', $families ? IQU_Pricing::format($recurring / $families) : '—', 'weekend', '', '', false, 'bar-chart', 'teal');
+                self::kpi('Collected', IQU_Pricing::format($cur['collected']), 'l1', self::delta_money($cur['collected'], $prev['collected'] ?? null, $plabel), $mlabel, false, 'banknote', 'green', 'lg');
+                self::kpi('Expected', IQU_Pricing::format($cur['expected']), 'free', '', 'Billed ' . IQU_Pricing::format($cur['billed']), false, 'receipt', 'blue', 'lg');
+                self::kpi('Outstanding', IQU_Pricing::format($cur['outstanding']), 'problem', '', $cur['refunded'] > 0 ? 'Refunded ' . IQU_Pricing::format($cur['refunded']) : ($cur['outstanding'] > 0 ? 'Billed, not paid yet' : 'Nothing owed'), $cur['outstanding'] > 0, 'clock', 'red', 'lg');
                 ?>
+                </div>
+                <div class="iqu-kpis iqu-kpi-row iqu-kpi-row--secondary">
+                <?php
+                self::kpi('Collection rate', $cur['rate'] === null ? '—' : $cur['rate'] . '%', 'l1', self::delta_points($cur['rate'], $prev['rate'] ?? null, $plabel), $cur['rate'] === null ? 'Nothing billed yet' : '', false, 'percent', 'green', 'sm', $cur['rate']);
+                self::kpi('Families on billing', (string) $families, 'total', '', count($problems) ? count($problems) . ' with a payment problem' : '', false, 'users', 'navy', 'sm');
+                self::kpi('Monthly recurring', IQU_Pricing::format($recurring), 'l2', '', 'a month', false, 'repeat', 'gold', 'sm');
+                self::kpi('Average per family', $families ? IQU_Pricing::format($recurring / $families) : '—', 'revenue', '', 'Monthly recurring ÷ families', false, 'bar-chart', 'purple', 'sm');
+                ?>
+                </div>
             </div>
+
+            <?php self::attention($problems, $month); ?>
 
             <!-- ── Charts ────────────────────────────────────── -->
             <div class="iqu-chart-grid">
                 <?php
                 $mrows = array_map(fn($m) => [IQU_Billing_History::month_label($m['month']), IQU_Pricing::format($m['collected']), IQU_Pricing::format($m['billed'])], $months);
-                self::chart_card('iqu-ch-monthly', 'Monthly tuition, last ' . $range . ' months', 'Collected and billed per tuition month, last ' . $range . ' months. ' . $mlabel . ': collected ' . IQU_Pricing::format($cur['collected']) . ' of ' . IQU_Pricing::format($cur['billed']) . ' billed.', ['Month', 'Collected', 'Billed'], $mrows, true, array_sum(array_column($months, 'billed')) + array_sum(array_column($months, 'collected')) > 0);
+                $period = IQU_Billing_History::month_label($months[0]['month']) . ' – ' . $mlabel;
+                self::chart_card('iqu-ch-monthly', 'Monthly tuition, last ' . $range . ' months', 'Collected and billed per tuition month, last ' . $range . ' months. ' . $mlabel . ': collected ' . IQU_Pricing::format($cur['collected']) . ' of ' . IQU_Pricing::format($cur['billed']) . ' billed.', ['Month', 'Collected', 'Billed'], $mrows, true, array_sum(array_column($months, 'billed')) + array_sum(array_column($months, 'collected')) > 0, false, 'Collected and billed per tuition month · ' . $period);
                 ?>
             </div>
 
@@ -120,62 +128,24 @@ class IQU_Billing_Payments_Screen
                 <?php
 
                 $crows = array_map(fn($m) => [IQU_Billing_History::month_label($m['month']), (string) $m['paid_count'], (string) $m['failed_count']], $months);
-                self::chart_card('iqu-ch-paidfail', 'Paid and failed payments', 'Number of paid and failed tuition invoices per month. ' . $mlabel . ': ' . $cur['paid_count'] . ' paid, ' . $cur['failed_count'] . ' failed.', ['Month', 'Paid', 'Failed'], $crows, false, array_sum(array_column($months, 'paid_count')) + array_sum(array_column($months, 'failed_count')) > 0, true);
+                self::chart_card('iqu-ch-paidfail', 'Paid and failed payments', 'Number of paid and failed tuition invoices per month. ' . $mlabel . ': ' . $cur['paid_count'] . ' paid, ' . $cur['failed_count'] . ' failed.', ['Month', 'Paid', 'Failed'], $crows, false, array_sum(array_column($months, 'paid_count')) + array_sum(array_column($months, 'failed_count')) > 0, true, 'Invoices per month · ' . $period);
 
                 $counts = IQU_Billing_History::status_counts($accounts);
                 $srows = [];
                 foreach (self::STATUS_GROUPS as $label => [$statuses, $tone]) {
                     $srows[] = [$label, (string) array_sum(array_map(fn($s) => $counts[$s] ?? 0, $statuses))];
                 }
-                self::chart_card('iqu-ch-status', 'Billing status of families', 'Families by billing status: ' . implode(', ', array_map(fn($r) => $r[1] . ' ' . strtolower($r[0]), array_filter($srows, fn($r) => $r[1] !== '0'))) . '.', ['Status', 'Families'], $srows, false, count($accounts) > 0, true);
+                self::chart_card('iqu-ch-status', 'Billing status of families', 'Families by billing status: ' . implode(', ', array_map(fn($r) => $r[1] . ' ' . strtolower($r[0]), array_filter($srows, fn($r) => $r[1] !== '0'))) . '.', ['Status', 'Families'], $srows, false, count($accounts) > 0, true, 'All families, as they are today');
 
                 $split = IQU_Billing_History::method_split($rows);
                 $prows = [];
                 foreach ($split as $g => $amt) $prows[] = [$g, IQU_Pricing::format($amt)];
-                self::chart_card('iqu-ch-methods', 'Payment methods', 'Amount collected in the last ' . $range . ' months by payment method' . ($prows ? ': ' . implode(', ', array_map(fn($r) => $r[0] . ' ' . $r[1], $prows)) : '') . '.', ['Method', 'Collected'], $prows, false, (bool) $split, true);
+                self::chart_card('iqu-ch-methods', 'Payment methods', 'Amount collected in the last ' . $range . ' months by payment method' . ($prows ? ': ' . implode(', ', array_map(fn($r) => $r[0] . ' ' . $r[1], $prows)) : '') . '.', ['Method', 'Collected'], $prows, false, (bool) $split, true, 'Amount collected · ' . $period);
 
                 $weeks = self::weeks($upcoming, $tz);
                 $wrows = array_map(fn($w) => [$w['label'], IQU_Pricing::format($w['amount']), (string) $w['count']], $weeks);
-                self::chart_card('iqu-ch-upcoming', 'Upcoming charges, next 30 days', 'Charges expected in the next 30 days by week, total ' . IQU_Pricing::format(array_sum(array_column($weeks, 'amount'))) . '.', ['Week', 'Amount', 'Charges'], $wrows, false, (bool) $upcoming, true);
+                self::chart_card('iqu-ch-upcoming', 'Upcoming charges, next 30 days', 'Charges expected in the next 30 days by week, total ' . IQU_Pricing::format(array_sum(array_column($weeks, 'amount'))) . '.', ['Week', 'Amount', 'Charges'], $wrows, false, (bool) $upcoming, true, 'Expected per week, from today');
                 ?>
-            </div>
-
-            <!-- ── Needs attention ──────────────────────────── -->
-            <div class="iqu-card">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">Needs attention</span>
-                    <span class="iqu-card-head-badge"><?php echo (int) count($problems); ?> <?php echo count($problems) === 1 ? 'family' : 'families'; ?></span>
-                </div>
-                <?php if (!$problems): ?>
-                    <div class="iqu-empty-state">No payment problems. Families whose payment fails appear here.</div>
-                <?php else: ?>
-                    <?php self::toolbar('iqu-t-attention', 'iqu-billing-needs-attention-' . $month . '.csv'); ?>
-                    <div class="iqu-table-wrap iqu-dt-wrap">
-                    <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="iqu-t-attention">
-                        <thead><tr>
-                            <?php self::th('Family'); self::th('Amount', 'num'); self::th('Month'); self::th('Attempts', 'num'); self::th('Reason'); self::th('Last try', 'date'); ?>
-                            <th data-csv-skip><span class="screen-reader-text">Actions</span></th>
-                        </tr></thead>
-                        <tbody>
-                        <?php foreach ($problems as $a):
-                            $fail = self::latest_problem((int) $a['id']);
-                            $amt  = $fail ? (float) $fail['amount_due'] : (float) $a['net_amount'];
-                            $last = $fail ? (string) ($fail['updated_at'] ?: $fail['created_at']) : (string) $a['updated_at']; ?>
-                            <tr>
-                                <td><?php self::family_cell($a); ?></td>
-                                <td class="is-num" data-sort="<?php echo esc_attr(number_format($amt, 2, '.', '')); ?>"><?php echo esc_html(IQU_Pricing::format($amt)); ?></td>
-                                <td data-sort="<?php echo esc_attr($fail['period_month'] ?? ''); ?>"><?php echo esc_html($fail ? IQU_Billing_History::month_label((string) $fail['period_month']) : '—'); ?></td>
-                                <td class="is-num"><?php echo (int) ($fail['attempt_count'] ?? 0); ?></td>
-                                <td class="iqu-billing-wrap"><span class="iqu-chip iqu-chip--red"><?php echo esc_html(IQU_Billing_Send::status_label($a['status'])); ?></span><br><span class="iqu-billing-sub"><?php echo esc_html(($fail['failure_reason'] ?? '') ?: ($a['last_failure_reason'] ?: '—')); ?></span></td>
-                                <td class="iqu-td-date" data-sort="<?php echo esc_attr($last); ?>"><?php echo esc_html(self::day($last)); ?></td>
-                                <td class="iqu-td-actions"><a class="iqu-action-btn iqu-action-btn--view" href="<?php echo esc_url(IQU_Billing_Page::family_url((int) $a['id'])); ?>">Open family</a></td>
-                            </tr>
-                        <?php endforeach; ?>
-                        <?php self::no_match(7); ?>
-                        </tbody>
-                    </table>
-                    </div>
-                <?php endif; ?>
             </div>
 
             <!-- ── Upcoming charges ─────────────────────────── -->
@@ -245,7 +215,10 @@ class IQU_Billing_Payments_Screen
                                 <td><span class="iqu-chip iqu-chip--<?php echo esc_attr($btone); ?>"><?php echo esc_html($blabel); ?></span></td>
                                 <td data-csv="<?php echo esc_attr($receipt); ?>"><?php if ($receipt): ?><a href="<?php echo esc_url($receipt); ?>" target="_blank" rel="noopener noreferrer">Receipt<?php echo $r['receipt_number'] ? ' ' . esc_html($r['receipt_number']) : ''; ?></a><?php else: ?>—<?php endif; ?></td>
                                 <td data-csv="<?php echo esc_attr($pdf); ?>"><?php if ($pdf): ?><a href="<?php echo esc_url($pdf); ?>" target="_blank" rel="noopener noreferrer">PDF</a><?php else: ?>—<?php endif; ?></td>
-                                <td class="iqu-td-actions"><a class="iqu-action-btn" href="<?php echo esc_url(self::stripe_invoice_url((string) $r['stripe_invoice_id'])); ?>" target="_blank" rel="noopener noreferrer">View in Stripe</a></td>
+                                <td class="iqu-td-actions"><?php self::row_menu(array_filter([
+                                    $a ? ['Open family', IQU_Billing_Page::family_url((int) $a['id']), false] : null,
+                                    ['View in Stripe', self::stripe_invoice_url((string) $r['stripe_invoice_id']), true],
+                                ]), 'Actions for ' . ($a ? self::$labels[(int) $a['id']] ?? '' : 'this invoice') . ', ' . self::day($when)); ?></td>
                             </tr>
                         <?php endforeach; ?>
                         <?php self::no_match(9); ?>
@@ -263,11 +236,63 @@ class IQU_Billing_Payments_Screen
     // Pieces
     // ------------------------------------------------------------
 
-    private static function kpi(string $label, string $value, string $accent, string $delta, string $sub, bool $alert = false, string $icon = 'info', string $tone = 'navy'): void
+    /**
+     * "Needs attention", right after the KPIs. Families with a payment problem: the most visible
+     * section of the page (red edge, alert icon). None: one compact line with a check icon.
+     */
+    private static function attention(array $problems, string $month): void
     {
-        echo '<div class="iqu-metric iqu-stat' . ($alert ? ' iqu-metric--alert' : '') . '"><div class="iqu-metric-accent iqu-metric-accent--' . esc_attr($accent) . '"></div>'
+        if (!$problems) {
+            echo '<div class="iqu-card iqu-attention iqu-attention--clear" role="status">' . IQU_Icons::badge('check-circle', 'green')
+                . '<div><strong>Needs attention: nothing.</strong> <span>No payment problems. Families whose payment fails appear here.</span></div></div>';
+            return;
+        }
+        ?>
+            <div class="iqu-card iqu-attention">
+                <div class="iqu-card-head">
+                    <span class="iqu-card-head-title"><?php echo IQU_Icons::svg('alert-triangle', 16); ?>Needs attention</span>
+                    <span class="iqu-card-head-badge"><?php echo (int) count($problems); ?> <?php echo count($problems) === 1 ? 'family' : 'families'; ?></span>
+                </div>
+                    <?php self::toolbar('iqu-t-attention', 'iqu-billing-needs-attention-' . $month . '.csv'); ?>
+                    <div class="iqu-table-wrap iqu-dt-wrap">
+                    <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="iqu-t-attention">
+                        <thead><tr>
+                            <?php self::th('Family'); self::th('Amount', 'num'); self::th('Month'); self::th('Attempts', 'num'); self::th('Reason'); self::th('Last try', 'date'); ?>
+                            <th data-csv-skip><span class="screen-reader-text">Actions</span></th>
+                        </tr></thead>
+                        <tbody>
+                        <?php foreach ($problems as $a):
+                            $fail = self::latest_problem((int) $a['id']);
+                            $amt  = $fail ? (float) $fail['amount_due'] : (float) $a['net_amount'];
+                            $last = $fail ? (string) ($fail['updated_at'] ?: $fail['created_at']) : (string) $a['updated_at']; ?>
+                            <tr>
+                                <td><?php self::family_cell($a); ?></td>
+                                <td class="is-num" data-sort="<?php echo esc_attr(number_format($amt, 2, '.', '')); ?>"><?php echo esc_html(IQU_Pricing::format($amt)); ?></td>
+                                <td data-sort="<?php echo esc_attr($fail['period_month'] ?? ''); ?>"><?php echo esc_html($fail ? IQU_Billing_History::month_label((string) $fail['period_month']) : '—'); ?></td>
+                                <td class="is-num"><?php echo (int) ($fail['attempt_count'] ?? 0); ?></td>
+                                <td class="iqu-billing-wrap"><span class="iqu-chip iqu-chip--red"><?php echo esc_html(IQU_Billing_Send::status_label($a['status'])); ?></span><br><span class="iqu-billing-sub"><?php echo esc_html(($fail['failure_reason'] ?? '') ?: ($a['last_failure_reason'] ?: '—')); ?></span></td>
+                                <td class="iqu-td-date" data-sort="<?php echo esc_attr($last); ?>"><?php echo esc_html(self::day($last)); ?></td>
+                                <td class="iqu-td-actions"><a class="iqu-action-btn iqu-action-btn--view" href="<?php echo esc_url(IQU_Billing_Page::family_url((int) $a['id'])); ?>">Open family</a></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php self::no_match(7); ?>
+                        </tbody>
+                    </table>
+                    </div>
+            </div>
+        <?php
+    }
+
+    /**
+     * A KPI card (shared stat card): $size 'lg' for the three main numbers, 'sm' for the rest.
+     * $progress (0–100) adds a thin bar under the number (Collection rate).
+     */
+    private static function kpi(string $label, string $value, string $accent, string $delta, string $sub, bool $alert = false, string $icon = 'info', string $tone = 'navy', string $size = 'sm', ?float $progress = null): void
+    {
+        $bar = $progress === null ? '' : '<div class="iqu-progress iqu-tone--' . esc_attr($tone) . '" aria-hidden="true"><span style="width:' . esc_attr((string) max(0, min(100, $progress))) . '%"></span></div>';
+        echo '<div class="iqu-metric iqu-stat iqu-kpi iqu-kpi--' . ($size === 'lg' ? 'lg' : 'sm') . ($alert ? ' iqu-metric--alert' : '') . '"><div class="iqu-metric-accent iqu-metric-accent--' . esc_attr($accent) . '"></div>'
             . IQU_Icons::stat_head($icon, $tone, esc_html($value)) . '<div class="iqu-metric-lbl">' . esc_html($label) . '</div>'
-            . ($sub !== '' ? '<div class="iqu-metric-sub">' . esc_html($sub) . '</div>' : '')
+            . $bar . ($sub !== '' ? '<div class="iqu-metric-sub">' . esc_html($sub) . '</div>' : '')
             . $delta . '</div>';
     }
 
@@ -275,32 +300,39 @@ class IQU_Billing_Payments_Screen
     private static function delta_money(float $now, ?float $before, string $month): string
     {
         if ($before === null || $month === '') return '';
-        if ($before <= 0) return $now > 0 ? '<div class="iqu-kpi-delta iqu-kpi-delta--up">▲ ' . esc_html('up from $0 in ' . $month) . '</div>' : '';
+        if ($before <= 0) return $now > 0 ? self::pill('up', 'up from $0 in ' . $month) : '';
         $pct = round(($now - $before) / $before * 100, 1);
-        if ($pct == 0) return '<div class="iqu-kpi-delta">' . esc_html('Same as ' . $month) . '</div>';
-        $up = $pct > 0;
-        return '<div class="iqu-kpi-delta iqu-kpi-delta--' . ($up ? 'up' : 'down') . '">' . ($up ? '▲ ' : '▼ ') . esc_html(abs($pct) . '% vs ' . $month) . '</div>';
+        if ($pct == 0) return self::pill('flat', 'Same as ' . $month);
+        return self::pill($pct > 0 ? 'up' : 'down', abs($pct) . '% vs ' . $month);
+    }
+
+    /** Change vs last month as a small pill: arrow icon + text (the words say up / down for screen readers). */
+    private static function pill(string $dir, string $text): string
+    {
+        $icon = $dir === 'up' ? IQU_Icons::svg('arrow-up', 12) : ($dir === 'down' ? IQU_Icons::svg('arrow-down', 12) : '');
+        $sr   = $dir === 'up' ? 'Up ' : ($dir === 'down' ? 'Down ' : '');
+        return '<div class="iqu-kpi-delta iqu-delta-pill iqu-kpi-delta--' . $dir . '">' . $icon . ($sr !== '' ? '<span class="screen-reader-text">' . $sr . '</span>' : '') . esc_html($text) . '</div>';
     }
 
     private static function delta_points(?float $now, ?float $before, string $month): string
     {
         if ($now === null || $before === null || $month === '') return '';
         $d = round($now - $before, 1);
-        if ($d == 0) return '<div class="iqu-kpi-delta">' . esc_html('Same as ' . $month) . '</div>';
-        $up = $d > 0;
-        return '<div class="iqu-kpi-delta iqu-kpi-delta--' . ($up ? 'up' : 'down') . '">' . ($up ? '▲ ' : '▼ ') . esc_html(abs($d) . ' points vs ' . $month) . '</div>';
+        if ($d == 0) return self::pill('flat', 'Same as ' . $month);
+        return self::pill($d > 0 ? 'up' : 'down', abs($d) . ' points vs ' . $month);
     }
 
     /**
      * A chart card: canvas (drawn by billing.js) + a table with the same numbers, behind a toggle.
      * @param string[][] $rows table rows (first cell = label)
      */
-    private static function chart_card(string $id, string $title, string $summary, array $head, array $rows, bool $wide, bool $has_data, bool $compact = false): void
+    private static function chart_card(string $id, string $title, string $summary, array $head, array $rows, bool $wide, bool $has_data, bool $compact = false, string $sub = ''): void
     {
         $card = $id . '-card';
         $box  = $compact ? 'iqu-chart-box iqu-chart-box--compact' : 'iqu-chart-box';
         echo '<div class="iqu-card' . ($wide ? ' iqu-chart-wide' : '') . ($compact ? ' iqu-chart-card--compact' : '') . '" id="' . esc_attr($card) . '">';
-        echo '<div class="iqu-card-head"><span class="iqu-card-head-title">' . esc_html($title) . '</span>';
+        echo '<div class="iqu-card-head"><div class="iqu-card-head-text"><span class="iqu-card-head-title">' . esc_html($title) . '</span>'
+            . ($sub !== '' ? '<span class="iqu-card-head-sub">' . esc_html($sub) . '</span>' : '') . '</div>';
         $toggle = $has_data ? '<button type="button" class="iqu-view-toggle" data-toggle-view="' . esc_attr($card) . '" aria-expanded="false">View as table</button>' : '';
         if (!$compact) echo $toggle; // compact cards: in the footer, the same place on every card
         echo '</div>';
@@ -390,6 +422,19 @@ class IQU_Billing_Payments_Screen
         echo '<span class="iqu-family-cell">'
             . '<span class="iqu-avatar" aria-hidden="true">' . esc_html(IQU_Billing_Page::initials($name)) . '</span>'
             . '<a class="iqu-family-link" href="' . esc_url(IQU_Billing_Page::family_url($id)) . '">' . esc_html(self::$labels[$id]) . '</a></span>';
+    }
+
+    /**
+     * A compact "⋯" menu for a table row: [[label, url, external]]. A native <details>, so it opens
+     * with Enter / Space; billing.js closes it on Escape, a click elsewhere, or when another opens.
+     */
+    private static function row_menu(array $items, string $label): void
+    {
+        echo '<details class="iqu-menu"><summary class="iqu-menu-btn" aria-label="' . esc_attr($label) . '">' . IQU_Icons::svg('more', 18) . '</summary><div class="iqu-menu-list">';
+        foreach ($items as [$text, $url, $ext]) {
+            echo '<a href="' . esc_url($url) . '"' . ($ext ? ' target="_blank" rel="noopener noreferrer"' : '') . '>' . esc_html($text) . '</a>';
+        }
+        echo '</div></details>';
     }
 
     private static function th(string $label, string $type = 'text'): void
