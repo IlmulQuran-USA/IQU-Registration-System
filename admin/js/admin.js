@@ -414,3 +414,25 @@ if (refCtx && IQU_Admin.chart_data && IQU_Admin.chart_data.referral) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", later);
   else later();
 })();
+// ══════════════════════════════════════════════════
+// HEADER TABS (both headers, every IQU page): when the tab row is wider than its box it scrolls
+// sideways; on load, bring the active tab into view (centred) so the current page is always visible.
+// ══════════════════════════════════════════════════
+(function () {
+  "use strict";
+
+  function showActive(row) {
+    var tab = row.querySelector(".iqu-tab-active");
+    if (!tab || row.scrollWidth <= row.clientWidth + 1) return;
+    var r = row.getBoundingClientRect(), t = tab.getBoundingClientRect();
+    if (t.left >= r.left && t.right <= r.right) return;
+    var left = t.left - r.left + row.scrollLeft - (row.clientWidth - t.width) / 2;
+    row.scrollLeft = Math.max(0, Math.min(left, row.scrollWidth - row.clientWidth));
+  }
+
+  function init() {
+    document.querySelectorAll(".iqu-top-bar .iqu-tabs").forEach(showActive);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();

@@ -444,12 +444,12 @@ class IQU_Admin
     'iqu-list-free'       => 'Free',
     'iqu-list-summer-l1'  => 'Level 1',
     'iqu-list-summer-l2'  => 'Level 2',
-    'iqu-list-weekend'    => 'Weekend Program',
-    'iqu-coupon-create'   => 'Create Coupon',
-    'iqu-coupon-list'     => 'Coupon List',
+    'iqu-list-weekend'    => 'Weekend', // short labels keep the ten tabs on one row (3.4.2)
+    'iqu-coupon-create'   => 'New Coupon',
+    'iqu-coupon-list'     => 'Coupons',
     self::BILLING_SLUG    => self::BILLING_LABEL,
     'iqu-waitlist'        => 'Waitlist',
-    'iqu-zeffy-payments'  => 'Zeffy Payments',
+    'iqu-zeffy-payments'  => 'Zeffy',
   ];
 
   private static function render_logo(): void
