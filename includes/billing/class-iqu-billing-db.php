@@ -89,7 +89,8 @@ class IQU_Billing_DB
         self::install();
     }
 
-    public static function install(): void
+    /** The four billing tables with their CREATE TABLE statements (dbDelta format): used by install() and IQU_Schema. */
+    public static function schemas(): array
     {
         global $wpdb;
 
@@ -97,8 +98,10 @@ class IQU_Billing_DB
         $accounts = self::accounts_table();
         $members  = self::members_table();
         $events   = self::events_table();
+        $payments = self::payments_table();
 
-        $wpdb->query("CREATE TABLE IF NOT EXISTS {$accounts} (
+        return [
+        $accounts => "CREATE TABLE {$accounts} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             mode VARCHAR(4) NOT NULL DEFAULT 'test',
             stripe_customer_id VARCHAR(64) NOT NULL DEFAULT '',
@@ -137,9 +140,9 @@ class IQU_Billing_DB
             KEY mode_status (mode, status),
             KEY stripe_customer_id (stripe_customer_id),
             KEY stripe_subscription_id (stripe_subscription_id)
-        ) {$charset};");
+        ) {$charset};",
 
-        $wpdb->query("CREATE TABLE IF NOT EXISTS {$members} (
+        $members => "CREATE TABLE {$members} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             account_id BIGINT(20) UNSIGNED NOT NULL,
             registration_id BIGINT(20) UNSIGNED NOT NULL,
@@ -150,9 +153,9 @@ class IQU_Billing_DB
             PRIMARY KEY  (id),
             UNIQUE KEY registration_mode (registration_id, mode),
             KEY account_id (account_id)
-        ) {$charset};");
+        ) {$charset};",
 
-        $wpdb->query("CREATE TABLE IF NOT EXISTS {$events} (
+        $events => "CREATE TABLE {$events} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             stripe_event_id VARCHAR(64) NOT NULL,
             mode VARCHAR(4) NOT NULL DEFAULT 'test',
@@ -165,13 +168,12 @@ class IQU_Billing_DB
             PRIMARY KEY  (id),
             UNIQUE KEY stripe_event_id (stripe_event_id),
             KEY account_id (account_id)
-        ) {$charset};");
+        ) {$charset};",
 
         // Payment history (1.2.0): one row per Stripe invoice — paid, failed, open, void,
         // uncollectible or refunded. Created or extended through apply_schema() (PHP 8.5 safe).
         // Index names and definitions match the 1.1.0 table exactly, so dbDelta adds no duplicates.
-        $payments = self::payments_table();
-        IQU_Database::apply_schema($payments, "CREATE TABLE {$payments} (
+        $payments => "CREATE TABLE {$payments} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             stripe_invoice_id VARCHAR(64) NOT NULL,
             account_id BIGINT(20) UNSIGNED NOT NULL,
@@ -200,7 +202,22 @@ class IQU_Billing_DB
             KEY account_id (account_id),
             KEY mode_period (mode,period_month),
             KEY account_period (account_id,period_month)
-        ) {$charset};");
+        ) {$charset};",
+        ];
+    }
+
+    public static function install(): void
+    {
+        global $wpdb;
+        $schemas = self::schemas();
+        foreach ($schemas as $table => $sql) {
+            if ($table === self::payments_table()) {
+                IQU_Database::apply_schema($table, $sql); // created or extended (1.2.0)
+            } else {
+                // Created when missing, as before; their later columns come from the migrations below.
+                $wpdb->query(preg_replace('/^CREATE TABLE /', 'CREATE TABLE IF NOT EXISTS ', $sql, 1));
+            }
+        }
 
         $problem = self::migrate_payments_120();
         if ($problem === '') $problem = self::migrate_payments_130();
@@ -209,6 +226,14 @@ class IQU_Billing_DB
         if ($problem !== '') {
             // Leave the version behind so the next page load tries again.
             error_log('IQU Billing: payments table upgrade to ' . self::DB_VERSION . ' not finished — ' . $problem);
+            return;
+        }
+
+        // Every column and index of schemas() must exist before the version is stored (IQU_Schema).
+        // Anything the migrations did not cover is added by dbDelta.
+        foreach (IQU_Schema::missing_any($schemas) as $table => $miss) IQU_Database::apply_schema($table, $schemas[$table]);
+        if ($miss = IQU_Schema::missing_any($schemas)) {
+            error_log('IQU Billing: tables upgrade to ' . self::DB_VERSION . ' not finished — still missing ' . wp_json_encode($miss) . '; will retry.');
             return;
         }
 

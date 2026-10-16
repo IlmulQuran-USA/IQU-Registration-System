@@ -74,6 +74,8 @@ class IQU_Database
             $indent = strlen($line) - strlen(ltrim($line));
             $line   = substr($line, 0, $indent) . preg_replace('/ {2,}/', ' ', ltrim($line));
             $line   = preg_replace('/^(\s*)PRIMARY KEY \(/i', '$1PRIMARY KEY  (', $line);
+            // dbDelta compares index column lists without spaces ("(mode,status)"); with them it would add the index again.
+            if (preg_match('/^\s*(PRIMARY KEY|UNIQUE KEY|KEY)\b/i', $line)) $line = preg_replace('/,\s+/', ',', $line);
         }
         unset($line);
         $sql = implode("\n", $lines);
@@ -89,13 +91,15 @@ class IQU_Database
     }
 
     /**
-     * Plugin activation: create table (or migrate)
+     * The tables this class owns (registrations, waitlist), each with its CREATE TABLE statement
+     * (dbDelta format). The one definition used by create_table() and by IQU_Schema's check.
      */
-    public static function create_table(): void
+    public static function schemas(): array
     {
         global $wpdb;
-        $table   = $wpdb->prefix . IQU_TABLE_NAME;
-        $charset = $wpdb->get_charset_collate();
+        $table    = $wpdb->prefix . IQU_TABLE_NAME;
+        $waitlist = self::waitlist_table();
+        $charset  = $wpdb->get_charset_collate();
 
         $sql = "CREATE TABLE {$table} (
             id                 BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -167,11 +171,10 @@ class IQU_Database
             KEY                review_reason (review_reason)
         ) {$charset};";
 
-        IQU_Database::apply_schema($table, $sql);
-
-        // Waitlist for families outside the US and Canada (3.3.0). No IP address is stored.
-        $waitlist = self::waitlist_table();
-        IQU_Database::apply_schema($waitlist, "CREATE TABLE {$waitlist} (
+        return [
+            $table    => $sql,
+            // Waitlist for families outside the US and Canada (3.3.0). No IP address is stored.
+            $waitlist => "CREATE TABLE {$waitlist} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             email VARCHAR(191) NOT NULL DEFAULT '',
             name VARCHAR(150) NOT NULL DEFAULT '',
@@ -182,9 +185,21 @@ class IQU_Database
             PRIMARY KEY  (id),
             UNIQUE KEY email_program (email,program),
             KEY country (country)
-        ) {$charset};");
+        ) {$charset};",
+        ];
+    }
+
+    /**
+     * Plugin activation / upgrade: create or extend the tables (dbDelta), then verify. The version
+     * is stored only when every column and index of schemas() exists (IQU_Schema::missing), so a
+     * step that did not finish is tried again on the next load.
+     */
+    public static function create_table(): void
+    {
+        foreach (self::schemas() as $t => $sql) self::apply_schema($t, $sql);
 
         $problem = self::verify_schema_330();
+        if ($problem === '' && ($miss = IQU_Schema::missing_any(self::schemas()))) $problem = 'still missing ' . wp_json_encode($miss);
         if ($problem !== '') {
             // Leave the version behind so the next page load tries again.
             error_log('[IQU] Registration table upgrade to ' . IQU_VERSION . ' not finished — ' . $problem);
@@ -192,6 +207,19 @@ class IQU_Database
         }
 
         update_option('iqu_db_version', IQU_VERSION);
+    }
+
+    /**
+     * The registrations schema step IQU_Schema runs when a column or index is missing, whatever
+     * the stored version: the tables, then the one-time backfills. Each backfill has its own flag,
+     * so one that already ran (created_via, existing_student …) never runs again.
+     */
+    public static function schema_step(): void
+    {
+        self::create_table();
+        self::maybe_migrate_created_via();
+        self::maybe_migrate_student_fee_columns();
+        self::maybe_migrate_marketing_consent();
     }
 
     /** Registration columns added in 3.3.0, with the definition used if dbDelta did not add one. */

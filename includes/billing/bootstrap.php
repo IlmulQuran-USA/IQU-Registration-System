@@ -38,6 +38,9 @@ add_action('plugins_loaded', function () {
     require_once $inc . 'class-iqu-billing-portal.php';
 
     add_action('init', ['IQU_Billing_DB', 'maybe_install']);
+    // Then every IQU table is checked against its CREATE statement, whatever the stored versions
+    // (once per plugin + billing DB version; IQU_Schema).
+    add_action('init', ['IQU_Schema', 'maybe_check']);
     // After the tables: renew every family link hash once when the link key changed.
     add_action('init', ['IQU_Link_Keys', 'maybe_switch_over'], 11);
     IQU_Billing_Webhook::init();

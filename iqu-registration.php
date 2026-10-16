@@ -4,7 +4,7 @@
  * Plugin Name:       IQU Registration System
  * Plugin URI:        https://ilmulquranus.org
  * Description:       Secure student registration system for Ilm-ul-Quran USA — includes Free Enrollment & Summer Program forms, dashboard, Zelle/Zeffy payments, Google reCAPTCHA v3, and Stripe monthly tuition billing.
- * Version:           3.4.0
+ * Version:           3.4.1
  * Author:            Ilm-ul-Quran USA (Muhammad Nurul Ahsan)
  * License:           GPL-2.0+
  * Text Domain:       iqu-registration
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 // ============================================================
 // 📌 Constants
 // ============================================================
-define('IQU_VERSION', '3.4.0');
+define('IQU_VERSION', '3.4.1');
 define('IQU_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('IQU_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('IQU_TABLE_NAME', 'iqu_registrations');
@@ -87,6 +87,7 @@ if (!defined('IQU_EMAIL_LOGO_SRC')) {
 // ============================================================
 // 📂 Includes
 // ============================================================
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-schema.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-database.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-contact.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-link-keys.php';

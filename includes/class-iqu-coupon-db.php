@@ -41,7 +41,8 @@ class IQU_Coupon_DB
     // SCHEMA
     // ════════════════════════════════════════════════════
 
-    public static function create_table(): void
+    /** This class's table with its CREATE TABLE statement (dbDelta format): used by create_table() and IQU_Schema. */
+    public static function schemas(): array
     {
         global $wpdb;
         $table   = self::table();
@@ -69,8 +70,17 @@ class IQU_Coupon_DB
             KEY             expire_date (expire_date)
         ) {$charset};";
 
-        IQU_Database::apply_schema($table, $sql);
+        return [$table => $sql];
+    }
 
+    /** Create or extend the table; the version is stored only when every column and index exists. */
+    public static function create_table(): void
+    {
+        foreach (self::schemas() as $table => $sql) IQU_Database::apply_schema($table, $sql);
+        if ($miss = IQU_Schema::missing_any(self::schemas())) {
+            error_log('[IQU] Coupon table upgrade to ' . IQU_VERSION . ' not finished — still missing ' . wp_json_encode($miss) . '; will retry.');
+            return;
+        }
         update_option('iqu_coupon_db_version', IQU_VERSION);
     }
 
