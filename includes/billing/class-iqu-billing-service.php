@@ -13,9 +13,10 @@ if (!defined('ABSPATH')) exit;
  *
  * Security:
  * - Amounts come only from IQU_Billing_Pricing (server-side).
- * - The link token is an HMAC of the account id with a secret derived from
- *   the WordPress salts in wp-config.php. It is never stored; only its
- *   SHA-256 hash is, for lookup. A database leak alone cannot produce links.
+ * - The link token is an HMAC of the account id with the link key from
+ *   IQU_Link_Keys (IQU_LINK_SECRET in wp-config.php, or the WordPress salts
+ *   until that is set). It is never stored; only its SHA-256 hash is, for
+ *   lookup. A database leak alone cannot produce links.
  *   Resetting the link changes the token and the old link stops working.
  * - Stripe customer creation uses an idempotency key, so a retry never
  *   creates a second customer.
@@ -32,14 +33,10 @@ class IQU_Billing_Service
     // Private link
     // ------------------------------------------------------------
 
-    private static function token_secret(): string
+    /** $key: the link key to sign with; default the current one (IQU_Link_Keys). */
+    public static function token_for(array $acc, ?string $key = null): string
     {
-        return hash('sha256', wp_salt('secure_auth') . '|iqu-billing-link|v1', true);
-    }
-
-    public static function token_for(array $acc): string
-    {
-        return hash_hmac('sha256', $acc['mode'] . '|' . (int) $acc['id'] . '|' . $acc['token_created_at'], self::token_secret());
+        return hash_hmac('sha256', $acc['mode'] . '|' . (int) $acc['id'] . '|' . $acc['token_created_at'], $key ?? IQU_Link_Keys::key(IQU_Link_Keys::PURPOSE_BILLING));
     }
 
     public static function link_for(array $acc): string
@@ -47,13 +44,41 @@ class IQU_Billing_Service
         return add_query_arg('t', self::token_for($acc), home_url('/my-billing/'));
     }
 
-    /** Find the account for a token from a link. Constant-time compare. */
+    /**
+     * Find the account for a token from a link. Constant-time compare.
+     * A link made with IQU_LINK_SECRET_PREVIOUS (before a secret rotation) is accepted too: it is
+     * found by its stored previous hash and must match an HMAC with the previous secret.
+     */
     public static function account_for_token(string $token): ?array
     {
         if (!preg_match('/^[a-f0-9]{64}$/', $token)) return null;
-        $acc = IQU_Billing_DB::get_account_by_token_hash(hash('sha256', $token));
-        if (!$acc) return null;
-        return hash_equals(self::token_for($acc), $token) ? $acc : null;
+        $hash = hash('sha256', $token);
+        $acc  = IQU_Billing_DB::get_account_by_token_hash($hash);
+        if ($acc) return hash_equals(self::token_for($acc), $token) ? $acc : null;
+
+        $prev = IQU_Link_Keys::previous_key(IQU_Link_Keys::PURPOSE_BILLING);
+        if ($prev === null) return null;
+        $acc = IQU_Billing_DB::get_account_by_prev_token_hash($hash);
+        return ($acc && hash_equals(self::token_for($acc, $prev), $token)) ? $acc : null;
+    }
+
+    /**
+     * The link key changed (IQU_Link_Keys::maybe_switch_over): recompute every account's link
+     * hash, both modes. The old hash is kept in token_hash_prev, so IQU_LINK_SECRET_PREVIOUS can
+     * still accept it. token_created_at is unchanged.
+     * @return int Accounts renewed, or -1 when a write failed (the switch-over is then retried).
+     */
+    public static function renew_all_links(): int
+    {
+        $n = 0;
+        foreach (IQU_Billing_DB::link_rows() as $acc) {
+            $hash = hash('sha256', self::token_for($acc));
+            $old  = (string) ($acc['token_hash'] ?? '');
+            if ($old !== '' && hash_equals($old, $hash)) continue;
+            if (!IQU_Billing_DB::set_link_hashes((int) $acc['id'], (string) $acc['mode'], $hash, $old !== '' ? $old : null)) return -1;
+            $n++;
+        }
+        return $n;
     }
 
     /** Issue a new token. Any earlier link for this account stops working. */
@@ -70,6 +95,7 @@ class IQU_Billing_Service
         return IQU_Billing_DB::update_account($account_id, [
             'token_created_at' => $now,
             'token_hash'       => hash('sha256', self::token_for($acc)),
+            'token_hash_prev'  => null, // a reset ends every earlier link, also one from before a key rotation
         ]);
     }
 

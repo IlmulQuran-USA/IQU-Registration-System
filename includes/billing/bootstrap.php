@@ -8,6 +8,7 @@
  *
  * Keys come from wp-config.php only:
  *   IQU_STRIPE_SECRET_KEY, IQU_STRIPE_WEBHOOK_SECRET
+ *   IQU_LINK_SECRET (+ IQU_LINK_SECRET_PREVIOUS while rotating) for family links — IQU_Link_Keys
  * Telegram uses the plugin's existing IQU_TELEGRAM_* constants.
  */
 if (!defined('ABSPATH')) exit;
@@ -37,12 +38,15 @@ add_action('plugins_loaded', function () {
     require_once $inc . 'class-iqu-billing-portal.php';
 
     add_action('init', ['IQU_Billing_DB', 'maybe_install']);
+    // After the tables: renew every family link hash once when the link key changed.
+    add_action('init', ['IQU_Link_Keys', 'maybe_switch_over'], 11);
     IQU_Billing_Webhook::init();
     IQU_Billing_Summary::init();
     IQU_Billing_Portal::init();
     IQU_Billing_Receipt::init();
 
     if (is_admin()) {
+        add_action('admin_post_iqu_link_notice_dismiss', ['IQU_Link_Keys', 'handle_dismiss']);
         require_once $adm . 'class-iqu-billing-settings.php';
         require_once $adm . 'class-iqu-billing-add-student.php';
         require_once $adm . 'class-iqu-billing-import.php';

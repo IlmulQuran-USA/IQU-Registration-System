@@ -38,11 +38,25 @@ Still to do: full test of every case (new student, current student, past due dat
 ```php
 define( 'IQU_STRIPE_SECRET_KEY', 'sk_test_...' );        // live: restricted key rk_live_...
 define( 'IQU_STRIPE_WEBHOOK_SECRET', 'whsec_...' );     // live endpoint has its own secret
+define( 'IQU_LINK_SECRET', '...64 random hex characters...' ); // family links (billing page + Summer pay)
 ```
 Telegram uses the existing IQU_TELEGRAM_BOT_TOKEN and IQU_TELEGRAM_CHAT_ID.
 
-WARNING: private family links are derived from the WordPress salts in
-wp-config.php. Changing the salts invalidates every family's link.
+Family links (IQU_Link_Keys, 3.4.0):
+- With IQU_LINK_SECRET the links no longer depend on the WordPress salts, so
+  rotating the salts does not break them. Generate the value once, for example
+  `php -r "echo bin2hex(random_bytes(32));"`, and keep it out of version control.
+- Without it the links still use the salts (as before) and Billing → Settings
+  shows "IQU_LINK_SECRET is not set. Family links depend on WordPress salts."
+- Adding it (or changing it) renews every family's billing link hash once, on the
+  next page load. Links sent before then stop working; a notice on every Billing
+  tab says so — resend from Student Billing. Summer pay links sent before also
+  stop working (they store nothing, so there is nothing to renew).
+- To rotate later without breaking links already sent, move the old value to
+  IQU_LINK_SECRET_PREVIOUS and put the new one in IQU_LINK_SECRET. Old links are
+  then still accepted (never used for new ones). Remove PREVIOUS once the old
+  links no longer matter. A "Reset link" for a family ends its old link too.
+- Only a fingerprint of the key is stored (option iqu_link_keys), never the key.
 
 ---
 

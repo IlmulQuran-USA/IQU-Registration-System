@@ -232,6 +232,20 @@ class IQU_Billing_Settings
                         <div class="iqu-fld-value"><?php echo $wh_set ? '<strong>Signing secret set.</strong>' : '<em>Not set yet.</em>'; ?></div>
                         <p class="iqu-fld-hint">Endpoint to add in Stripe: <code><?php echo esc_html($wh_url); ?></code></p>
                     </div>
+                    <?php // Family link key: only whether it is set — never its value. ?>
+                    <div class="iqu-fld iqu-fld--full" data-link-secret="<?php echo IQU_Link_Keys::secret_set() ? 'set' : 'unset'; ?>">
+                        <span class="iqu-fld-label">Family link key</span>
+                        <?php if (IQU_Link_Keys::secret_set()): ?>
+                            <div class="iqu-fld-value"><strong>IQU_LINK_SECRET is set.</strong><?php if (IQU_Link_Keys::previous_set()): ?> IQU_LINK_SECRET_PREVIOUS is set too, so links sent before the last change still work.<?php endif; ?></div>
+                            <p class="iqu-fld-hint">Family billing and Summer payment links do not depend on the WordPress salts.</p>
+                            <?php if (IQU_Link_Keys::secret_is_short()): ?>
+                                <div class="notice notice-warning inline"><p>IQU_LINK_SECRET is shorter than <?php echo (int) IQU_Link_Keys::MIN_SECRET_LENGTH; ?> characters. Please use a long random value.</p></div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <div class="notice notice-warning inline"><p>IQU_LINK_SECRET is not set. Family links depend on WordPress salts.</p></div>
+                            <p class="iqu-fld-hint">If the salts are ever changed, every family link stops working at once. Add IQU_LINK_SECRET to <code>wp-config.php</code>; links are then renewed once and must be sent again.</p>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-actions">

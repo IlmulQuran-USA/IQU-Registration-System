@@ -259,14 +259,21 @@ class IQU_Summer_Pay
     // Signed resume link: /?iqu_pay=summer&r={id}&s={hmac}
     // ------------------------------------------------------------
 
-    private static function secret(): string
+    /** $key: the link key to sign with; default the current one (IQU_Link_Keys). */
+    public static function sig(int $reg_id, ?string $key = null): string
     {
-        return hash('sha256', wp_salt('secure_auth') . '|iqu-summer-pay|v1', true);
+        return hash_hmac('sha256', 'summer|' . $reg_id, $key ?? IQU_Link_Keys::key(IQU_Link_Keys::PURPOSE_SUMMER));
     }
 
-    public static function sig(int $reg_id): string
+    /** A link signed with the current key, or with IQU_LINK_SECRET_PREVIOUS. Constant-time compare. */
+    public static function sig_ok(int $reg_id, string $sig): bool
     {
-        return hash_hmac('sha256', 'summer|' . $reg_id, self::secret());
+        if (!preg_match('/^[a-f0-9]{64}$/', $sig)) return false;
+        $ok = false;
+        foreach (IQU_Link_Keys::verify_keys(IQU_Link_Keys::PURPOSE_SUMMER) as $key) {
+            $ok = hash_equals(self::sig($reg_id, $key), $sig) || $ok;
+        }
+        return $ok;
     }
 
     /** $state: '' = open a fresh payment page; 'done' / 'cancelled' = Stripe's return pages. */
@@ -292,7 +299,7 @@ class IQU_Summer_Pay
         if ($n >= self::RL_MAX) self::page('Please try again later', 'Too many attempts. Please wait a while and try again.');
         set_transient($key, $n + 1, HOUR_IN_SECONDS);
 
-        $reg = ($id && preg_match('/^[a-f0-9]{64}$/', $sig) && hash_equals(self::sig($id), $sig)) ? IQU_Database::get_registration($id) : null;
+        $reg = ($id && self::sig_ok($id, $sig)) ? IQU_Database::get_registration($id) : null;
         if (!$reg || $reg['payment_method'] !== 'stripe' || !in_array($reg['form_type'], [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true)) {
             self::page('Link not valid', 'This payment link is not valid. Please contact us at ' . IQU_CONTACT_EMAIL . '.');
         }

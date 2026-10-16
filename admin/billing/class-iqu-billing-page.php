@@ -102,6 +102,8 @@ class IQU_Billing_Page
             );
         }
         echo '</nav></div></div><hr class="wp-header-end">';
+        // Shown on every Billing tab until dismissed, after the link key changed (IQU_Link_Keys).
+        IQU_Link_Keys::render_renewed_notice();
     }
 
     /**

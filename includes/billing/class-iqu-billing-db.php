@@ -12,13 +12,14 @@ if (!defined('ABSPATH')) exit;
  * Security:
  * - Every query uses $wpdb->prepare or $wpdb->insert/update with formats.
  * - update_account() accepts only whitelisted columns.
- * - The private billing link is never stored; only its SHA-256 hash.
+ * - The private billing link is never stored; only its SHA-256 hash (and, after the link key
+ *   changed, the previous link's hash in token_hash_prev — see IQU_Link_Keys).
  * - Test and live data are kept apart by a `mode` column on every row.
  * - Webhook payloads are not stored (no personal data in the events table).
  */
 class IQU_Billing_DB
 {
-    public const DB_VERSION = '1.4.0';
+    public const DB_VERSION = '1.5.0';
     private const OPT_VERSION = 'iqu_billing_db_version';
 
     /** Columns update_account() may change, with their formats. */
@@ -29,6 +30,7 @@ class IQU_Billing_DB
         'contact_email'          => '%s',
         'contact_whatsapp'       => '%s',
         'token_hash'             => '%s',
+        'token_hash_prev'        => '%s', // 1.5.0 (IQU_Link_Keys)
         'token_created_at'       => '%s',
         'student_type'           => '%s',
         'monthly_amount'         => '%f',
@@ -105,6 +107,7 @@ class IQU_Billing_DB
             contact_email VARCHAR(191) NOT NULL DEFAULT '',
             contact_whatsapp VARCHAR(25) NOT NULL DEFAULT '',
             token_hash CHAR(64) DEFAULT NULL,
+            token_hash_prev CHAR(64) DEFAULT NULL,
             token_created_at DATETIME DEFAULT NULL,
             student_type VARCHAR(10) NOT NULL DEFAULT 'current',
             monthly_amount DECIMAL(8,2) NOT NULL DEFAULT 0.00,
@@ -130,6 +133,7 @@ class IQU_Billing_DB
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY token_hash (token_hash),
+            KEY token_hash_prev (token_hash_prev),
             KEY mode_status (mode, status),
             KEY stripe_customer_id (stripe_customer_id),
             KEY stripe_subscription_id (stripe_subscription_id)
@@ -201,6 +205,7 @@ class IQU_Billing_DB
         $problem = self::migrate_payments_120();
         if ($problem === '') $problem = self::migrate_payments_130();
         if ($problem === '') $problem = self::migrate_accounts_140();
+        if ($problem === '') $problem = self::migrate_accounts_150();
         if ($problem !== '') {
             // Leave the version behind so the next page load tries again.
             error_log('IQU Billing: payments table upgrade to ' . self::DB_VERSION . ' not finished — ' . $problem);
@@ -261,6 +266,39 @@ class IQU_Billing_DB
         foreach ((array) $wpdb->get_results('SHOW COLUMNS FROM ' . self::accounts_table(), ARRAY_A) as $c) $cols[(string) $c['Field']] = true;
         $missing = array_diff(array_keys(self::ACCOUNT_COLUMNS_140), array_keys($cols));
         return $missing ? 'missing account columns: ' . implode(', ', $missing) . ' (' . $wpdb->last_error . ')' : '';
+    }
+
+    /** True once every billing table and column of this version is in place. */
+    public static function is_installed(): bool
+    {
+        return get_option(self::OPT_VERSION) === self::DB_VERSION;
+    }
+
+    /**
+     * 1.5.0: token_hash_prev — the hash of a family's link from before the link key changed
+     * (IQU_Link_Keys). Read only when IQU_LINK_SECRET_PREVIOUS is set, so links sent before a
+     * secret rotation keep working. The column is verified; its index is added when missing
+     * (a lookup without it still works, so the index does not hold the version back).
+     * @return string '' when the column exists, otherwise the reason.
+     */
+    private static function migrate_accounts_150(): string
+    {
+        global $wpdb;
+        $table = self::accounts_table();
+        $has = function () use ($wpdb, $table): bool {
+            foreach ((array) $wpdb->get_results('SHOW COLUMNS FROM ' . $table, ARRAY_A) as $c) {
+                if ((string) $c['Field'] === 'token_hash_prev') return true;
+            }
+            return false;
+        };
+        if (!$has()) {
+            $wpdb->query('ALTER TABLE ' . $table . ' ADD COLUMN token_hash_prev CHAR(64) DEFAULT NULL');
+            if (!$has()) return 'missing account column: token_hash_prev (' . $wpdb->last_error . ')';
+        }
+        if (!$wpdb->get_results("SHOW INDEX FROM {$table} WHERE Key_name = 'token_hash_prev'", ARRAY_A)) {
+            $wpdb->query('ALTER TABLE ' . $table . ' ADD KEY token_hash_prev (token_hash_prev)');
+        }
+        return '';
     }
 
     /** paid_at column metadata from SHOW COLUMNS, keyed by column name. */
@@ -361,6 +399,43 @@ class IQU_Billing_DB
             $hash, IQU_Stripe::expected_mode()
         ), ARRAY_A);
         return $row ?: null;
+    }
+
+    /** Look up by the hash of a link made with the previous link key (see IQU_Link_Keys). */
+    public static function get_account_by_prev_token_hash(string $hash): ?array
+    {
+        global $wpdb;
+        if (!preg_match('/^[a-f0-9]{64}$/', $hash)) return null;
+        $row = $wpdb->get_row($wpdb->prepare(
+            'SELECT * FROM ' . self::accounts_table() . ' WHERE token_hash_prev = %s AND mode = %s',
+            $hash, IQU_Stripe::expected_mode()
+        ), ARRAY_A);
+        return $row ?: null;
+    }
+
+    /** Every account with a link, in both modes: id, mode, token_hash, token_created_at. */
+    public static function link_rows(): array
+    {
+        global $wpdb;
+        return $wpdb->get_results(
+            'SELECT id, mode, token_hash, token_created_at FROM ' . self::accounts_table() . ' WHERE token_created_at IS NOT NULL ORDER BY id',
+            ARRAY_A
+        ) ?: [];
+    }
+
+    /**
+     * Store a renewed link hash; the old one moves to token_hash_prev (null clears it).
+     * updated_at is left alone: nothing about the family changed.
+     */
+    public static function set_link_hashes(int $id, string $mode, string $hash, ?string $prev): bool
+    {
+        global $wpdb;
+        return false !== $wpdb->update(
+            self::accounts_table(),
+            ['token_hash' => $hash, 'token_hash_prev' => $prev],
+            ['id' => $id, 'mode' => $mode],
+            ['%s', '%s'], ['%d', '%s']
+        );
     }
 
     public static function get_account_by_subscription(string $sub_id): ?array
