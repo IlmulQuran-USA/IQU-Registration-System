@@ -97,13 +97,13 @@ class IQU_Billing_Payments_Screen
             <!-- ── KPIs ──────────────────────────────────────── -->
             <div class="iqu-kpis">
                 <?php
-                self::kpi('Collected', IQU_Pricing::format($cur['collected']), 'revenue', self::delta_money($cur['collected'], $prev['collected'] ?? null, $plabel), $mlabel);
-                self::kpi('Expected', IQU_Pricing::format($cur['expected']), 'total', '', 'Billed ' . IQU_Pricing::format($cur['billed']));
-                self::kpi('Collection rate', $cur['rate'] === null ? '—' : $cur['rate'] . '%', 'l1', self::delta_points($cur['rate'], $prev['rate'] ?? null, $plabel), $cur['rate'] === null ? 'Nothing billed yet' : '');
-                self::kpi('Outstanding', IQU_Pricing::format($cur['outstanding']), 'problem', '', $cur['refunded'] > 0 ? 'Refunded ' . IQU_Pricing::format($cur['refunded']) : '', $cur['outstanding'] > 0);
-                self::kpi('Families on billing', (string) $families, 'free', '', count($problems) ? count($problems) . ' with a payment problem' : '');
-                self::kpi('Monthly recurring', IQU_Pricing::format($recurring), 'l2', '', 'a month');
-                self::kpi('Average per family', $families ? IQU_Pricing::format($recurring / $families) : '—', 'weekend', '', '');
+                self::kpi('Collected', IQU_Pricing::format($cur['collected']), 'revenue', self::delta_money($cur['collected'], $prev['collected'] ?? null, $plabel), $mlabel, false, 'banknote', 'purple');
+                self::kpi('Expected', IQU_Pricing::format($cur['expected']), 'total', '', 'Billed ' . IQU_Pricing::format($cur['billed']), false, 'receipt', 'navy');
+                self::kpi('Collection rate', $cur['rate'] === null ? '—' : $cur['rate'] . '%', 'l1', self::delta_points($cur['rate'], $prev['rate'] ?? null, $plabel), $cur['rate'] === null ? 'Nothing billed yet' : '', false, 'percent', 'green');
+                self::kpi('Outstanding', IQU_Pricing::format($cur['outstanding']), 'problem', '', $cur['refunded'] > 0 ? 'Refunded ' . IQU_Pricing::format($cur['refunded']) : '', $cur['outstanding'] > 0, 'clock', 'red');
+                self::kpi('Families on billing', (string) $families, 'free', '', count($problems) ? count($problems) . ' with a payment problem' : '', false, 'users', 'blue');
+                self::kpi('Monthly recurring', IQU_Pricing::format($recurring), 'l2', '', 'a month', false, 'repeat', 'gold');
+                self::kpi('Average per family', $families ? IQU_Pricing::format($recurring / $families) : '—', 'weekend', '', '', false, 'bar-chart', 'teal');
                 ?>
             </div>
 
@@ -263,10 +263,10 @@ class IQU_Billing_Payments_Screen
     // Pieces
     // ------------------------------------------------------------
 
-    private static function kpi(string $label, string $value, string $accent, string $delta, string $sub, bool $alert = false): void
+    private static function kpi(string $label, string $value, string $accent, string $delta, string $sub, bool $alert = false, string $icon = 'info', string $tone = 'navy'): void
     {
-        echo '<div class="iqu-metric' . ($alert ? ' iqu-metric--alert' : '') . '"><div class="iqu-metric-accent iqu-metric-accent--' . esc_attr($accent) . '"></div>'
-            . '<div class="iqu-metric-num">' . esc_html($value) . '</div><div class="iqu-metric-lbl">' . esc_html($label) . '</div>'
+        echo '<div class="iqu-metric iqu-stat' . ($alert ? ' iqu-metric--alert' : '') . '"><div class="iqu-metric-accent iqu-metric-accent--' . esc_attr($accent) . '"></div>'
+            . IQU_Icons::stat_head($icon, $tone, esc_html($value)) . '<div class="iqu-metric-lbl">' . esc_html($label) . '</div>'
             . ($sub !== '' ? '<div class="iqu-metric-sub">' . esc_html($sub) . '</div>' : '')
             . $delta . '</div>';
     }

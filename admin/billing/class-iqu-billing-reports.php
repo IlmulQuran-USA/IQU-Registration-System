@@ -408,16 +408,17 @@ class IQU_Billing_Reports
         $not_set_up = array_filter($accounts, fn($a) => in_array($a['status'], ['not_sent', 'link_sent'], true) && empty($a['stripe_subscription_id']));
         $owed = array_sum(array_map(fn($a) => (float) $a['net_amount'], $not_set_up));
         $cards = [
-            ['Collected', IQU_Pricing::format($sum['collected']), 'green', $sum['paid_count'] . ' paid'],
-            ['Billed', IQU_Pricing::format($sum['billed']), 'blue', 'Expected ' . IQU_Pricing::format($sum['expected'])],
-            ['Outstanding', IQU_Pricing::format($sum['outstanding']), $sum['outstanding'] > 0 ? 'red' : 'neutral', $sum['failed_count'] ? $sum['failed_count'] . ' failed' : 'Nothing failed'],
-            ['Refunded', IQU_Pricing::format($sum['refunded']), $sum['refunded'] > 0 ? 'purple' : 'neutral', 'In ' . IQU_Billing_History::month_label($ym)],
-            ['Not set up', (string) count($not_set_up), count($not_set_up) ? 'gold' : 'neutral', IQU_Pricing::format($owed) . ' a month waiting'],
+            // label, value, tone, sub-line, icon (IQU_Icons)
+            ['Collected', IQU_Pricing::format($sum['collected']), 'green', $sum['paid_count'] . ' paid', 'banknote'],
+            ['Billed', IQU_Pricing::format($sum['billed']), 'blue', 'Expected ' . IQU_Pricing::format($sum['expected']), 'receipt'],
+            ['Outstanding', IQU_Pricing::format($sum['outstanding']), $sum['outstanding'] > 0 ? 'red' : 'neutral', $sum['failed_count'] ? $sum['failed_count'] . ' failed' : 'Nothing failed', 'clock'],
+            ['Refunded', IQU_Pricing::format($sum['refunded']), $sum['refunded'] > 0 ? 'purple' : 'neutral', 'In ' . IQU_Billing_History::month_label($ym), 'rotate-ccw'],
+            ['Not set up', (string) count($not_set_up), count($not_set_up) ? 'gold' : 'neutral', IQU_Pricing::format($owed) . ' a month waiting', 'user-plus'],
         ];
         echo '<div class="iqu-kpis iqu-rep-kpis" aria-label="' . esc_attr(IQU_Billing_History::month_label($ym)) . '">';
-        foreach ($cards as [$label, $value, $tone, $sub]) {
-            echo '<div class="iqu-metric iqu-rep-kpi iqu-rep-kpi--' . esc_attr($tone) . '"><div class="iqu-metric-accent"></div>'
-                . '<div class="iqu-metric-num">' . esc_html($value) . '</div><div class="iqu-metric-lbl">' . esc_html($label) . '</div>'
+        foreach ($cards as [$label, $value, $tone, $sub, $icon]) {
+            echo '<div class="iqu-metric iqu-stat iqu-rep-kpi iqu-rep-kpi--' . esc_attr($tone) . '"><div class="iqu-metric-accent"></div>'
+                . IQU_Icons::stat_head($icon, $tone, esc_html($value)) . '<div class="iqu-metric-lbl">' . esc_html($label) . '</div>'
                 . '<div class="iqu-metric-sub">' . esc_html($sub) . '</div></div>';
         }
         echo '</div>';

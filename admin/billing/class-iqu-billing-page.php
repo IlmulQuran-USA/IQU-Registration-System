@@ -259,16 +259,18 @@ class IQU_Billing_Page
             <div class="iqu-metrics">
                 <?php
                 $cards = [
-                    ['Monthly students', (string) $counts['all'], 'total'],
-                    ['Billing active', (string) $counts['active'], 'l1'],
-                    ['Not set up yet', $counts['not_set_up'] . ' · ' . IQU_Pricing::format($not_set_up_total) . '/mo', 'l2'],
-                    ['Payment problems', (string) $counts['failed'], 'problem'],
+                    // label, value, accent, icon (IQU_Icons), tone, sub-line
+                    ['Monthly students', (string) $counts['all'], 'total', 'users', 'navy', ''],
+                    ['Billing active', (string) $counts['active'], 'l1', 'check-circle', 'green', ''],
+                    ['Not set up yet', (string) $counts['not_set_up'], 'l2', 'user-plus', 'gold', IQU_Pricing::format($not_set_up_total) . '/mo'],
+                    ['Payment problems', (string) $counts['failed'], 'problem', 'alert-circle', 'red', ''],
                 ];
-                foreach ($cards as [$label, $value, $accent]): ?>
-                    <div class="iqu-metric">
+                foreach ($cards as [$label, $value, $accent, $icon, $tone, $sub]): ?>
+                    <div class="iqu-metric iqu-stat">
                         <div class="iqu-metric-accent iqu-metric-accent--<?php echo $accent; ?>"></div>
-                        <div class="iqu-metric-num"><?php echo esc_html($value); ?></div>
+                        <?php echo IQU_Icons::stat_head($icon, $tone, esc_html($value)); ?>
                         <div class="iqu-metric-lbl"><?php echo esc_html($label); ?></div>
+                        <?php if ($sub !== ''): ?><div class="iqu-metric-sub"><?php echo esc_html($sub); ?></div><?php endif; ?>
                     </div>
                 <?php endforeach; ?>
             </div>

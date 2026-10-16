@@ -143,24 +143,25 @@ class IQU_Waitlist_Admin
             <p class="iqu-wl-intro">Families outside the United States and Canada who asked to be told when classes open in their country. Only the email, the optional name, a 2-letter country code, the program and where they joined from are kept.</p>
 
             <div class="iqu-metrics iqu-metrics--four">
-                <div class="iqu-metric">
+                <div class="iqu-metric iqu-stat">
                     <div class="iqu-metric-accent iqu-metric-accent--total"></div>
-                    <div class="iqu-metric-num"><?php echo (int) $stats['total']; ?></div>
+                    <?php echo IQU_Icons::stat_head('users', 'navy', (string) (int) $stats['total']); ?>
                     <div class="iqu-metric-lbl">Total families</div>
                 </div>
-                <div class="iqu-metric">
+                <div class="iqu-metric iqu-stat">
                     <div class="iqu-metric-accent iqu-metric-accent--free"></div>
-                    <div class="iqu-metric-num"><?php echo (int) $stats['month']; ?></div>
+                    <?php echo IQU_Icons::stat_head('calendar', 'blue', (string) (int) $stats['month']); ?>
                     <div class="iqu-metric-lbl">Joined this month</div>
                 </div>
-                <div class="iqu-metric">
+                <?php // the two list cards: the icon beside the card's title, the list under it ?>
+                <div class="iqu-metric iqu-stat">
                     <div class="iqu-metric-accent iqu-metric-accent--l1"></div>
-                    <div class="iqu-metric-lbl">Top countries</div>
+                    <div class="iqu-stat-head"><?php echo IQU_Icons::badge('globe', 'green'); ?><div class="iqu-metric-lbl">Top countries</div></div>
                     <div class="iqu-wl-list"><?php echo $list($stats['countries'], [__CLASS__, 'country_name']); ?></div>
                 </div>
-                <div class="iqu-metric">
+                <div class="iqu-metric iqu-stat">
                     <div class="iqu-metric-accent iqu-metric-accent--l2"></div>
-                    <div class="iqu-metric-lbl">By program</div>
+                    <div class="iqu-stat-head"><?php echo IQU_Icons::badge('book-open', 'gold'); ?><div class="iqu-metric-lbl">By program</div></div>
                     <div class="iqu-wl-list"><?php echo $list($stats['programs'], fn($k) => self::PROGRAM_LABELS[$k] ?? $k); ?></div>
                 </div>
             </div>

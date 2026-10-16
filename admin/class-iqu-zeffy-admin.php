@@ -242,48 +242,48 @@ class IQU_Zeffy_Admin
     {
         $cards = [
             [
-                'accent' => 'net',
+                'accent' => 'net', 'icon' => 'wallet', 'tone' => 'green',
                 'value'  => IQU_Zeffy_DB::money($s['net_cents']),
-                'label'  => '💚 Net Collected',
+                'label'  => 'Net Collected',
                 'sub'    => 'Gross minus refunds',
             ],
             [
-                'accent' => 'month',
+                'accent' => 'month', 'icon' => 'calendar', 'tone' => 'purple',
                 'value'  => IQU_Zeffy_DB::money($s['month_cents']),
-                'label'  => '📅 This Month',
+                'label'  => 'This Month',
                 'sub'    => gmdate('F Y'),
             ],
             [
-                'accent' => 'count',
+                'accent' => 'count', 'icon' => 'heart', 'tone' => 'blue',
                 'value'  => number_format($s['total_count']),
-                'label'  => '🧾 Donations',
+                'label'  => 'Donations',
                 'sub'    => 'Successful payments',
             ],
             [
-                'accent' => 'donors',
+                'accent' => 'donors', 'icon' => 'user-check', 'tone' => 'teal',
                 'value'  => number_format($s['donor_count']),
-                'label'  => '🤲 Unique Donors',
+                'label'  => 'Unique Donors',
                 'sub'    => 'By email address',
             ],
             [
-                'accent' => 'recurring',
+                'accent' => 'recurring', 'icon' => 'repeat', 'tone' => 'gold',
                 'value'  => number_format($s['recurring_count']),
-                'label'  => '🔁 Recurring',
+                'label'  => 'Recurring',
                 'sub'    => 'Subscription donations',
             ],
             [
-                'accent' => 'avg',
+                'accent' => 'avg', 'icon' => 'bar-chart', 'tone' => 'purple',
                 'value'  => IQU_Zeffy_DB::money($s['avg_cents']),
-                'label'  => '📊 Average Donation',
+                'label'  => 'Average Donation',
                 'sub'    => 'Per donation',
             ],
         ];
     ?>
 <div class="iquz-metrics">
     <?php foreach ($cards as $c): ?>
-    <div class="iquz-metric">
+    <div class="iquz-metric iqu-stat">
         <div class="iquz-metric-accent iquz-metric-accent--<?php echo esc_attr($c['accent']); ?>"></div>
-        <div class="iquz-metric-num"><?php echo esc_html($c['value']); ?></div>
+        <?php echo IQU_Icons::stat_head($c['icon'], $c['tone'], esc_html($c['value']), 'iquz-metric-num'); ?>
         <div class="iquz-metric-lbl"><?php echo esc_html($c['label']); ?></div>
         <div class="iquz-metric-sub"><?php echo esc_html($c['sub']); ?></div>
     </div>

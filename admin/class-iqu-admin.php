@@ -961,36 +961,36 @@ class IQU_Admin
 
     <!-- ── Metric Cards ─────────────────────────────── -->
     <div class="iqu-metrics">
-        <div class="iqu-metric">
+        <div class="iqu-metric iqu-stat">
             <div class="iqu-metric-accent iqu-metric-accent--total"></div>
-            <div class="iqu-metric-num"><?php echo (int) $counts['total']; ?></div>
+            <?php echo IQU_Icons::stat_head('clipboard-list', 'navy', (string) (int) $counts['total']); ?>
             <div class="iqu-metric-lbl">Total Registrations</div>
         </div>
-        <div class="iqu-metric">
+        <div class="iqu-metric iqu-stat">
             <div class="iqu-metric-accent iqu-metric-accent--free"></div>
-            <div class="iqu-metric-num"><?php echo (int) $counts['free']; ?></div>
-            <div class="iqu-metric-lbl">📖 Free Registration</div>
+            <?php echo IQU_Icons::stat_head('book-open', 'blue', (string) (int) $counts['free']); ?>
+            <div class="iqu-metric-lbl">Free Registration</div>
             <a class="iqu-metric-link" href="<?php echo esc_url(admin_url('admin.php?page=iqu-list-free')); ?>">View
                 list →</a>
         </div>
-        <div class="iqu-metric">
+        <div class="iqu-metric iqu-stat">
             <div class="iqu-metric-accent iqu-metric-accent--l1"></div>
-            <div class="iqu-metric-num"><?php echo (int) $counts['summer_l1']; ?></div>
-            <div class="iqu-metric-lbl">🌞 Summer · Level 1</div>
+            <?php echo IQU_Icons::stat_head('sun', 'green', (string) (int) $counts['summer_l1']); ?>
+            <div class="iqu-metric-lbl">Summer · Level 1</div>
             <a class="iqu-metric-link"
                 href="<?php echo esc_url(admin_url('admin.php?page=iqu-list-summer-l1')); ?>">View list →</a>
         </div>
-        <div class="iqu-metric">
+        <div class="iqu-metric iqu-stat">
             <div class="iqu-metric-accent iqu-metric-accent--l2"></div>
-            <div class="iqu-metric-num"><?php echo (int) $counts['summer_l2']; ?></div>
-            <div class="iqu-metric-lbl">🌞 Summer · Level 2</div>
+            <?php echo IQU_Icons::stat_head('sun', 'gold', (string) (int) $counts['summer_l2']); ?>
+            <div class="iqu-metric-lbl">Summer · Level 2</div>
             <a class="iqu-metric-link"
                 href="<?php echo esc_url(admin_url('admin.php?page=iqu-list-summer-l2')); ?>">View list →</a>
         </div>
-        <div class="iqu-metric">
+        <div class="iqu-metric iqu-stat">
             <div class="iqu-metric-accent iqu-metric-accent--weekend"></div>
-            <div class="iqu-metric-num"><?php echo (int) $counts['weekend']; ?></div>
-            <div class="iqu-metric-lbl">🗓️ Weekend Program</div>
+            <?php echo IQU_Icons::stat_head('calendar-days', 'teal', (string) (int) $counts['weekend']); ?>
+            <div class="iqu-metric-lbl">Weekend Program</div>
             <div class="iqu-metric-sub">
                 <?php echo (int) $counts['wk_new']; ?> new ·
                 <?php echo (int) $counts['wk_existing']; ?> existing
@@ -998,10 +998,10 @@ class IQU_Admin
             <a class="iqu-metric-link" href="<?php echo esc_url(admin_url('admin.php?page=iqu-list-weekend')); ?>">View
                 list →</a>
         </div>
-        <div class="iqu-metric">
+        <div class="iqu-metric iqu-stat">
             <div class="iqu-metric-accent iqu-metric-accent--revenue"></div>
-            <div class="iqu-metric-num">$<?php echo number_format($total_revenue, 0); ?></div>
-            <div class="iqu-metric-lbl">💰 Payment Collected</div>
+            <?php echo IQU_Icons::stat_head('banknote', 'purple', '$' . esc_html(number_format($total_revenue, 0))); ?>
+            <div class="iqu-metric-lbl">Payment Collected</div>
             <div class="iqu-metric-sub">Student Confirmed Amount</div>
         </div>
     </div>

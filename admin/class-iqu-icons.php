@@ -24,7 +24,7 @@ if (!defined('ABSPATH')) exit;
 final class IQU_Icons
 {
     /** Accent colours a stat icon can take (admin.css .iqu-tone--*). */
-    public const TONES = ['navy', 'blue', 'green', 'gold', 'orange', 'purple', 'red'];
+    public const TONES = ['navy', 'blue', 'green', 'gold', 'orange', 'purple', 'red', 'teal', 'neutral'];
 
     /** name => inner SVG markup */
     private const PATHS = [

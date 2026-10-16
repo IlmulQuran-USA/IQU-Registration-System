@@ -10,6 +10,7 @@
   --iqu-orange: #d05a10;
   --iqu-purple: #5a3ab5;
   --iqu-red: #b03030;
+  --iqu-teal: #0b7a75;
   --iqu-text1: #1a1a2e;
   --iqu-text2: #6b7280;
   --iqu-bg1: #ffffff;
@@ -435,25 +436,38 @@
 /* ── Stat card (3.4.2) ──────────────────────────────────────────
    Every number card: icon on a soft tinted square (IQU_Icons::stat_head, accent .iqu-tone--*), the
    number right next to it on the same row, then the label and a sub-line. Text never leaves the
-   card: the label truncates (full text in its title), the sub-line wraps to at most two lines. */
+   card: the label truncates (full text in its title), the sub-line wraps to at most two lines.
+   A number is never cut: in a narrow card it is set a size smaller, and if it still does not fit
+   beside the icon it moves under it. */
 .iqu-stat {
   display: flex;
   flex-direction: column;
   gap: var(--iqu-space-1);
   min-width: 0;
+  container-type: inline-size;
 }
 .iqu-stat-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--iqu-space-3);
+  gap: var(--iqu-space-2) var(--iqu-space-3);
   min-width: 0;
 }
 .iqu-stat-head .iqu-metric-num {
   margin-top: 0;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+@container (max-width: 210px) {
+  .iqu-stat-head .iqu-metric-num {
+    font-size: var(--iqu-text-2xl);
+  }
+}
+@container (max-width: 160px) {
+  .iqu-stat-head .iqu-metric-num {
+    font-size: var(--iqu-text-xl);
+  }
 }
 .iqu-stat-icon {
   flex: none;
@@ -477,6 +491,8 @@
 .iqu-tone--orange { --iqu-tone: var(--iqu-orange); }
 .iqu-tone--purple { --iqu-tone: var(--iqu-purple); }
 .iqu-tone--red { --iqu-tone: var(--iqu-red); }
+.iqu-tone--teal { --iqu-tone: var(--iqu-teal); }
+.iqu-tone--neutral { --iqu-tone: var(--iqu-text2); }
 .iqu-stat .iqu-metric-lbl {
   margin-top: var(--iqu-space-2);
   overflow: hidden;
