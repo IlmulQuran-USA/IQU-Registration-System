@@ -207,7 +207,7 @@ class IQU_Coupon_Admin
                 <!-- 4. Limits and dates -->
                 <section class="iqu-card iqu-cpn-section" aria-labelledby="iqu-cpn-s4">
                     <div class="iqu-card-head"><h2 class="iqu-cpn-section-title" id="iqu-cpn-s4">Limits and dates</h2></div>
-                    <div class="iqu-cpn-section-body iqu-cpn-two">
+                    <div class="iqu-cpn-section-body"><!-- Usage limit on top, Expiry date below -->
                         <div class="iqu-fld">
                             <label for="max_uses">Usage limit</label>
                             <input type="number" id="max_uses" name="max_uses" min="0" max="9999" step="1" value="1" aria-describedby="max_uses-hint max_uses-err">

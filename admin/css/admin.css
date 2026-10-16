@@ -2451,10 +2451,48 @@
   align-items: start;
   gap: 16px;
 }
+/* Main column: the four cards. ≥1024px a 2×2 grid — Coupon details | Discount, then Who can use it |
+   Limits and dates — the two cards of a row the same height; below 1024px one column, in that order,
+   then the Summary. */
 .iqu-cpn-create-main {
   display: grid;
-  gap: 16px;
+  gap: var(--iqu-space-4);
   min-width: 0;
+}
+@media (min-width: 1024px) {
+  .iqu-cpn-create-main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+/* 1024–1279px: a slimmer Summary, so the two cards of a row keep room for their fields. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .iqu-cpn-create-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(230px, 250px);
+  }
+}
+/* Discount type: the options share the width; in a narrow card they wrap into full-width rows. */
+.iqu-cpn-create .iqu-cpn-seg {
+  display: flex;
+  max-width: 100%;
+}
+.iqu-cpn-create .iqu-cpn-seg-opt {
+  display: flex; /* wp-admin forms CSS makes labels blocks */
+  flex: 1 1 auto;
+}
+.iqu-cpn-create .iqu-cpn-seg-opt span {
+  flex: 1 1 auto;
+  justify-content: center;
+  white-space: nowrap;
+}
+.iqu-cpn-create-main > .iqu-cpn-section {
+  display: flex;
+  flex-direction: column;
+}
+.iqu-cpn-create .iqu-cpn-section > .iqu-card-head {
+  gap: var(--iqu-space-2);
+  flex-wrap: wrap;
+  padding: 10px var(--iqu-space-4);
 }
 .iqu-cpn-create .iqu-cpn-section,
 .iqu-cpn-create .iqu-cpn-summary {
@@ -2475,11 +2513,18 @@
 }
 .iqu-cpn-section-body {
   display: grid;
-  gap: 16px;
-  padding: 16px 18px 18px;
+  align-content: start;
+  gap: var(--iqu-space-3);
+  padding: var(--iqu-space-3) var(--iqu-space-4) var(--iqu-space-4);
 }
-.iqu-cpn-two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.iqu-cpn-create-main .iqu-cpn-section-body {
+  flex: 1 1 auto;
+}
+.iqu-cpn-create .iqu-fld-hint {
+  margin-top: var(--iqu-space-1);
+}
+.iqu-cpn-create textarea {
+  min-height: 64px;
 }
 .iqu-cpn-create .iqu-fld {
   margin: 0;
@@ -2628,11 +2673,6 @@
   }
   .iqu-cpn-summary {
     position: static;
-  }
-}
-@media (max-width: 600px) {
-  .iqu-cpn-two {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
