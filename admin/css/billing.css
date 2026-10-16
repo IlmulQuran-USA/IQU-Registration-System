@@ -2224,6 +2224,36 @@ th[aria-sort="descending"] .iqu-sort::after {
 .iqu-billing .iqu-students-tbl .iqu-billing-actions {
   align-items: center;
 }
+
+/* Course column: a course name never wraps word by word. Each " / " part is one unbreakable
+   piece (PHP course_name_html), and from 1024px the whole name stays on one line. The
+   "3 days/week · added by admin" line under it wraps normally. The space comes from the
+   Student and guardian column: its long guardian name / email line may break inside a word
+   instead of holding the column (and the table) wider than it needs. Actions keeps its width. */
+.iqu-billing .iqu-students-tbl .iqu-course-part {
+  white-space: nowrap;
+}
+.iqu-billing .iqu-students-tbl .iqu-student-lines .iqu-billing-sub {
+  overflow-wrap: anywhere;
+}
+@media (min-width: 1024px) {
+  .iqu-billing .iqu-students-tbl .iqu-course-name {
+    white-space: nowrap;
+  }
+}
+/* 1024–1279px: the one-line course name needs about 48px more than before. The Student and
+   guardian column may then be narrower (its lines wrap) and cells are a little tighter, so the
+   table still fits the card without sideways scrolling. Actions keeps its width. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .iqu-billing .iqu-students-tbl > thead > tr > :not(.check-column),
+  .iqu-billing .iqu-students-tbl > tbody > tr > :not(.check-column) {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .iqu-billing .iqu-students-tbl td.iqu-td-name {
+    min-width: 160px;
+  }
+}
 /* ── Add existing student (3.4.0 UI fixes): the Enroll for Free fields ── */
 .iqu-billing .iqu-fld-grid.iqu-fld-grid--3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));

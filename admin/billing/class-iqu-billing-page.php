@@ -390,7 +390,7 @@ class IQU_Billing_Page
                     <div class="iqu-student-lines">
                         <strong><a href="<?php echo esc_url($open); ?>"><?php echo esc_html($name); ?></a></strong>
                         <span class="iqu-billing-sub">IQU-<?php echo $id; ?></span>
-                        <span class="iqu-billing-sub"><?php echo esc_html(implode(' · ', array_filter([$reg['guardian_name'] ? 'Guardian ' . $reg['guardian_name'] : '', $reg['email']]))); ?></span>
+                        <span class="iqu-billing-sub"><?php echo implode(' · ', array_filter([$reg['guardian_name'] ? esc_html('Guardian ' . $reg['guardian_name']) : '', self::email_html((string) $reg['email'])])); ?></span>
                     </div>
                 </div>
             </td>
@@ -398,7 +398,7 @@ class IQU_Billing_Page
                 <?php if (IQU_Billing_Pricing::course_missing($reg)): ?>
                     <span class="iqu-chip iqu-chip--gold iqu-course-missing" data-course-missing>Course missing</span>
                 <?php else: ?>
-                    <span class="iqu-course-name"><?php echo esc_html($p['course_label'] ?: 'Course not set'); ?></span>
+                    <span class="iqu-course-name"><?php echo self::course_name_html($p['course_label'] ?: 'Course not set'); ?></span>
                 <?php endif; ?>
                 <span class="iqu-billing-sub">
                     <?php echo esc_html(implode(' · ', array_filter([
@@ -496,6 +496,30 @@ class IQU_Billing_Page
         $search = mb_substr(sanitize_text_field((string) ($q['q'] ?? '')), 0, 100);
         if ($search !== '') $args['q'] = $search;
         return $args ? add_query_arg($args, $url) : $url;
+    }
+
+    /**
+     * A course name that can wrap only at its " / " separator ("Qa'idah /" then "Nazirah"),
+     * never between other words: each part is one unbreakable span. Escaped HTML.
+     */
+    private static function course_name_html(string $label): string
+    {
+        $parts = explode(' / ', $label);
+        $last  = count($parts) - 1;
+        $out   = [];
+        foreach ($parts as $i => $part) {
+            $out[] = '<span class="iqu-course-part">' . esc_html($part . ($i < $last ? ' /' : '')) . '</span>';
+        }
+        return implode(' ', $out);
+    }
+
+    /**
+     * An email that, when its column is narrow, breaks after the "@" and before a dot
+     * ("huda.noor@" then "example.org") rather than at a random letter. Same text; escaped HTML.
+     */
+    private static function email_html(string $email): string
+    {
+        return str_replace(['@', '.'], ['@<wbr>', '<wbr>.'], esc_html($email));
     }
 
     /** "SK" from "Sara Khan" (avatar initials). */
