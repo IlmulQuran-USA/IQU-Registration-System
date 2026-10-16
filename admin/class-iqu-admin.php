@@ -466,7 +466,13 @@ class IQU_Admin
   }
 
   /** The IQU top bar with the tab row — shared by every IQU admin page that shows it. */
-  public static function top_bar(string $title, string $subtitle, string $active_page = ''): void
+  /**
+   * The header of every IQU page: logo, title and subtitle on the left, Live + the shared tab list
+   * on the right (top right when the row fits, its own line when it does not; below 1024px the
+   * tabs scroll sideways). $meta / $actions (trusted HTML, built and escaped by the caller) add a
+   * second row: status on the left, page actions on the right.
+   */
+  public static function top_bar(string $title, string $subtitle, string $active_page = '', string $meta = '', string $actions = ''): void
   {
     $tabs = self::TOP_TABS;
   ?>
@@ -490,6 +496,12 @@ class IQU_Admin
             <?php endforeach; ?>
         </div>
     </div>
+    <?php if ($meta !== '' || $actions !== ''): ?>
+    <div class="iqu-top-bar-meta">
+        <div class="iqu-top-bar-meta-left"><?php echo $meta; // phpcs:ignore -- trusted, escaped by the caller ?></div>
+        <?php if ($actions !== ''): ?><div class="iqu-top-bar-actions"><?php echo $actions; // phpcs:ignore ?></div><?php endif; ?>
+    </div>
+    <?php endif; ?>
 </div>
 <?php
   }

@@ -215,48 +215,21 @@ class IQU_Zeffy_Admin
     // HEADER
     // ════════════════════════════════════════════════════
 
+    /**
+     * The shared IQU header (IQU_Admin::top_bar): title + the shared tab list on the first row, like
+     * every other IQU page; webhook status + last sync on the left and Sync now / Settings on the
+     * right of its second row.
+     */
     private function render_header(): void
     {
         $last_sync = IQU_Zeffy_Sync::last_sync_ts();
         $receiving = IQU_Zeffy_Webhook::is_receiving();
-    ?>
-<div class="iquz-header">
-    <div class="iquz-header-left">
-        <div class="iquz-mark">
-            <img src="https://ilmulquranus.org/wp-content/uploads/2025/08/Favicon.png" alt="IQU" width="44"
-                height="39" />
-        </div>
-        <div>
-            <div class="iquz-title">Zeffy Payment Collection</div>
-            <div class="iquz-sub">Donations received through Zeffy · AL HASANAH FOUNDATION</div>
-        </div>
-    </div>
-    <div class="iquz-header-right">
-        <span class="iquz-pill <?php echo $receiving ? 'iquz-pill--live' : 'iquz-pill--idle'; ?>">
-            <?php echo $receiving ? '● Webhook live' : '○ Webhook idle'; ?>
-        </span>
-        <span class="iquz-sync-stamp">
-            <?php echo $last_sync
-                        ? 'Last synced ' . esc_html(IQU_Zeffy_DB::format_date($last_sync, 'M j, g:i A'))
-                        : 'Never synced'; ?>
-        </span>
-        <button type="button" class="iquz-btn iquz-btn--primary" id="iquz-sync-now">↻ Sync now</button>
-        <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_SLUG . '&setup=1#iquz-settings')); ?>"
-            class="iquz-btn">⚙ Settings</a>
-        <?php
-                // Same tabs, in the same order, as every other IQU page (one shared list).
-                $tabs = IQU_Admin::TOP_TABS;
-                ?>
-        <div class="iquz-tabs">
-            <?php foreach ($tabs as $slug => $label): ?>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=' . $slug)); ?>"
-                class="iquz-tab <?php echo $slug === self::PAGE_SLUG ? 'iquz-tab--active' : ''; ?>">
-                <?php echo esc_html($label); ?>
-            </a>
-            <?php endforeach; ?>
-        </div>
-    </div>
-</div>
+        $meta = '<span class="iquz-pill ' . ($receiving ? 'iquz-pill--live' : 'iquz-pill--idle') . '">' . ($receiving ? '● Webhook live' : '○ Webhook idle') . '</span>'
+            . '<span class="iquz-sync-stamp">' . ($last_sync ? 'Last synced ' . esc_html(IQU_Zeffy_DB::format_date($last_sync, 'M j, g:i A')) : 'Never synced') . '</span>';
+        $actions = '<button type="button" class="iqu-btn-primary" id="iquz-sync-now">↻ Sync now</button>'
+            . '<a href="' . esc_url(admin_url('admin.php?page=' . self::PAGE_SLUG . '&setup=1#iquz-settings')) . '" class="iqu-btn-ghost">⚙ Settings</a>';
+        IQU_Admin::top_bar('Zeffy Payment Collection', 'Donations received through Zeffy · AL HASANAH FOUNDATION', self::PAGE_SLUG, $meta, $actions);
+        ?>
 <div class="iquz-flash" id="iquz-flash" hidden></div>
 <?php
     }

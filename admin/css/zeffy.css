@@ -33,65 +33,7 @@
   box-sizing: border-box;
 }
 
-/* ── Header ─────────────────────────────────────────── */
-.iquz-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 16px 20px;
-  background: #fff;
-  border: 1px solid var(--z-line);
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
-  margin-bottom: 18px;
-}
-
-.iquz-header-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.iquz-mark {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: var(--iqu-navy);
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.iquz-mark img {
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
-  display: block;
-}
-
-.iquz-title {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  line-height: 1.2;
-}
-
-.iquz-sub {
-  font-size: 12px;
-  color: var(--z-mute);
-  margin-top: 3px;
-}
-
-.iquz-header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
+/* ── Header: the shared IQU header (admin.css .iqu-top-bar); only its status pill and stamp are styled here ── */
 .iquz-pill {
   display: inline-flex;
   align-items: center;
@@ -117,67 +59,6 @@
 .iquz-sync-stamp {
   font-size: 11px;
   color: var(--z-mute);
-}
-
-/* ── Tab switcher ───────────────────────────────────────
-   Mirrors the registration pages' tab bar so the two areas
-   feel like one panel rather than two separate tools. */
-
-.iquz-tabs {
-  display: flex;
-  border: 1px solid var(--z-line);
-  border-radius: 8px;
-  overflow: hidden;
-  background: #fff;
-  /* The shared ten tabs (IQU_Admin::TOP_TABS): scroll sideways instead of widening the page. */
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-.iquz-tabs > .iquz-tab {
-  flex: 0 0 auto;
-}
-.iquz-header-right {
-  max-width: 100%;
-  min-width: 0;
-}
-
-.iquz-tab {
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--z-mute);
-  text-decoration: none;
-  white-space: nowrap;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.iquz-tab:hover:not(.iquz-tab--active) {
-  background: var(--z-bg);
-  color: var(--z-ink);
-}
-
-/* Divider between each tab so the segments read as separate buttons
-   within the pill, without doubling up the outer .iquz-tabs border. */
-.iquz-tab + .iquz-tab {
-  border-left: 1px solid var(--z-line);
-}
-
-.iquz-tab--active {
-  background: var(--z-purple);
-  color: #fff;
-  font-weight: 600;
-}
-
-.iquz-tab--active + .iquz-tab,
-.iquz-tab.iquz-tab--active {
-  border-left-color: transparent;
-}
-
-.iquz-tab--active:hover {
-  color: #fff;
 }
 
 /* ── Buttons ────────────────────────────────────────── */
@@ -1003,43 +884,6 @@
 @media (max-width: 782px) {
   .iquz-wrap {
     padding: 10px 12px;
-  }
-
-  .iquz-header {
-    align-items: flex-start;
-    padding: 0 0 12px;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
-  }
-
-  .iquz-header-left,
-  .iquz-header-right {
-    width: 100%;
-  }
-
-  /* Status pill and timestamp share one row, buttons the next. */
-  .iquz-header-right {
-    gap: 8px;
-  }
-
-  /* The tab bar takes a full row of its own and divides the width
-     evenly, matching how it renders on the registration screens
-     where it sits in open space rather than inside a padded card. */
-.iquz-tabs {
-    width: 100%;
-    order: 10;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .iquz-tab {
-    flex: 0 0 auto;
-    padding: 7px 12px;
-    font-size: 11px;
-    text-align: center;
-    white-space: nowrap;
   }
 
   .iquz-input--search {
