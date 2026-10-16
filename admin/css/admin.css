@@ -42,6 +42,7 @@
   --iqu-text-3xl: 28px;
   --iqu-radius-xl: 12px; /* header card */
   --iqu-radius-pill: 999px;
+  --iqu-radius-icon: 10px; /* tinted icon squares */
   --iqu-avatar-size: 42px; /* initials avatar: Student Billing, Payments tables, student and family pages */
   --iqu-tint: 11%; /* soft tinted squares / pills: color-mix(in srgb, <accent> var(--iqu-tint), var(--iqu-bg1)) */
   --iqu-focus-ring: 0 0 0 2px var(--iqu-bg1), 0 0 0 4px var(--iqu-blue);
@@ -429,6 +430,79 @@
   text-transform: uppercase;
   letter-spacing: 0.4px;
   margin-top: 2px;
+}
+
+/* ── Stat card (3.4.2) ──────────────────────────────────────────
+   Every number card: icon on a soft tinted square (IQU_Icons::stat_head, accent .iqu-tone--*), the
+   number right next to it on the same row, then the label and a sub-line. Text never leaves the
+   card: the label truncates (full text in its title), the sub-line wraps to at most two lines. */
+.iqu-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iqu-space-1);
+  min-width: 0;
+}
+.iqu-stat-head {
+  display: flex;
+  align-items: center;
+  gap: var(--iqu-space-3);
+  min-width: 0;
+}
+.iqu-stat-head .iqu-metric-num {
+  margin-top: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.iqu-stat-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--iqu-radius-icon);
+  color: var(--iqu-tone, var(--iqu-navy));
+  background: color-mix(in srgb, var(--iqu-tone, var(--iqu-navy)) var(--iqu-tint), var(--iqu-bg1));
+}
+.iqu-stat-icon .iqu-icon {
+  width: 20px;
+  height: 20px;
+}
+.iqu-tone--navy { --iqu-tone: var(--iqu-navy); }
+.iqu-tone--blue { --iqu-tone: var(--iqu-blue); }
+.iqu-tone--green { --iqu-tone: var(--iqu-green); }
+.iqu-tone--gold { --iqu-tone: var(--iqu-gold); }
+.iqu-tone--orange { --iqu-tone: var(--iqu-orange); }
+.iqu-tone--purple { --iqu-tone: var(--iqu-purple); }
+.iqu-tone--red { --iqu-tone: var(--iqu-red); }
+.iqu-stat .iqu-metric-lbl {
+  margin-top: var(--iqu-space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.iqu-stat-sub {
+  font-size: var(--iqu-text-sm);
+  line-height: 1.4;
+  color: var(--iqu-text2);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  min-height: 2.8em; /* two lines, so cards with a one-line sub-line keep the same height */
+}
+.iqu-stat-sub a {
+  color: var(--iqu-blue);
+  font-weight: 600;
+}
+.iqu-stat-sub a:focus-visible {
+  outline: none;
+  box-shadow: var(--iqu-focus-ring);
+  border-radius: 2px;
 }
 
 /* ── Card ───────────────────────────────────────────────────── */
@@ -1902,7 +1976,7 @@
    ≥1024px: the five cards in one row, the discount card full width below (its four rows side
    by side). 601–1023px: Total full width, then two columns. ≤600px: one column. */
 .iqu-metrics.iqu-metrics--coupons {
-  align-items: start;
+  align-items: stretch; /* the five cards the same height in every row */
 }
 .iqu-metrics--coupons .iqu-discount-card {
   margin-bottom: 0;
@@ -1937,7 +2011,6 @@
 .iqu-metric-accent--usedup {
   background: var(--iqu-gold);
 }
-.iqu-cpn-card--used_up .iqu-cpn-icon { color: var(--iqu-gold); background: color-mix(in srgb, var(--iqu-gold) 12%, var(--iqu-bg1)); }
 
 /* State tabs above the filter bar: All · Active · Used up · Expired · Disabled, each with its
    count (the same numbers as the cards). They wrap on narrow screens. */
@@ -1987,49 +2060,7 @@
   background: rgba(255, 255, 255, .2);
   color: #fff;
 }
-/* Small cards: icon chip, number, label, and one line on what the number means. */
-.iqu-cpn-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
-.iqu-cpn-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  margin-bottom: 6px;
-  border-radius: 8px;
-  color: var(--iqu-navy);
-  background: color-mix(in srgb, var(--iqu-navy) 10%, var(--iqu-bg1));
-}
-.iqu-cpn-card--active .iqu-cpn-icon { color: var(--iqu-blue); background: color-mix(in srgb, var(--iqu-blue) 10%, var(--iqu-bg1)); }
-.iqu-cpn-card--expired .iqu-cpn-icon { color: var(--iqu-orange); background: color-mix(in srgb, var(--iqu-orange) 10%, var(--iqu-bg1)); }
-.iqu-cpn-card--redeemed .iqu-cpn-icon { color: var(--iqu-purple); background: color-mix(in srgb, var(--iqu-purple) 10%, var(--iqu-bg1)); }
-.iqu-cpn-icon .dashicons {
-  width: 18px;
-  height: 18px;
-  font-size: 18px;
-}
-.iqu-cpn-line {
-  font-size: 12px;
-  color: var(--iqu-text2);
-  line-height: 1.4;
-}
-.iqu-cpn-note {
-  margin: 8px 0 0;
-  padding: 6px 8px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--iqu-text1);
-  background: var(--iqu-bg2);
-  border-radius: var(--iqu-radius-md);
-}
-.iqu-cpn-note a {
-  font-weight: 600;
-}
+/* Coupon List cards: the shared stat card (.iqu-stat, IQU_Icons::stat_head). */
 /* Discount card: total up top, then one row per type with its share as a thin bar. */
 .iqu-discount-rows {
   list-style: none;
