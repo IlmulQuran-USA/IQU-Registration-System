@@ -157,6 +157,7 @@ class IQU_Database
             created_via        VARCHAR(10)         NOT NULL DEFAULT 'public',
             existing_student   TINYINT(1)          NOT NULL DEFAULT 0,
             agreed_fee         DECIMAL(8,2)        NULL DEFAULT NULL,
+            marketing_consent  VARCHAR(10)         NOT NULL DEFAULT 'unknown',
             PRIMARY KEY        (id),
             KEY                email (email),
             KEY                form_type (form_type),
@@ -394,6 +395,72 @@ class IQU_Database
         ], false);
     }
 
+    // ------------------------------------------------------------
+    // marketing_consent
+    // ------------------------------------------------------------
+
+    /** The visitor's marketing-cookie choice at submit (IQU_Pixel::consent_from_request). */
+    public const CONSENT_ALLOW   = 'allow';
+    public const CONSENT_DENY    = 'deny';
+    public const CONSENT_UNKNOWN = 'unknown'; // no choice made, or no consent tool active
+    public const CONSENT_VALUES  = [self::CONSENT_ALLOW, self::CONSENT_DENY, self::CONSENT_UNKNOWN];
+
+    /** Set once the column exists and every row has a value: ['at', 'rows'] */
+    private const OPT_MARKETING_CONSENT = 'iqu_marketing_consent_migrated';
+
+    /** marketing_consent is only written once this returns true (the column exists). */
+    public static function marketing_consent_ready(): bool
+    {
+        return is_array(get_option(self::OPT_MARKETING_CONSENT));
+    }
+
+    /** The stored choice of a row; anything else (older rows, before the migration) is unknown. */
+    public static function marketing_consent(array $row): string
+    {
+        $v = (string) ($row['marketing_consent'] ?? '');
+        return in_array($v, self::CONSENT_VALUES, true) ? $v : self::CONSENT_UNKNOWN;
+    }
+
+    /**
+     * One-time migration: add marketing_consent (NOT NULL DEFAULT 'unknown'), through
+     * apply_schema() first and an explicit ALTER where dbDelta did not add it. Existing rows get
+     * 'unknown' — nobody was asked — so their later server events still go to Meta. Verified
+     * before the flag is set; nothing else is changed.
+     */
+    public static function maybe_migrate_marketing_consent(): void
+    {
+        global $wpdb;
+        if (self::marketing_consent_ready()) return;
+        $table = $wpdb->prefix . IQU_TABLE_NAME;
+        $def   = "VARCHAR(10) NOT NULL DEFAULT 'unknown'";
+
+        $cols = self::registration_columns();
+        if (!$cols) return;
+        if (!isset($cols['marketing_consent'])) {
+            self::create_table();
+            $cols = self::registration_columns();
+        }
+        if (!isset($cols['marketing_consent'])) {
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN marketing_consent {$def}");
+            $cols = self::registration_columns();
+        }
+        if (!isset($cols['marketing_consent'])) {
+            error_log('[IQU] marketing_consent column could not be added (' . $wpdb->last_error . '); will retry.');
+            return;
+        }
+        $wpdb->query($wpdb->prepare("UPDATE {$table} SET marketing_consent = %s WHERE marketing_consent IS NULL OR marketing_consent = ''", self::CONSENT_UNKNOWN));
+        $in  = implode(',', array_fill(0, count(self::CONSENT_VALUES), '%s'));
+        $bad = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table} WHERE marketing_consent IS NULL OR marketing_consent NOT IN ({$in})", ...self::CONSENT_VALUES));
+        if ($bad > 0) {
+            error_log("[IQU] marketing_consent backfill left {$bad} rows without a value; will retry.");
+            return;
+        }
+        update_option(self::OPT_MARKETING_CONSENT, [
+            'at'   => gmdate('Y-m-d H:i:s'),
+            'rows' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}"),
+        ], false);
+    }
+
     /**
      * Admin override on the student page: mark a row "Existing student — no free month" (true)
      * or undo it (false). Stored in existing_student, never in the referral.
@@ -566,6 +633,7 @@ class IQU_Database
         // Own flags rather than the version: they also run on sites already at this version.
         self::maybe_migrate_created_via();
         self::maybe_migrate_student_fee_columns();
+        self::maybe_migrate_marketing_consent();
         // One-time import from the legacy IUQ plugin table, if present.
         self::maybe_migrate_from_iuq();
     }

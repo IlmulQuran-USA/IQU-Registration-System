@@ -10,6 +10,12 @@ if (!defined('ABSPATH'))
  * Browser-side fbq('track','Lead') এবং এই server-side event একই event_id
  * ব্যবহার করে, তাই Meta দুটোকে একটাই conversion হিসেবে গণনা করে (deduplication)।
  *
+ * Every enrollment of every form (Enroll for Free, Summer, Weekend) is sent: Lead at submit,
+ * CompleteRegistration / Purchase later from the Stripe webhook. The only thing that stops an
+ * event is an explicit "Deny" for marketing cookies, recorded on the row at submit
+ * (marketing_consent; see consent_from_request()). Names (fn / ln) are the parent's — see
+ * match_name(); a minor's own name is never sent.
+ *
  * Config wp-config.php-তে:
  *   define('IQU_FB_PIXEL_ID',   '1234567890');
  *   define('IQU_FB_CAPI_TOKEN', 'EAAG...');
@@ -18,6 +24,9 @@ if (!defined('ABSPATH'))
 class IQU_Pixel
 {
     private const API_VERSION = 'v21.0';
+
+    /** A student this age or older, with no parent name on the form, is matched by their own name. */
+    public const ADULT_AGE = 18;
 
     /** Country name → ISO 3166-1 alpha-2 (IQU-র common markets) */
     private const COUNTRY_MAP = [
@@ -83,6 +92,12 @@ class IQU_Pixel
         }
         // Only website submissions are leads (see IQU_Database::created_via()).
         if (!IQU_Database::is_public_row($clean)) return;
+        // The choice recorded on the row (record_consent), or this request's when it was not stored.
+        $consent = isset($clean['marketing_consent']) ? IQU_Database::marketing_consent($clean) : self::consent_from_request();
+        if ($consent === IQU_Database::CONSENT_DENY) {
+            error_log('[IQU Pixel] Lead not sent: the visitor chose "Deny" for marketing cookies.');
+            return;
+        }
         try {
             $payload = [
                 'event_name'       => 'Lead',
@@ -139,6 +154,7 @@ class IQU_Pixel
      * Everything comes from the row: hashed email / phone / name / country, the fbp / fbc
      * saved at submit, and the IP + user agent already stored on the row at submit
      * (no new IP storage; nothing is read from the current request). Never throws.
+     * The marketing choice is also the one stored at submit: "deny" → nothing is sent.
      *
      * @param string $event_name e.g. CompleteRegistration, Purchase
      * @param array  $row        registration row from IQU_Database::get_registration()
@@ -150,11 +166,16 @@ class IQU_Pixel
         if (!self::is_configured()) return;
         // Students added by an admin or a CSV import are not website conversions.
         if (!IQU_Database::is_public_row($row)) return;
+        if (IQU_Database::marketing_consent($row) === IQU_Database::CONSENT_DENY) {
+            error_log('[IQU Pixel] ' . $event_name . ' not sent for registration #' . (int) ($row['id'] ?? 0) . ': marketing cookies were denied at submit.');
+            return;
+        }
         try {
             $ud = [];
             self::maybe_set($ud, 'em', self::hash_email($row['email'] ?? ''));
-            self::maybe_set($ud, 'fn', self::hash_text($row['first_name'] ?? ''));
-            self::maybe_set($ud, 'ln', self::hash_text($row['last_name'] ?? ''));
+            [$first, $last] = self::match_name($row);
+            self::maybe_set($ud, 'fn', self::hash_text($first));
+            self::maybe_set($ud, 'ln', self::hash_text($last));
             $phone = ($row['whatsapp'] ?? '') ?: (($row['guardian_whatsapp'] ?? '') ?: ($row['guardian_contact'] ?? ''));
             self::maybe_set($ud, 'ph', self::hash_phone($phone));
             $country = (string) ($row['country_ip'] ?? '');
@@ -197,6 +218,62 @@ class IQU_Pixel
     }
 
     // ────────────────────────────────────────────────────
+    // Consent and names
+    // ────────────────────────────────────────────────────
+
+    /**
+     * The visitor's marketing-cookie choice, read at form submit from the consent banner's own
+     * cookie: Complianz (cmplz_marketing) or the WP Consent API cookie Complianz also writes
+     * (wp_consent_marketing). Only an explicit "allow" / "deny" counts; anything else is
+     * "unknown" — no choice made yet, or no consent tool active (a leftover cookie is ignored then).
+     * Complianz's cmplz_has_consent() / wp_has_consent() are not used: they answer yes / no and
+     * cannot tell "denied" from "not chosen yet".
+     */
+    public static function consent_from_request(): string
+    {
+        if (!self::consent_tool_active()) return IQU_Database::CONSENT_UNKNOWN;
+        $prefix  = (string) apply_filters('wp_consent_cookie_prefix', 'wp_consent');
+        $cookies = (array) apply_filters('iqu_marketing_consent_cookies', ['cmplz_marketing', $prefix . '_marketing']);
+        foreach ($cookies as $name) {
+            $v = strtolower(self::cookie((string) $name));
+            if ($v === IQU_Database::CONSENT_ALLOW || $v === IQU_Database::CONSENT_DENY) return $v;
+        }
+        return IQU_Database::CONSENT_UNKNOWN;
+    }
+
+    /** Complianz (any version) or the WP Consent API is active. */
+    private static function consent_tool_active(): bool
+    {
+        return defined('cmplz_version') || defined('CMPLZ_VERSION') || function_exists('cmplz_has_consent') || function_exists('wp_has_consent');
+    }
+
+    /** Store the visitor's choice on the row about to be saved (once the column exists). */
+    public static function record_consent(array &$clean): void
+    {
+        if (IQU_Database::marketing_consent_ready()) $clean['marketing_consent'] = self::consent_from_request();
+    }
+
+    /**
+     * fn / ln for Meta: the parent's, because Meta matches the event to the parent's account.
+     *   - guardian_name on the row (Summer, Weekend, any form that has it): its first and last word;
+     *   - no parent name (Enroll for Free): the student's own name, only at age 18 or over;
+     *   - otherwise none. The event is still sent; only fn / ln are left out.
+     * @return array{0:string,1:string} [first, last], unhashed; '' = not sent.
+     */
+    public static function match_name(array $row): array
+    {
+        $guardian = trim((string) preg_replace('/\s+/u', ' ', wp_strip_all_tags((string) ($row['guardian_name'] ?? ''))));
+        if ($guardian !== '') {
+            $parts = explode(' ', $guardian);
+            return [$parts[0], count($parts) > 1 ? (string) end($parts) : ''];
+        }
+        if ((int) ($row['age'] ?? 0) >= self::ADULT_AGE) {
+            return [(string) ($row['first_name'] ?? ''), (string) ($row['last_name'] ?? '')];
+        }
+        return ['', ''];
+    }
+
+    // ────────────────────────────────────────────────────
     // Internals
     // ────────────────────────────────────────────────────
 
@@ -205,8 +282,9 @@ class IQU_Pixel
         $ud = [];
 
         self::maybe_set($ud, 'em', self::hash_email($clean['email'] ?? ''));
-        self::maybe_set($ud, 'fn', self::hash_text($clean['first_name'] ?? ''));
-        self::maybe_set($ud, 'ln', self::hash_text($clean['last_name'] ?? ''));
+        [$first, $last] = self::match_name($clean);
+        self::maybe_set($ud, 'fn', self::hash_text($first));
+        self::maybe_set($ud, 'ln', self::hash_text($last));
 
         // Free form: whatsapp | Summer form: guardian_whatsapp → guardian_contact
         $phone = $clean['whatsapp']

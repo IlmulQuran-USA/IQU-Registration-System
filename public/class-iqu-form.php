@@ -1019,7 +1019,8 @@ class IQU_Form
             }
         }
 
-        // Insert
+        // Insert (with the visitor's marketing-cookie choice, for Meta server events)
+        IQU_Pixel::record_consent($clean);
         $reg_id = IQU_Database::insert_registration($clean);
         if (!$reg_id) {
             error_log('[IQU] Free registration DB insert failed.');

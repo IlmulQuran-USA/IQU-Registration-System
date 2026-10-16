@@ -473,7 +473,8 @@ class IQU_Weekend_Form
             wp_send_json_error($blocked);
         }
 
-        // 5. Insert
+        // 5. Insert (with the visitor's marketing-cookie choice, for Meta server events)
+        IQU_Pixel::record_consent($clean);
         $reg_id = IQU_Database::insert_registration($clean);
         if (!$reg_id) {
             error_log('[IQU] Weekend registration DB insert failed.');
