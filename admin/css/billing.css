@@ -834,7 +834,7 @@ th[aria-sort="descending"] .iqu-sort::after {
 .iqu-family-cell {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--iqu-space-3); /* same as the Student Billing name cell */
 }
 
 .iqu-family-head {
@@ -871,12 +871,6 @@ th[aria-sort="descending"] .iqu-sort::after {
 
 .iqu-billing .iqu-avatar {
   flex-shrink: 0;
-}
-
-.iqu-avatar--sm {
-  width: 32px;
-  height: 32px;
-  font-size: 12px;
 }
 
 /* ── "How these numbers work" ───────────────────────────────── */
@@ -2001,8 +1995,8 @@ th[aria-sort="descending"] .iqu-sort::after {
 /* ── Student Billing table ──────────────────────────────────── */
 .iqu-student-cell {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center; /* the avatar is centred on the whole name block */
+  gap: var(--iqu-space-3);
 }
 .iqu-student-lines {
   display: flex;

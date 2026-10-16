@@ -42,6 +42,7 @@
   --iqu-text-3xl: 28px;
   --iqu-radius-xl: 12px; /* header card */
   --iqu-radius-pill: 999px;
+  --iqu-avatar-size: 42px; /* initials avatar: Student Billing, Payments tables, student and family pages */
   --iqu-tint: 11%; /* soft tinted squares / pills: color-mix(in srgb, <accent> var(--iqu-tint), var(--iqu-bg1)) */
   --iqu-focus-ring: 0 0 0 2px var(--iqu-bg1), 0 0 0 4px var(--iqu-blue);
 }
@@ -1058,16 +1059,20 @@
   padding-bottom: 16px;
   border-bottom: 1px solid var(--iqu-bdr);
 }
+/* Initials avatar: one size everywhere (--iqu-avatar-size), initials scaled to it. In a table row it
+   is centred on the whole name block (name, IQU number, guardian / email). */
 .iqu-avatar {
-  width: 50px;
-  height: 50px;
+  width: var(--iqu-avatar-size);
+  height: var(--iqu-avatar-size);
   border-radius: 50%;
   background: #dce8f6;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 17px;
+  font-size: var(--iqu-text-lg);
   font-weight: 600;
+  letter-spacing: 0.3px;
+  line-height: 1;
   color: var(--iqu-blue);
   flex-shrink: 0;
 }

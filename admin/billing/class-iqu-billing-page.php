@@ -386,11 +386,13 @@ class IQU_Billing_Page
             </th>
             <td class="iqu-td-name">
                 <div class="iqu-student-cell">
-                    <span class="iqu-avatar iqu-avatar--sm" aria-hidden="true"><?php echo esc_html(self::initials($name)); ?></span>
+                    <span class="iqu-avatar" aria-hidden="true"><?php echo esc_html(self::initials($name)); ?></span>
                     <div class="iqu-student-lines">
                         <strong><a href="<?php echo esc_url($open); ?>"><?php echo esc_html($name); ?></a></strong>
                         <span class="iqu-billing-sub">IQU-<?php echo $id; ?></span>
-                        <span class="iqu-billing-sub"><?php echo implode(' · ', array_filter([$reg['guardian_name'] ? esc_html('Guardian ' . $reg['guardian_name']) : '', self::email_html((string) $reg['email'])])); ?></span>
+                        <?php // guardian · email; left out when both are empty, so a 2-line block stays centred on the avatar
+                        $who = implode(' · ', array_filter([$reg['guardian_name'] ? esc_html('Guardian ' . $reg['guardian_name']) : '', self::email_html((string) $reg['email'])]));
+                        if ($who !== '') echo '<span class="iqu-billing-sub">' . $who . '</span>'; ?>
                     </div>
                 </div>
             </td>

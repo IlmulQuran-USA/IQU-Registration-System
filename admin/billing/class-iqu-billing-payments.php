@@ -388,7 +388,7 @@ class IQU_Billing_Payments_Screen
         if (!isset(self::$labels[$id])) self::$labels[$id] = IQU_Billing_Page::family_label($acc);
         $name = trim((string) $acc['guardian_name']) ?: self::$labels[$id];
         echo '<span class="iqu-family-cell">'
-            . '<span class="iqu-avatar iqu-avatar--sm" aria-hidden="true">' . esc_html(IQU_Billing_Page::initials($name)) . '</span>'
+            . '<span class="iqu-avatar" aria-hidden="true">' . esc_html(IQU_Billing_Page::initials($name)) . '</span>'
             . '<a class="iqu-family-link" href="' . esc_url(IQU_Billing_Page::family_url($id)) . '">' . esc_html(self::$labels[$id]) . '</a></span>';
     }
 
