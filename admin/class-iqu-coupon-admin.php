@@ -755,7 +755,7 @@ class IQU_Coupon_Admin
 
         $out = fopen('php://output', 'w');
 
-        fputcsv($out, [
+        IQU_CSV::put($out, [
             'ID',
             'Code',
             'Occasion',
@@ -771,7 +771,7 @@ class IQU_Coupon_Admin
         ]);
 
         foreach ($data['items'] as $r) {
-            fputcsv($out, [
+            IQU_CSV::put($out, [
                 $r['id'],
                 // 🔒 CSV formula injection সুরক্ষা
                 self::csv_safe($r['code']),
@@ -802,11 +802,7 @@ class IQU_Coupon_Admin
      */
     private static function csv_safe(?string $value): string
     {
-        $value = (string) $value;
-        if ($value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
-            return "'" . $value;
-        }
-        return $value;
+        return IQU_CSV::safe($value);
     }
 
     private function redirect_create(string $msg): void

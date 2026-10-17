@@ -88,6 +88,7 @@ if (!defined('IQU_EMAIL_LOGO_SRC')) {
 // 📂 Includes
 // ============================================================
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-schema.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-csv.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-database.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-contact.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-link-keys.php';

@@ -1917,11 +1917,7 @@ class IQU_Admin
    */
   private static function csv_safe(?string $value): string
   {
-    $value = (string) $value;
-    if ($value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
-      return "'" . $value;
-    }
-    return $value;
+    return IQU_CSV::safe($value);
   }
 
   public function handle_export_csv(): void
@@ -1929,7 +1925,10 @@ class IQU_Admin
     check_admin_referer('iqu_export_csv');
     if (!current_user_can('manage_options'))
       wp_die('Permission denied.');
-    $form_type = sanitize_text_field($_GET['form_type'] ?? '');
+    $form_type = sanitize_key($_GET['form_type'] ?? '');
+    if (!in_array($form_type, ['', 'weekend', IQU_Database::FORM_FREE, IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true)) {
+      wp_die('Unknown list.', 400);
+    }
     $args = ['per_page' => 9999, 'page' => 1];
     if ($form_type === 'weekend') {
       $args['form_type'] = IQU_Database::weekend_types();
@@ -1942,7 +1941,7 @@ class IQU_Admin
     header('Content-Disposition: attachment; filename="iqu-registrations-' . ($form_type ?: 'all') . '-' . date('Y-m-d') . '.csv"');
     $out = fopen('php://output', 'w');
     fputs($out, "\xEF\xBB\xBF");
-    fputcsv($out, [
+    IQU_CSV::put($out, [
       'ID', 'Form Type', 'First Name', 'Last Name', 'Email', 'Age',
       'Country Origin', 'Country Residence', "Qur'an Level",
 
@@ -1959,7 +1958,7 @@ class IQU_Admin
       'Created Via', // website / admin / import — separate from Referral (what the family answered)
     ]);
     foreach ($rows as $r) {
-      fputcsv($out, [
+      IQU_CSV::put($out, [
         $r['id'],
         $r['form_type'],
         self::csv_safe($r['first_name']),

@@ -919,7 +919,7 @@ class IQU_Zeffy_Admin
 
         $out = fopen('php://output', 'w');
 
-        fputcsv($out, [
+        IQU_CSV::put($out, [
             'Date (UTC)',
             'Payment ID',
             'Donor',
@@ -945,7 +945,7 @@ class IQU_Zeffy_Admin
         foreach ($rows as $r) {
             $net = (int) $r['amount'] - (int) $r['refunded_amount'];
 
-            fputcsv($out, [
+            IQU_CSV::put($out, [
                 gmdate('Y-m-d H:i:s', (int) $r['created_ts']),
                 $r['payment_id'],
                 IQU_Zeffy_DB::donor_name($r),

@@ -88,8 +88,7 @@ class IQU_Waitlist_Admin
     /** Leading = + - @ tab or CR would make a spreadsheet run the cell as a formula. */
     public static function csv_safe(string $v): string
     {
-        if ($v !== '' && strpbrk($v[0], "=+-@\t\r") !== false && !preg_match('/^-?\d+(\.\d+)?$/', $v)) return "'" . $v;
-        return $v;
+        return IQU_CSV::safe($v);
     }
 
     public static function write_csv($out, array $rows): void

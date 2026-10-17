@@ -411,8 +411,7 @@ class IQU_Billing_Reports
     /** Neutralise spreadsheet formulas: = + - @ tab CR at the start get a leading apostrophe (plain numbers stay numbers). */
     public static function csv_safe(string $v): string
     {
-        if ($v !== '' && strpbrk($v[0], "=+-@\t\r") !== false && !preg_match('/^-?\d+(\.\d+)?$/', $v)) return "'" . $v;
-        return $v;
+        return IQU_CSV::safe($v);
     }
 
     // ------------------------------------------------------------

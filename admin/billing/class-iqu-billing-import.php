@@ -141,10 +141,10 @@ class IQU_Billing_Import
         header('Content-Disposition: attachment; filename="iqu-import-students-sample.csv"');
         $out = fopen('php://output', 'w');
         fputs($out, "\xEF\xBB\xBF");
-        fputcsv($out, array_column(self::COLUMNS, 0));
-        fputcsv($out, array_column(self::COLUMNS, 3));
+        IQU_CSV::put($out, array_column(self::COLUMNS, 0));
+        IQU_CSV::put($out, array_column(self::COLUMNS, 3));
         // Second example: one value per column of COLUMNS (22), in the same order.
-        fputcsv($out, ['Omar', 'Rahman', '', 'omar.r@example.com', '+1 469 555 0172', '', 'arabic', '2', '30', 'Yes', '24', '', 'United States', '', '',
+        IQU_CSV::put($out, ['Omar', 'Rahman', '', 'omar.r@example.com', '+1 469 555 0172', '', 'arabic', '2', '30', 'Yes', '24', '', 'United States', '', '',
             'Sat, Sun', '10:00 AM – 11:00 AM (CST)', '30', 'English, Arabic', 'No preference', '', 'Adult student, reduced fee agreed']);
         fclose($out);
         exit;
@@ -302,11 +302,11 @@ class IQU_Billing_Import
         $header = (array) ($state['header'] ?? []);
         $width  = count($header);
         fputs($out, "\xEF\xBB\xBF");
-        fputcsv($out, array_merge(array_map([__CLASS__, 'csv_safe'], $header), ['result', 'messages']));
+        IQU_CSV::put($out, array_merge(array_map([__CLASS__, 'csv_safe'], $header), ['result', 'messages']));
         foreach ($state['preview'] as $r) {
             $cells = array_slice(array_pad((array) ($r['cells'] ?? []), $width, ''), 0, $width);
             $msgs  = array_merge((array) $r['errors'], (array) ($r['warnings'] ?? []));
-            fputcsv($out, array_merge(array_map([__CLASS__, 'csv_safe'], $cells), [
+            IQU_CSV::put($out, array_merge(array_map([__CLASS__, 'csv_safe'], $cells), [
                 self::LEVEL_CSV[$r['level'] ?? self::level($r['errors'], $r['warnings'] ?? [])],
                 self::csv_safe(implode(' | ', $msgs)),
             ]));
@@ -316,7 +316,7 @@ class IQU_Billing_Import
     /** Spreadsheet formula characters at the start of a cell are neutralised with an apostrophe. */
     private static function csv_safe(string $value): string
     {
-        return ($value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) ? "'" . $value : $value;
+        return IQU_CSV::safe($value);
     }
 
     /** Turns one CSV row into the same input shape the single form uses. */
