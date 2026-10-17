@@ -140,28 +140,43 @@
           }
           submit.disabled = true;
           msg.textContent = "Sending…";
+          const post = function (token, nonce) {
+            return fetch(enrollCfg.waitlist_url, {
+              method: "POST",
+              credentials: "same-origin",
+              cache: "no-store",
+              // No X-WP-Nonce: the waitlist needs no login, and an expired REST nonce on a page from a
+              // page cache made WordPress refuse the request (403) before it reached the plugin.
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                nonce: nonce,
+                recaptcha_token: token,
+                email: value,
+                name: name.value.trim(),
+                program: program,
+                country: country,
+                source: "modal",
+              }),
+            });
+          };
           getRecaptchaToken("iqu_waitlist")
             .catch(function () {
               return "";
             })
             .then(function (token) {
-              return fetch(enrollCfg.waitlist_url, {
-                method: "POST",
-                credentials: "same-origin",
-                cache: "no-store",
-                headers: {
-                  "Content-Type": "application/json",
-                  "X-WP-Nonce": enrollCfg.rest_nonce || "",
-                },
-                body: JSON.stringify({
-                  nonce: enrollCfg.waitlist_nonce || "",
-                  recaptcha_token: token,
-                  email: value,
-                  name: name.value.trim(),
-                  program: program,
-                  country: country,
-                  source: "modal",
-                }),
+              return post(token, enrollCfg.waitlist_nonce || "").then(function (r) {
+                if (r.status !== 403) return r;
+                // An expired nonce (cached page): get a fresh one once and send again. The server checks
+                // the nonce before reCAPTCHA, so the same token is still unused.
+                return freshNonces().then(
+                  function (n) {
+                    enrollCfg.waitlist_nonce = n.waitlist_nonce;
+                    return post(token, n.waitlist_nonce);
+                  },
+                  function () {
+                    return r;
+                  },
+                );
               });
             })
             .then(function (r) {
@@ -245,6 +260,36 @@
           locationModal.showOnce(programOfForm($f), geo.country, "ip:" + geo.country);
         }
       });
+    }
+
+    /**
+     * A fresh form nonce (and waitlist nonce) when a page was served from a page cache longer ago than
+     * a nonce lives. Asked at most once per submit.
+     */
+    function freshNonces() {
+      return $.ajax({
+        url: IQU_AJAX.ajax_url,
+        type: "POST",
+        dataType: "json",
+        cache: false,
+        data: { action: "iqu_fresh_nonce" },
+      }).then(function (r) {
+        if (r && r.success && r.data && r.data.nonce) {
+          IQU_AJAX.nonce = r.data.nonce;
+          $('input[name="_iqu_nonce"]').val(r.data.nonce);
+          return r.data;
+        }
+        return $.Deferred().reject().promise();
+      });
+    }
+
+    /** One random id per enrollment: a retry or second tap of the same submission is not saved twice. */
+    function newSubmitId() {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+      const a = new Uint8Array(16);
+      if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(a);
+      else for (let i = 0; i < 16; i++) a[i] = Math.floor(Math.random() * 256);
+      return Array.prototype.map.call(a, function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
     }
 
     function getRecaptchaToken(action) {
@@ -851,13 +896,23 @@
         couponLoading(true);
         setCouponMsg("", "warn");
 
-        $.post(IQU_AJAX.ajax_url, {
-          action: "iqu_apply_coupon",
-          _iqu_nonce: IQU_AJAX.nonce,
-          coupon_code: code,
-          course_type: quote.course,
-          days_per_week: quote.days,
-        })
+        const checkCoupon = function () {
+          return $.post(IQU_AJAX.ajax_url, {
+            action: "iqu_apply_coupon",
+            _iqu_nonce: IQU_AJAX.nonce,
+            coupon_code: code,
+            course_type: quote.course,
+            days_per_week: quote.days,
+          });
+        };
+        checkCoupon()
+          .then(function (res) {
+            // An expired nonce (cached page): one retry with a fresh one.
+            if (res && !res.success && res.data && res.data.code === "invalid_nonce") {
+              return freshNonces().then(checkCoupon, function () { return res; });
+            }
+            return res;
+          })
           .done(function (res) {
             if (res && res.success) {
               appliedCoupon = res.data;
@@ -1856,19 +1911,44 @@
       $btnTxt,
       $btnLoad,
     ) {
+      // The same id for every send of this enrollment (retry, second tap); a new one after it succeeded.
+      let submitId = $form.data("iquSubmitId");
+      if (!submitId) {
+        submitId = newSubmitId();
+        $form.data("iquSubmitId", submitId);
+      }
+      let retried = false;
+      const send = function (data) {
       $.ajax({
         url: IQU_AJAX.ajax_url,
         type: "POST",
         data:
-          serializedData +
+          data +
           "&action=" + action +
+          "&iqu_submit_id=" + encodeURIComponent(submitId) +
           "&iqu_page_url=" + encodeURIComponent(window.location.href) +
           "&iqu_fbclid=" + encodeURIComponent(iquGetFbclid()),
         dataType: "json",
         success: function (response) {
+          // A page from a page cache can carry an expired nonce: get a fresh one once and send again
+          // (the server checks the nonce first, so the reCAPTCHA token in the data is still unused).
+          if (!response.success && response.data && response.data.code === "invalid_nonce" && !retried) {
+            retried = true;
+            freshNonces().then(
+              function (n) {
+                send(data.replace(/(^|&)_iqu_nonce=[^&]*/, "$1_iqu_nonce=" + encodeURIComponent(n.nonce)));
+              },
+              function () {
+                setLoading($btn, $btnTxt, $btnLoad, false);
+                $srvErr.text(response.data.message).addClass("iqu-alert iqu-alert-error").show();
+              },
+            );
+            return;
+          }
           setLoading($btn, $btnTxt, $btnLoad, false);
           if (response.success) {
             const data = response.data || {};
+            $form.removeData("iquSubmitId");
 
             // Meta browser-side Lead — server-side event-এর সাথে dedup
             if (data.event_id && typeof fbq === "function") {
@@ -1914,6 +1994,8 @@
           $srvErr.text(msg).addClass("iqu-alert iqu-alert-error").show();
         },
       });
+      };
+      send(serializedData);
     }
 
     async function buildSerializedData($form) {

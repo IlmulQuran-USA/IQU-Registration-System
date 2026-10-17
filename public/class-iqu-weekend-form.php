@@ -440,6 +440,7 @@ class IQU_Weekend_Form
                 'code'    => 'invalid_nonce',
             ]);
         }
+        IQU_Submit_Guard::begin(); // the same submission again → its first answer, nothing saved twice
 
         // 2. Honeypot — বটকে সফলতার বার্তা দিয়ে বিদায়
         if (!empty($_POST['iqu_website'])) {
@@ -474,6 +475,7 @@ class IQU_Weekend_Form
         }
 
         // 5. Insert (with the visitor's marketing-cookie choice, for Meta server events)
+        IQU_Submit_Guard::check_rate((string) $clean['email']);
         IQU_Pixel::record_consent($clean);
         $reg_id = IQU_Database::insert_registration($clean);
         if (!$reg_id) {
@@ -511,6 +513,7 @@ class IQU_Weekend_Form
         $response['content_name'] = $content_name;
         $response['value']        = 0;
 
+        IQU_Submit_Guard::finish((string) $clean['email'], $response);
         wp_send_json_success($response);
     }
 }

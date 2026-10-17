@@ -24,13 +24,18 @@ class IQU_Recaptcha
         if (empty($token)) {
             return ['success' => false, 'score' => 0.0, 'action' => '', 'error' => 'missing_token'];
         }
+        // A missing key in wp-config was a fatal error on every submit; now it is a normal "failed" answer.
+        if (!defined('IQU_RECAPTCHA_SECRET_KEY') || (string) IQU_RECAPTCHA_SECRET_KEY === '') {
+            error_log('[IQU] reCAPTCHA: IQU_RECAPTCHA_SECRET_KEY is not set in wp-config.php.');
+            return ['success' => false, 'score' => 0.0, 'action' => '', 'error' => 'not_configured'];
+        }
 
         $response = wp_remote_post(self::VERIFY_URL, [
             'timeout' => 10,
             'body'    => [
                 'secret'   => IQU_RECAPTCHA_SECRET_KEY,
                 'response' => $token,
-                'remoteip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                'remoteip' => class_exists('IQU_Geo') ? IQU_Geo::client_ip() : ($_SERVER['REMOTE_ADDR'] ?? ''),
             ],
         ]);
 
@@ -55,7 +60,14 @@ class IQU_Recaptcha
             return ['success' => false, 'score' => $score, 'action' => $got_act, 'error' => 'action_mismatch'];
         }
 
-        if ($score < IQU_RECAPTCHA_THRESHOLD) {
+        // The token must come from a page on this site (matters when "Verify the origin of reCAPTCHA
+        // solutions" is off in the Google console). www. and the bare domain count as the same site.
+        if (isset($body['hostname']) && !self::same_host((string) $body['hostname'])) {
+            return ['success' => false, 'score' => $score, 'action' => $got_act, 'error' => 'hostname_mismatch'];
+        }
+
+        $threshold = defined('IQU_RECAPTCHA_THRESHOLD') ? (float) IQU_RECAPTCHA_THRESHOLD : 0.5;
+        if ($score < $threshold) {
             return ['success' => false, 'score' => $score, 'action' => $got_act, 'error' => 'low_score'];
         }
 
@@ -65,8 +77,15 @@ class IQU_Recaptcha
     /**
      * Enqueue the reCAPTCHA v3 JS (site-key loader).
      */
+    private static function same_host(string $host): bool
+    {
+        $bare = fn(string $h) => preg_replace('/^www\./', '', strtolower(trim($h)));
+        return $bare($host) === $bare((string) wp_parse_url(home_url(), PHP_URL_HOST));
+    }
+
     public static function enqueue_script(): void
     {
+        if (!defined('IQU_RECAPTCHA_SITE_KEY') || (string) IQU_RECAPTCHA_SITE_KEY === '') return; // not configured: no broken script tag
         wp_enqueue_script(
             'iqu-recaptcha',
             'https://www.google.com/recaptcha/api.js?render=' . IQU_RECAPTCHA_SITE_KEY,

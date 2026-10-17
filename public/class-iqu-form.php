@@ -736,6 +736,7 @@ class IQU_Form
 <?php if (IQU_Enrollment_Settings::free_payment_active()): ?>
                 <!-- ── Existing student? (only with the Stripe payment step) ── -->
                 <fieldset class="iqu-question iqu-existing-question">
+                    <input type="hidden" name="iqu_existing_q" value="1">
                     <legend>Are you already an Ilm-ul-Quran student? <span class="req">*</span></legend>
                     <div class="iqu-existing-options">
                         <label class="iqu-radio-card"><input type="radio" name="is_existing_student" value="yes" required> Yes</label>
@@ -876,6 +877,7 @@ class IQU_Form
         if (!check_ajax_referer('iqu_registration_nonce', '_iqu_nonce', false)) {
             wp_send_json_error(['message' => 'Security check failed. Please refresh the page and try again.', 'code' => 'invalid_nonce']);
         }
+        IQU_Submit_Guard::begin(); // the same submission again → its first answer, nothing saved twice
 
         // Honeypot
         if (!empty($_POST['iqu_website'])) {
@@ -1020,6 +1022,7 @@ class IQU_Form
         }
 
         // Insert (with the visitor's marketing-cookie choice, for Meta server events)
+        IQU_Submit_Guard::check_rate((string) $clean['email']);
         IQU_Pixel::record_consent($clean);
         $reg_id = IQU_Database::insert_registration($clean);
         if (!$reg_id) {
@@ -1034,13 +1037,11 @@ class IQU_Form
 
             if (!$redeemed) {
                 // বিরল রেস কন্ডিশন — দুজন একসাথে শেষ ব্যবহারটা নিয়েছে।
-                // রেজিস্ট্রেশন বাতিল করা হয় না; অ্যাডমিন ম্যানুয়ালি দেখবেন।
-                error_log(sprintf(
-                    '[IQU] Coupon %s (id %d) could not be redeemed for registration #%d — usage limit may have been reached concurrently.',
-                    $clean['coupon_code'],
-                    (int) $clean['coupon_id'],
-                    (int) $reg_id
-                ));
+                // The registration stays, but goes to review with the reason, so the discount is not
+                // simply applied twice (the coupon's limit was reached by someone else a moment earlier).
+                IQU_Database::set_status((int) $reg_id, 'pending_review');
+                IQU_Database::add_review_reason((int) $reg_id, 'coupon_used_up');
+                error_log(sprintf('[IQU] Coupon id %d was used up before registration #%d could redeem it — sent to review.', (int) $clean['coupon_id'], (int) $reg_id));
             }
         }
 
@@ -1073,6 +1074,7 @@ class IQU_Form
             $response = IQU_Enrollment::start_free((int) $reg_id, $clean, $enroll, $response);
         }
 
+        IQU_Submit_Guard::finish((string) $clean['email'], $response);
         wp_send_json_success($response);
     }
 
@@ -1086,6 +1088,7 @@ class IQU_Form
         if (!check_ajax_referer('iqu_registration_nonce', '_iqu_nonce', false)) {
             wp_send_json_error([
                 'message' => 'Security check failed. Please refresh the page and try again.',
+                'code'    => 'invalid_nonce',
             ]);
         }
 

@@ -100,16 +100,22 @@ class IQU_Enrollment
      */
     public static function prepare_free(array &$clean, array $post): array
     {
-        $answer = sanitize_key((string) wp_unslash($post['is_existing_student'] ?? ''));
+        $answer = is_string($post['is_existing_student'] ?? null) ? sanitize_key(wp_unslash($post['is_existing_student'])) : '';
+        $reasons = [];
         if (!in_array($answer, ['yes', 'no'], true)) {
-            return ['error' => [
-                'message' => 'Please fix the errors below.',
-                'errors'  => ['is_existing_student' => 'Please tell us whether your child is already an Ilm-ul-Quran student.'],
-                'code'    => 'validation_failed',
-            ]];
+            // The page showed the question (hidden iqu_existing_q) but it was not answered: ask for it.
+            if (!empty($post['iqu_existing_q'])) {
+                return ['error' => [
+                    'message' => 'Please fix the errors below.',
+                    'errors'  => ['is_existing_student' => 'Please tell us whether your child is already an Ilm-ul-Quran student.'],
+                    'code'    => 'validation_failed',
+                ]];
+            }
+            // A page cached before the payment step was turned on has no such question: the
+            // enrollment is saved and the team asks the family (never a form that cannot be sent).
+            $reasons[] = 'existing_unknown';
         }
 
-        $reasons = [];
         if (!empty($clean['coupon_code']) || (float) ($clean['payment_amount'] ?? 0) <= 0) $reasons[] = 'help';
         if ($answer === 'yes') {
             $reasons[] = 'existing_student';
@@ -204,6 +210,7 @@ class IQU_Enrollment
         $labels = [
             'help' => 'Zakat / help with the fee', 'existing_student' => 'Existing student', 'sibling' => 'Email already has billing',
             'location' => 'Location', 'card_country' => 'Card country', 'payment_setup' => 'Card step failed', 'amount' => 'Amount',
+            'existing_unknown' => 'Ask: already a student?', 'coupon_used_up' => 'Coupon was already used up',
         ];
         return $labels[$r] ?? $r;
     }

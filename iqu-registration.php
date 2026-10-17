@@ -89,6 +89,7 @@ if (!defined('IQU_EMAIL_LOGO_SRC')) {
 // ============================================================
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-schema.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-csv.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-submit-guard.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-database.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-contact.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-link-keys.php';
@@ -184,6 +185,9 @@ add_action('plugins_loaded', function () {
 });
 
 add_action('wp_ajax_iqu_geoip', 'iqu_geoip_callback');
+// A fresh form nonce for a page served from a page cache (see IQU_Submit_Guard::ajax_fresh_nonce).
+add_action('wp_ajax_iqu_fresh_nonce', ['IQU_Submit_Guard', 'ajax_fresh_nonce']);
+add_action('wp_ajax_nopriv_iqu_fresh_nonce', ['IQU_Submit_Guard', 'ajax_fresh_nonce']);
 add_action('wp_ajax_nopriv_iqu_geoip', 'iqu_geoip_callback');
 
 function iqu_geoip_callback()

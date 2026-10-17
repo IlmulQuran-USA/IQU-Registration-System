@@ -746,6 +746,7 @@ class IQU_Summer_Form
         if (!check_ajax_referer('iqu_registration_nonce', '_iqu_nonce', false)) {
             wp_send_json_error(['message' => 'Security check failed. Please refresh the page and try again.', 'code' => 'invalid_nonce']);
         }
+        IQU_Submit_Guard::begin(); // the same submission again → its first answer, nothing saved twice
 
         // Honeypot
         if (!empty($_POST['iqu_website'])) {
@@ -792,6 +793,7 @@ class IQU_Summer_Form
         // }
 
         // Insert (with the visitor's marketing-cookie choice, for Meta server events)
+        IQU_Submit_Guard::check_rate((string) $clean['email']);
         IQU_Pixel::record_consent($clean);
         $reg_id = IQU_Database::insert_registration($clean);
         if (!$reg_id) {
@@ -845,6 +847,7 @@ class IQU_Summer_Form
             $response = IQU_Summer_Pay::start((int) $reg_id, $pay, $response);
         }
 
+        IQU_Submit_Guard::finish((string) $clean['email'], $response);
         wp_send_json_success($response);
     }
 }
