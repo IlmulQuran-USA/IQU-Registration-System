@@ -1102,6 +1102,16 @@ class IQU_Form
         }
         set_transient($key, $attempts + 1, HOUR_IN_SECONDS);
 
+        // Site-wide: many failed codes in one hour from anywhere means someone is guessing; pause the
+        // check for the rest of the hour and tell the team once. Real families are not affected by the
+        // per-IP limit above, and a valid code typed during a pause can be checked again next hour.
+        $fail_key = 'iqu_coupon_fail_' . gmdate('YmdH');
+        if ((int) get_transient($fail_key) >= self::COUPON_FAILS_PER_HOUR) {
+            wp_send_json_error([
+                'message' => 'Coupon check is busy right now. Please try again in an hour, or contact us for help.',
+            ]);
+        }
+
         $code   = sanitize_text_field($_POST['coupon_code'] ?? '');
         $course = sanitize_text_field($_POST['course_type'] ?? '');
         $days   = absint($_POST['days_per_week'] ?? 0);
@@ -1123,6 +1133,7 @@ class IQU_Form
         $result      = IQU_Coupon::validate($code, $course, $base_amount);
 
         if (!$result['valid']) {
+            self::count_coupon_failure($fail_key);
             wp_send_json_error(['message' => $result['error']]);
         }
 
@@ -1148,16 +1159,29 @@ class IQU_Form
         ]);
     }
 
-    /** প্রক্সি/Cloudflare-সচেতন ক্লায়েন্ট IP */
+    /** Failed coupon lookups, site-wide, per hour, before the check pauses (see handle_apply_coupon). */
+    private const COUPON_FAILS_PER_HOUR = 100;
+
+    private static function count_coupon_failure(string $fail_key): void
+    {
+        $fails = (int) get_transient($fail_key) + 1;
+        set_transient($fail_key, $fails, HOUR_IN_SECONDS);
+        if ($fails === self::COUPON_FAILS_PER_HOUR && class_exists('IQU_Telegram') && IQU_Telegram::is_configured()) {
+            IQU_Telegram::send(IQU_Telegram::compose('⚠️ Coupon check paused', [
+                'Why'   => self::COUPON_FAILS_PER_HOUR . ' wrong coupon codes in one hour — someone may be guessing codes.',
+                'Until' => 'the end of this hour (it starts again by itself)',
+            ]));
+        }
+    }
+
+    /**
+     * The client IP for rate limits: the plugin's one trusted rule (IQU_Geo::client_ip — REMOTE_ADDR, and
+     * X-Forwarded-For only when the request comes from a proxy listed in IQU_TRUSTED_PROXIES). Headers a
+     * visitor can set (CF-Connecting-IP, X-Forwarded-For) are never trusted on their own.
+     */
     private static function client_ip(): string
     {
-        if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-            return sanitize_text_field($_SERVER['HTTP_CF_CONNECTING_IP']);
-        }
-        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $parts = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-            return sanitize_text_field(trim($parts[0]));
-        }
-        return sanitize_text_field($_SERVER['REMOTE_ADDR'] ?? '');
+        $ip = class_exists('IQU_Geo') ? IQU_Geo::client_ip() : '';
+        return $ip !== '' ? $ip : (string) filter_var($_SERVER['REMOTE_ADDR'] ?? '', FILTER_VALIDATE_IP);
     }
 }

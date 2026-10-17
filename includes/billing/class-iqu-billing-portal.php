@@ -487,7 +487,11 @@ class IQU_Billing_Portal
 
     private static function ip(): string
     {
-        return preg_replace('/[^0-9a-fA-F:.]/', '', (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'));
+        // The plugin's trusted client IP (X-Forwarded-For only from IQU_TRUSTED_PROXIES), so families behind
+        // the same CDN / proxy do not share one rate-limit bucket.
+        $ip = class_exists('IQU_Geo') ? IQU_Geo::client_ip() : '';
+        if ($ip === '') $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+        return preg_replace('/[^0-9a-fA-F:.]/', '', $ip);
     }
 
     /** Returns true when the limit is already reached. When $count is true, records one more attempt. */

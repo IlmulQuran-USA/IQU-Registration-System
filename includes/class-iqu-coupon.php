@@ -30,7 +30,7 @@ class IQU_Coupon
     /** বিভ্রান্তিকর ক্যারেক্টার বাদ দেওয়া অ্যালফাবেট */
     private const SAFE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 
-    private const RANDOM_LENGTH = 4;
+    private const RANDOM_LENGTH = 6; // 3.4.4: was 4 — too few combinations against guessing
 
     /** ইউনিক কোড বানানোর সর্বোচ্চ চেষ্টা */
     private const MAX_GENERATE_ATTEMPTS = 25;

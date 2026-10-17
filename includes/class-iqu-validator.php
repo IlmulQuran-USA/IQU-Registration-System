@@ -490,7 +490,8 @@ class IQU_Validator
 
     private function add_meta(): void
     {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        // The same client IP as the country check and rate limits (X-Forwarded-For only from IQU_TRUSTED_PROXIES).
+        $ip = class_exists('IQU_Geo') ? IQU_Geo::client_ip() : ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
         $this->clean['ip_address'] = filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '0.0.0.0';
         $this->clean['user_agent'] = substr(sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
     }

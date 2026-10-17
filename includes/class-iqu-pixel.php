@@ -371,14 +371,11 @@ class IQU_Pixel
 
     private static function client_ip(array $clean): string
     {
+        // The trusted client IP only (IQU_Geo::client_ip: REMOTE_ADDR, X-Forwarded-For only from IQU_TRUSTED_PROXIES);
+        // a CF-Connecting-IP / X-Forwarded-For header on its own can be set by anyone.
         $candidates = [];
-
-        if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-            $candidates[] = $_SERVER['HTTP_CF_CONNECTING_IP'];
-        }
-        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $parts = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-            $candidates[] = trim($parts[0]);
+        if (class_exists('IQU_Geo')) {
+            $candidates[] = IQU_Geo::client_ip();
         }
         if (!empty($clean['ip_address'])) {
             $candidates[] = $clean['ip_address'];
