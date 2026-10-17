@@ -476,13 +476,14 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* .iqu-stat .iqu-stat-head: one class more than any page's base number size (e.g. .iqu-billing .iqu-metric-num). */
 @container (max-width: 210px) {
-  .iqu-stat-head .iqu-metric-num {
+  .iqu-stat .iqu-stat-head .iqu-metric-num {
     font-size: var(--iqu-text-2xl);
   }
 }
 @container (max-width: 160px) {
-  .iqu-stat-head .iqu-metric-num {
+  .iqu-stat .iqu-stat-head .iqu-metric-num {
     font-size: var(--iqu-text-xl);
   }
 }
