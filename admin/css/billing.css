@@ -2067,8 +2067,53 @@ th[aria-sort="descending"] .iqu-sort::after {
 }
 
 /* ── Reports (3.4.0): coloured month cards, status chips, ± difference ── */
-.iqu-rep-kpis {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+/* KPI row (3.4.3): Reports' own layout, independent of the Payments board. From 1024px one row of
+   equal cards, however many (--iqu-kpi-n, set by month_cards()); narrower, the cards wrap into
+   rows that are always filled (3 a row, then 2 a row; the last row's cards share its width). */
+.iqu-billing .iqu-rep-kpis {
+  --iqu-kpi-n: 5;
+  display: grid;
+  grid-template-columns: repeat(var(--iqu-kpi-n), minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--iqu-space-3);
+  margin: 0 0 var(--iqu-space-4);
+}
+.iqu-billing .iqu-rep-kpis > .iqu-rep-kpi {
+  box-sizing: border-box; /* the flex basis below is the whole card, padding included */
+  min-width: 0;
+  margin: 0;
+}
+/* Five cards in a narrow row (1024–1279px, phones): a little less space between and inside the cards and,
+   in a card under 160px, a closer number, so a money value still fits beside its (40px) icon; it moves
+   under the icon only if it can't. */
+@media (max-width: 1279px) {
+  .iqu-billing .iqu-rep-kpis {
+    gap: var(--iqu-space-2);
+  }
+  .iqu-billing .iqu-rep-kpis > .iqu-rep-kpi {
+    padding-left: var(--iqu-space-3);
+    padding-right: var(--iqu-space-3);
+  }
+}
+@container (max-width: 160px) {
+  .iqu-rep-kpi .iqu-stat-head {
+    column-gap: var(--iqu-space-2);
+  }
+}
+@media (max-width: 1023px) {
+  .iqu-billing .iqu-rep-kpis {
+    --iqu-kpi-per-row: 3;
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .iqu-billing .iqu-rep-kpis > .iqu-rep-kpi {
+    flex: 1 1 calc((100% - (var(--iqu-kpi-per-row) - 1) * var(--iqu-space-2)) / var(--iqu-kpi-per-row));
+  }
+}
+@media (max-width: 600px) {
+  .iqu-billing .iqu-rep-kpis {
+    --iqu-kpi-per-row: 2;
+  }
 }
 .iqu-rep-kpi .iqu-metric-accent {
   background: var(--iqu-text2);
@@ -2085,16 +2130,6 @@ th[aria-sort="descending"] .iqu-sort::after {
 .iqu-rep-kpi--purple .iqu-metric-num { color: var(--iqu-purple); }
 .iqu-rep-kpi--red {
   border-color: color-mix(in srgb, var(--iqu-red) 35%, var(--iqu-bdr));
-}
-@media (max-width: 1279px) {
-  .iqu-rep-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-@media (max-width: 600px) {
-  .iqu-rep-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 .iqu-billing .iqu-diff {
   font-weight: 600;
@@ -2409,10 +2444,6 @@ th[aria-sort="descending"] .iqu-sort::after {
 .iqu-kpi-row--secondary {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
-/* Reports: its two smaller cards keep the same size as on Payments (a quarter each). */
-.iqu-kpi-row--secondary.iqu-kpi-row--two {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
 .iqu-billing .iqu-kpi--lg {
   padding: var(--iqu-space-5) var(--iqu-space-5) var(--iqu-space-4);
 }
@@ -2440,8 +2471,7 @@ th[aria-sort="descending"] .iqu-sort::after {
   }
 }
 @media (max-width: 1023px) {
-  .iqu-kpi-row--secondary,
-  .iqu-kpi-row--secondary.iqu-kpi-row--two {
+  .iqu-kpi-row--secondary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

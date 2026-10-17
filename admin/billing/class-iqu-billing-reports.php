@@ -454,15 +454,14 @@ class IQU_Billing_Reports
             ['Refunded', IQU_Pricing::format($sum['refunded']), $sum['refunded'] > 0 ? 'purple' : 'neutral', 'In ' . IQU_Billing_History::month_label($ym), 'rotate-ccw'],
             ['Not set up', (string) count($not_set_up), count($not_set_up) ? 'gold' : 'neutral', IQU_Pricing::format($owed) . ' a month waiting', 'user-plus'],
         ];
-        echo '<div class="iqu-kpi-board" aria-label="' . esc_attr(IQU_Billing_History::month_label($ym)) . '">';
-        foreach ($cards as $n => [$label, $value, $tone, $sub, $icon]) {
-            if ($n === 0) echo '<div class="iqu-kpis iqu-rep-kpis iqu-kpi-row iqu-kpi-row--primary">';
-            if ($n === 3) echo '</div><div class="iqu-kpis iqu-rep-kpis iqu-kpi-row iqu-kpi-row--secondary iqu-kpi-row--two">';
-            echo '<div class="iqu-metric iqu-stat iqu-kpi iqu-kpi--' . ($n < 3 ? 'lg' : 'sm') . ' iqu-rep-kpi iqu-rep-kpi--' . esc_attr($tone) . '"><div class="iqu-metric-accent"></div>'
+        // One row of equal stat cards (Reports' own grid, not the Payments board): --iqu-kpi-n = how many.
+        echo '<div class="iqu-rep-kpis" style="--iqu-kpi-n:' . count($cards) . '" aria-label="' . esc_attr(IQU_Billing_History::month_label($ym)) . '">';
+        foreach ($cards as [$label, $value, $tone, $sub, $icon]) {
+            echo '<div class="iqu-metric iqu-stat iqu-rep-kpi iqu-rep-kpi--' . esc_attr($tone) . '"><div class="iqu-metric-accent"></div>'
                 . IQU_Icons::stat_head($icon, $tone, esc_html($value)) . '<div class="iqu-metric-lbl">' . esc_html($label) . '</div>'
                 . '<div class="iqu-metric-sub">' . esc_html($sub) . '</div></div>';
         }
-        echo '</div></div>';
+        echo '</div>';
     }
 
     private static function accounts_by_id(): array
