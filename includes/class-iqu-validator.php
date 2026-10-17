@@ -39,6 +39,12 @@ class IQU_Validator
     private const ALLOWED_ADM_FEE = ['50', '30', 'flexible', 'complimentary'];
     private const ALLOWED_PAYMENT = ['zelle', 'zeffy', ''];
 
+    /** Highest amount a family can write for the Summer "flexible" fee. */
+    private const FLEXIBLE_MAX = 1000;
+
+    /** Fields sent as a list (checkboxes); every other field must be a single value. */
+    private const LIST_FIELDS = ['preferred_days', 'languages'];
+
     // 🆕 Weekend Ilm Program — প্রোগ্রামটি সম্পূর্ণ ফ্রি, তাই কোনো ফি কনস্ট্যান্ট নেই
     private const ALLOWED_WEEKEND_STATUS = ['existing', 'new'];
 
@@ -47,6 +53,7 @@ class IQU_Validator
     // ────────────────────────────────────────────────────
     public function validate_free(array $post): bool
     {
+        $post = self::input($post);
         $this->errors = [];
         $this->clean = ['form_type' => IQU_Database::FORM_FREE];
 
@@ -106,7 +113,7 @@ class IQU_Validator
 
         $this->v_whatsapp($post, 'whatsapp');
 
-        $this->clean['memorized'] = sanitize_textarea_field($post['memorized'] ?? '');
+        $this->clean['memorized'] = mb_substr(sanitize_textarea_field($post['memorized'] ?? ''), 0, 500);
 
         $teacher = strtolower(sanitize_text_field($post['teacher_pref'] ?? ''));
         if (!in_array($teacher, self::ALLOWED_TEACHER, true)) {
@@ -198,6 +205,7 @@ class IQU_Validator
     // ────────────────────────────────────────────────────
     public function validate_summer(array $post): bool
     {
+        $post = self::input($post);
         $this->errors = [];
         $this->clean = [];
 
@@ -300,9 +308,14 @@ class IQU_Validator
         } elseif ($fee === '30') {
             $amount = 30.0;
         } elseif ($fee === 'flexible') {
-            // JS থেকে পাঠানো payment_amount নিন
-            $posted_amount = floatval($post['payment_amount'] ?? 0);
-            $amount = $posted_amount > 0 ? $posted_amount : 0.0;
+            // The amount the family wrote ("$20"); "Requesting Free Enrollment" or anything else = 0. Never a posted number.
+            if (preg_match('/^\$?(\d+(?:\.\d{1,2})?)$/', $this->clean['flexible_fee_note'], $m)) {
+                $amount = (float) $m[1];
+                if ($amount > self::FLEXIBLE_MAX) {
+                    $this->errors['flexible_fee_note'] = 'Please enter an amount up to $' . self::FLEXIBLE_MAX . ', or contact us.';
+                    $amount = 0.0;
+                }
+            }
         } elseif ($fee === 'complimentary') {
             $amount = 0.0;
         }
@@ -342,6 +355,7 @@ class IQU_Validator
     // ────────────────────────────────────────────────────
     public function validate_weekend(array $post): bool
     {
+        $post = self::input($post);
         $this->errors = [];
         $this->clean  = [];
 
@@ -451,7 +465,7 @@ class IQU_Validator
         $this->clean[$key] = $val;
     }
 
-    private function v_whatsapp(array $post, string $key, string $label = 'WhatsApp number', string $error_key = null): void
+    private function v_whatsapp(array $post, string $key, string $label = 'WhatsApp number', ?string $error_key = null): void
     {
         $error_key = $error_key ?? $key;
         $wa = sanitize_text_field($post[$key] ?? '');
@@ -485,7 +499,31 @@ class IQU_Validator
             $this->errors[$error_key] = 'Please enter a valid ' . strtolower($label) . ' with country code (e.g. +1XXXXXXXXXX).';
         }
 
+        // The column holds 25 characters: a spelling with many spaces / dashes is stored as +digits (E.164).
+        $wa = preg_replace('/\s+/', ' ', $wa);
+        if (strlen($wa) > 25) $wa = '+' . $digits_only;
+
         $this->clean[$key] = $wa;
+    }
+
+    /**
+     * The submitted fields as plain values: WordPress's magic-quote slashes removed (wp_unslash), a list
+     * field keeps only its single values, and any other field sent as an array becomes empty (so a crafted
+     * first_name[]=x is a normal "required" error instead of a fatal TypeError).
+     */
+    private static function input(array $post): array
+    {
+        $post = wp_unslash($post);
+        foreach ($post as $k => $v) {
+            if (in_array($k, self::LIST_FIELDS, true)) {
+                $post[$k] = is_array($v) ? array_values(array_filter($v, 'is_string')) : [];
+            } elseif (is_array($v)) {
+                $post[$k] = '';
+            } elseif (!is_string($v)) {
+                $post[$k] = is_scalar($v) ? (string) $v : '';
+            }
+        }
+        return $post;
     }
 
     private function add_meta(): void

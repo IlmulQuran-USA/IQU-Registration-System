@@ -804,26 +804,10 @@ class IQU_Summer_Form
         IQU_Mailer::send_student_confirmation($clean);
         do_action('iqu_registration_created', $clean, (int) $reg_id);
 
-        // payment_amount — validator miss করলেও directly $_POST থেকে নাও
-        $payment_method = !empty($clean['payment_method'])
-            ? $clean['payment_method']
-            : sanitize_text_field($_POST['payment_method'] ?? '');
-
-        // Flexible + dollar amount case — validator miss করলেও নিশ্চিত করো
-        if (
-            empty($payment_method) &&
-            !empty($clean['admission_fee']) &&
-            $clean['admission_fee'] === 'flexible'
-        ) {
-            $payment_method = sanitize_text_field($_POST['payment_method'] ?? '');
-        }
-        // Build response — include a Zeffy redirect URL with prefilled amount
-        // Dollar sign সহ যেকোনো value থেকে numeric বের করো
-        $raw_amount = !empty($clean['payment_amount'])
-            ? $clean['payment_amount']
-            : sanitize_text_field($_POST['payment_amount'] ?? 0);
-
-        $payment_amount = (float) preg_replace('/[^0-9.]/', '', (string) $raw_amount);
+        // Payment method and amount: only what the validator accepted (zelle / zeffy, and the amount from the
+        // fee choice or the family's flexible note) — never a raw posted value.
+        $payment_method = (string) ($clean['payment_method'] ?? '');
+        $payment_amount = round((float) ($clean['payment_amount'] ?? 0), 2);
 
         $response = [
             'message' => "JazakAllahu Khairan! Your enrollment has been received. We will contact you via WhatsApp within 24–48 hours, in-sha'-Allah.",
