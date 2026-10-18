@@ -203,7 +203,7 @@ class IQU_Billing_Payments_Screen
                             $amt  = $paid ? (float) $r['amount_paid'] : (float) $r['amount_due'];
                             if ($r['status'] === 'paid') $total += (float) $r['amount_paid'];
                             $when = (string) ($r['paid_at'] ?: ($r['period_start'] ?: $r['created_at']));
-                            [$blabel, $btone] = IQU_Billing_History::badge($r);
+                            [$blabel, $btone] = IQU_Billing_History::badge($r, $a);
                             $receipt = IQU_Billing_History::safe_url($r['hosted_invoice_url']);
                             $pdf     = IQU_Billing_History::safe_url($r['invoice_pdf']); ?>
                             <tr>

@@ -61,7 +61,8 @@ class IQU_Billing_Summary
             $mode, gmdate('Y-m-d H:i:s', $now - DAY_IN_SECONDS)
         ));
 
-        $month_start = strtotime(gmdate('Y-m-01 00:00:00') . ' UTC');
+        // The month in the site time zone (00:00 UTC is 7 PM Central on the last day of the previous month).
+        $month_start = (new DateTimeImmutable('first day of this month midnight', wp_timezone()))->getTimestamp();
 
         return [
             'accounts'      => array_sum(array_column($by, 'n')),

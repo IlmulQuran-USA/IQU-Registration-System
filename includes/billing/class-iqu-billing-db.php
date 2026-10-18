@@ -652,7 +652,9 @@ class IQU_Billing_DB
     {
         global $wpdb;
         $row = $wpdb->get_row($wpdb->prepare(
-            'SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM ' . self::payments_table() . ' WHERE mode = %s AND paid_at >= %s AND paid_at < %s',
+            // Paid tuition only: not a fully refunded invoice, not a $0 free-month invoice ('' = an older row
+            // recorded before the payment history existed).
+            'SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM ' . self::payments_table() . " WHERE mode = %s AND paid_at >= %s AND paid_at < %s AND status IN ('paid', '') AND amount > 0",
             IQU_Stripe::expected_mode(), gmdate('Y-m-d H:i:s', $from), gmdate('Y-m-d H:i:s', $to)
         ), ARRAY_A);
         return ['count' => (int) ($row['n'] ?? 0), 'total' => round((float) ($row['total'] ?? 0), 2)];

@@ -154,7 +154,7 @@ class IQU_Billing_History
                 $status = $stripe_status;
         }
 
-        $line  = (array) ($invoice['lines']['data'][0]['period'] ?? []);
+        $line  = (array) (self::tuition_line($invoice)['period'] ?? []);
         $start = (int) ($line['start'] ?? $invoice['period_start'] ?? 0);
         $end   = (int) ($line['end'] ?? $invoice['period_end'] ?? 0);
         $paid_ts = in_array($status, ['paid', 'refunded'], true) ? (int) ($invoice['status_transitions']['paid_at'] ?? 0) : 0;
@@ -248,11 +248,30 @@ class IQU_Billing_History
         return $type !== '' ? ucfirst(str_replace('_', ' ', $type)) : '';
     }
 
-    /** Status badge for a history row: [label, chip tone] (tones: green, gold, red, neutral). */
-    public static function badge(array $r): array
+    /**
+     * The invoice line that is the month's tuition: the first line that is not a proration ("Unused time on …"
+     * after an amount change or a new sibling, whose period can start in an earlier month), else the first line.
+     * Stripe does not promise the order of lines, so the first line alone could file an invoice under the wrong month.
+     */
+    public static function tuition_line(array $invoice): array
+    {
+        $lines = (array) ($invoice['lines']['data'] ?? []);
+        foreach ($lines as $l) {
+            $proration = $l['proration'] ?? ($l['parent']['subscription_item_details']['proration'] ?? false);
+            if (!$proration) return (array) $l;
+        }
+        return (array) ($lines[0] ?? []);
+    }
+
+    /**
+     * Status badge for a history row: [label, chip tone] (tones: green, gold, red, neutral).
+     * $acc: the family's record — a $0 invoice is the free month only for a new student; for a current
+     * student (first invoice of an anchored subscription) it is "Nothing due".
+     */
+    public static function badge(array $r, ?array $acc = null): array
     {
         switch ((string) $r['status']) {
-            case 'paid':          return (float) $r['amount_due'] <= 0 ? ['Free month', 'neutral'] : ['Paid', 'green'];
+            case 'paid':          return (float) $r['amount_due'] <= 0 ? [($acc !== null && ($acc['student_type'] ?? '') !== 'new') ? 'Nothing due' : 'Free month', 'neutral'] : ['Paid', 'green'];
             case 'refunded':      return ['Refunded', 'neutral'];
             case 'failed':        return ['Failed', 'red'];
             case 'uncollectible': return ['Unpaid', 'red'];

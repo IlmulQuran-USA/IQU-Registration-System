@@ -93,7 +93,7 @@ class IQU_Mailer
     $rows = IQU_Reg_Fields::admin_rows($data, $id);
 
     // Submitted at
-    $rows[] = ['Submitted', date('M j, Y · g:i A (T)')];
+    $rows[] = ['Submitted', wp_date('M j, Y · g:i A (T)')]; // date() is UTC inside WordPress
 
     ob_start();
 ?>
@@ -177,7 +177,7 @@ class IQU_Mailer
 
     // Weekend-এও অভিভাবককেই সম্বোধন, কিন্তু নম্বরটা `whatsapp` কলামে
     $salutation = ($is_summer || $is_weekend)
-      ? ($data['guardian_name'] ?? $data['first_name'] ?? '')
+      ? (trim((string) ($data['guardian_name'] ?? '')) ?: ($data['first_name'] ?? '')) // an empty guardian name falls back too
       : ($data['first_name'] ?? '');
     $contact_wa = $is_summer ? ($data['guardian_whatsapp'] ?? '') : ($data['whatsapp'] ?? '');
 

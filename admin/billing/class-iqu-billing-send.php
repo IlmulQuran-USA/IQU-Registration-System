@@ -385,7 +385,7 @@ class IQU_Billing_Send
             </div>
         </div>
         <?php
-        self::family_history($history);
+        self::family_history($history, $acc);
         self::family_activity((int) $acc['id'], $history);
         ?>
         </div>
@@ -495,7 +495,7 @@ class IQU_Billing_Send
     }
 
     /** 4. Payment history: every tuition month, newest first, with yearly subtotals. */
-    private static function family_history(array $history): void
+    private static function family_history(array $history, ?array $acc = null): void
     {
         $years = [];
         foreach ($history as $r) $years[substr((string) $r['period_month'], 0, 4) ?: '—'][] = $r;
@@ -515,7 +515,7 @@ class IQU_Billing_Send
                 <?php foreach ($years as $year => $rows):
                     $due = 0.0; $paid = 0.0; ?>
                     <?php foreach ($rows as $r):
-                        [$blabel, $btone] = IQU_Billing_History::badge($r);
+                        [$blabel, $btone] = IQU_Billing_History::badge($r, $acc);
                         if ($r['status'] !== 'void') $due += (float) $r['amount_due'];
                         if ($r['status'] === 'paid') $paid += (float) $r['amount_paid'];
                         $receipt = IQU_Billing_History::safe_url($r['hosted_invoice_url']);
@@ -700,7 +700,7 @@ class IQU_Billing_Send
     private static function nice_utc(string $mysql_utc): string
     {
         $ts = strtotime($mysql_utc . ' UTC');
-        return $ts ? gmdate('j F Y', $ts) : '—';
+        return $ts ? wp_date('j F Y', $ts) : '—';
     }
 
     /**

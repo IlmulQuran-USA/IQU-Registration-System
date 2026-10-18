@@ -417,11 +417,11 @@ class IQU_Billing_Portal
         foreach ($years as $year => $rows) {
             $h .= '<h3 class="year">' . esc_html($year) . '</h3><ul class="hist">';
             foreach ($rows as $i) {
-                [$label, $tone] = IQU_Billing_History::badge($i);
+                [$label, $tone] = IQU_Billing_History::badge($i, $acc);
                 $paid = in_array($i['status'], ['paid', 'refunded'], true);
                 $amt  = $paid ? (float) $i['amount_paid'] : (float) $i['amount_due'];
                 if ($paid && (float) $i['amount_due'] > 0) {
-                    $when = $i['paid_at'] ? 'Paid ' . gmdate('j M', (int) strtotime($i['paid_at'] . ' UTC')) : 'Paid';
+                    $when = $i['paid_at'] ? 'Paid ' . wp_date('j M', (int) strtotime($i['paid_at'] . ' UTC')) : 'Paid'; // the family's calendar day, not UTC
                 } elseif ($paid) {
                     $when = 'Nothing to pay';
                 } elseif (in_array($i['status'], ['open', 'failed'], true)) {
@@ -521,7 +521,7 @@ class IQU_Billing_Portal
     private static function nice_date(?string $mysql_utc): string
     {
         $ts = $mysql_utc ? strtotime($mysql_utc . ' UTC') : 0;
-        return $ts ? gmdate('j F Y', $ts) : '—';
+        return $ts ? wp_date('j F Y', $ts) : '—';
     }
 
     private static function contact_link(): string

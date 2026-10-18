@@ -187,7 +187,7 @@ class IQU_Billing_Webhook
                     $next    = !empty($inv['next_payment_attempt']) ? (int) $inv['next_payment_attempt'] : null;
                     IQU_Billing_DB::update_account($id, [
                         'last_payment_status' => 'failed',
-                        'last_failure_reason' => substr('Attempt ' . $attempt . ($next ? ', next try ' . gmdate('j M', $next) : ', no more automatic attempts'), 0, 255),
+                        'last_failure_reason' => substr('Attempt ' . $attempt . ($next ? ', next try ' . wp_date('j M', $next) : ', no more automatic attempts'), 0, 255),
                     ]);
                     IQU_Billing_Notify::payment_failed(IQU_Billing_DB::get_account($id) ?: $acc, $amount, $attempt, $next, $inv);
                 }

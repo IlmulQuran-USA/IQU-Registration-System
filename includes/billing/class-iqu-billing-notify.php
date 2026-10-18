@@ -101,14 +101,15 @@ class IQU_Billing_Notify
     /** "October 2026 tuition" from the invoice line period. */
     private static function period(array $inv): string
     {
-        $start = (int) ($inv['lines']['data'][0]['period']['start'] ?? $inv['period_start'] ?? 0);
-        return $start ? gmdate('F Y', $start) . ' tuition' : '';
+        // The tuition month as Reports file it (the non-proration line, the site's calendar).
+        $start = (int) (IQU_Billing_History::tuition_line($inv)['period']['start'] ?? $inv['period_start'] ?? 0);
+        return $start ? IQU_Billing_History::month_label(IQU_Billing_History::month_of($start)) . ' tuition' : '';
     }
 
     private static function day(?string $mysql_utc): string
     {
         $ts = $mysql_utc ? strtotime($mysql_utc . ' UTC') : 0;
-        return $ts ? gmdate('j M Y', $ts) : '—';
+        return $ts ? wp_date('j M Y', $ts) : '—';
     }
 
     /** Title, then the money lines, then who it is, then links. */
