@@ -577,6 +577,37 @@ class IQU_Database
      * Set the status of one registration without touching its admin note
      * (update_status() replaces the note). Used by the enrollment flow.
      */
+    /**
+     * Atomic status change: only when the row is still in one of $from (one UPDATE … WHERE status IN).
+     * True when this request made the change — a second webhook delivery or a parallel request gets
+     * false, so welcome emails, Telegram and Meta events are sent once.
+     */
+    public static function transition_status(int $id, array $from, string $to): bool
+    {
+        global $wpdb;
+        if (!in_array($to, self::STATUSES, true) || !$from || !self::status_allowed_for($id, $to)) return false;
+        $in = implode(', ', array_fill(0, count($from), '%s'));
+        $n  = $wpdb->query($wpdb->prepare(
+            'UPDATE ' . $wpdb->prefix . IQU_TABLE_NAME . " SET status = %s WHERE id = %d AND status IN ($in)",
+            array_merge([$to, $id], array_values($from))
+        ));
+        return $n === 1;
+    }
+
+    /**
+     * Claim a reminder before sending it: sets $set bits in reminders_sent only while $unless is not
+     * set yet. True for the one request that claimed it (WP-Cron can run twice at the same time).
+     */
+    public static function claim_reminder(int $id, int $set, int $unless): bool
+    {
+        global $wpdb;
+        $n = $wpdb->query($wpdb->prepare(
+            'UPDATE ' . $wpdb->prefix . IQU_TABLE_NAME . ' SET reminders_sent = (reminders_sent | %d) WHERE id = %d AND (reminders_sent & %d) = 0',
+            $set, $id, $unless
+        ));
+        return $n === 1;
+    }
+
     public static function set_status(int $id, string $status): bool
     {
         global $wpdb;

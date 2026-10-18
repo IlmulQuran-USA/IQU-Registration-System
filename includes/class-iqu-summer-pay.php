@@ -94,7 +94,7 @@ class IQU_Summer_Pay
         $reg = IQU_Database::get_registration($reg_id);
         $co  = $reg ? self::create_session($reg, 'v1') : ['ok' => false, 'error' => 'registration not found'];
         if (empty($co['ok'])) {
-            error_log('[IQU] Summer payment page could not open for #' . $reg_id . ': ' . ($co['error'] ?? ''));
+            error_log('[IQU] Summer payment page could not open for #' . $reg_id . ' (' . ((string) ($co['code'] ?? '') ?: 'no code') . ')');
             IQU_Database::set_status($reg_id, 'pending_review');
             IQU_Database::add_review_reason($reg_id, 'payment_setup');
             $response['message'] = IQU_Enrollment::THANKS_REVIEW;
@@ -111,10 +111,17 @@ class IQU_Summer_Pay
      */
     public static function create_session(array $reg, string $attempt): array
     {
-        $fail  = fn(string $e) => ['ok' => false, 'url' => '', 'id' => '', 'error' => $e];
+        $fail  = fn(string $e, string $code = '') => ['ok' => false, 'url' => '', 'id' => '', 'error' => $e, 'code' => $code];
         $cents = IQU_Billing_Pricing::to_cents((float) $reg['payment_amount']);
         if ($cents < 100) return $fail('amount below 1.00');
         $id    = (int) $reg['id'];
+        // One open payment page per registration: close the previous one first (Stripe refuses an already
+        // closed or paid page — that is fine). Its id goes into the idempotency key below.
+        $prev = (string) ($reg['pay_session_id'] ?? '');
+        if (preg_match('/^cs_[A-Za-z0-9_]+$/', $prev)) {
+            IQU_Stripe::post('/checkout/sessions/' . $prev . '/expire', []);
+            $attempt .= '-' . substr($prev, -10);
+        }
         $mode  = IQU_Stripe::expected_mode();
         $first = trim((string) $reg['first_name']);
         $meta  = ['iqu_kind' => 'summer', 'iqu_registration_id' => (string) $id, 'iqu_mode' => $mode];
@@ -146,7 +153,7 @@ class IQU_Summer_Pay
             'managed_payments'     => ['enabled' => false],
         ], 'iqu-summer-' . $mode . '-' . $id . '-' . $attempt);
 
-        if (!$res['ok'] || empty($res['data']['url']) || empty($res['data']['id'])) return $fail((string) $res['error']);
+        if (!$res['ok'] || empty($res['data']['url']) || empty($res['data']['id'])) return $fail((string) $res['error'], (string) ($res['code'] ?? ''));
         IQU_Database::update_enrollment($id, ['pay_session_id' => substr((string) $res['data']['id'], 0, 100)]);
         return ['ok' => true, 'url' => (string) $res['data']['url'], 'id' => (string) $res['data']['id'], 'error' => ''];
     }
@@ -177,7 +184,6 @@ class IQU_Summer_Pay
         elseif (($s['mode'] ?? '') !== 'payment')                                    $problem = 'not a one-time payment';
         elseif (($s['payment_status'] ?? '') !== 'paid')                             $problem = 'not paid';
         elseif (strtolower((string) ($s['currency'] ?? '')) !== 'usd')               $problem = 'currency';
-        elseif ((string) $reg['pay_session_id'] !== (string) ($s['id'] ?? ''))       $problem = 'session id does not match the registration';
         elseif ((int) ($s['amount_total'] ?? -1) !== IQU_Billing_Pricing::to_cents((float) $reg['payment_amount'])) $problem = 'amount does not match the summer fee';
 
         if ($problem !== '') {
@@ -189,10 +195,22 @@ class IQU_Summer_Pay
             ], 'Not marked as paid. Please check in Stripe.');
             return ['summer_mismatch', null, substr($problem, 0, 255)];
         }
-        if ($reg['payment_status'] === 'paid') return ['summer_already_paid', null, 'IQU-' . $id];
-
         $pi = $s['payment_intent'] ?? null;
         $pi_id = is_array($pi) ? (string) ($pi['id'] ?? '') : (string) $pi;
+        if ($reg['payment_status'] === 'paid') {
+            // The same payment again (a repeated event): nothing to do. A second, different payment for
+            // the same place (two pages paid): tell the team so one can be refunded.
+            if ($pi_id !== '' && $pi_id !== (string) $reg['transaction_id']) {
+                self::telegram('⚠️ Summer place paid twice', [
+                    'Registration' => IQU_Telegram::link(admin_url('admin.php?page=iqu-view-registration&id=' . $id), '#' . $id),
+                    'Second payment' => IQU_Telegram::esc($pi_id),
+                ], 'This place was already paid. Please refund one of the two payments in Stripe.');
+                return ['summer_paid_twice', null, 'IQU-' . $id . ' ' . substr($pi_id, 0, 40)];
+            }
+            return ['summer_already_paid', null, 'IQU-' . $id];
+        }
+        // A11: the team cancelled this registration — record the money, keep it cancelled, and ask the team.
+        $cancelled = (string) $reg['status'] === 'cancelled';
         $amount = ((int) $s['amount_total']) / 100;
         IQU_Database::update_payment($id, [
             'payment_status' => 'paid',
@@ -200,6 +218,13 @@ class IQU_Summer_Pay
             'transaction_id' => substr($pi_id, 0, 100),
             'payment_method' => 'stripe',
         ]);
+        if ($cancelled) {
+            self::telegram('⚠️ Summer payment for a cancelled registration', [
+                'Registration' => IQU_Telegram::link(admin_url('admin.php?page=iqu-view-registration&id=' . $id), '#' . $id),
+                'Amount'       => IQU_Telegram::esc(IQU_Pricing::format($amount)),
+            ], 'The registration stays Cancelled. Please refund the payment or reinstate the registration.');
+            return ['summer_cancelled', null, 'IQU-' . $id];
+        }
         IQU_Database::set_status($id, 'paid');
         $reg = IQU_Database::get_registration($id) ?: $reg;
 
@@ -296,14 +321,17 @@ class IQU_Summer_Pay
         $sig = (string) ($_GET['s'] ?? '');
         $key = 'iqu_pay_' . substr(hash_hmac('sha256', class_exists('IQU_Geo') ? IQU_Geo::client_ip() : '', wp_salt('nonce')), 0, 32);
         $n = (int) get_transient($key);
-        if ($n >= self::RL_MAX) self::page('Please try again later', 'Too many attempts. Please wait a while and try again.');
+        if ($n >= self::RL_MAX) self::page('Please try again later', 'Too many attempts. Please wait a while and try again.', '', '', 429);
         set_transient($key, $n + 1, HOUR_IN_SECONDS);
 
         $reg = ($id && self::sig_ok($id, $sig)) ? IQU_Database::get_registration($id) : null;
         if (!$reg || $reg['payment_method'] !== 'stripe' || !in_array($reg['form_type'], [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true)) {
-            self::page('Link not valid', 'This payment link is not valid. Please contact us at ' . IQU_CONTACT_EMAIL . '.');
+            self::page('Link not valid', 'This payment link is not valid. Please contact us at ' . IQU_CONTACT_EMAIL . '.', '', '', 404);
         }
         $kid = trim((string) $reg['first_name']);
+        if ((string) $reg['status'] === 'cancelled' && $reg['payment_status'] !== 'paid') {
+            self::page('Enrollment cancelled', 'This enrollment was cancelled, so there is nothing to pay. If you think this is a mistake, please contact us at ' . IQU_CONTACT_EMAIL . '.');
+        }
         if ($reg['payment_status'] === 'paid') {
             self::page('Payment received', "JazakAllahu Khairan! The payment for {$kid}'s Summer Ilm Camp place has been received. A confirmation email is on its way.");
         }
@@ -326,10 +354,16 @@ class IQU_Summer_Pay
     }
 
     /** Minimal page (no scripts), then stop. */
-    private static function page(string $title, string $text, string $button_url = '', string $button = ''): void
+    private static function page(string $title, string $text, string $button_url = '', string $button = '', int $status = 200): void
     {
-        status_header(200);
+        // Nothing another plugin buffered (optimizer / analytics scripts) may reach this page: the link's
+        // signature is in the address bar.
+        while (ob_get_level() > 0) ob_end_clean();
+        status_header($status);
         header('Content-Type: text/html; charset=utf-8');
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; base-uri 'none'");
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             . '<meta name="robots" content="noindex,nofollow"><title>' . esc_html($title) . ' — Ilm-ul-Quran USA</title>'
             . '<style>body{margin:0;background:#F1F1F4;color:#15303F;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}'
@@ -350,13 +384,13 @@ class IQU_Summer_Pay
     {
         global $wpdb;
         $rows = $wpdb->get_results($wpdb->prepare(
-            'SELECT * FROM ' . $wpdb->prefix . IQU_TABLE_NAME . ' WHERE form_type IN (%s, %s) AND payment_method = %s AND payment_status = %s AND created_at <= %s ORDER BY id LIMIT 200',
-            IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2, 'stripe', 'stripe_pending', gmdate('Y-m-d H:i:s', $now - DAY_IN_SECONDS)
+            // Filtered in SQL: rows already reminded (or cancelled / in review / paid) never fill the batch.
+            'SELECT * FROM ' . $wpdb->prefix . IQU_TABLE_NAME . " WHERE form_type IN (%s, %s) AND payment_method = %s AND payment_status = %s AND created_at <= %s AND (reminders_sent & %d) = 0 AND status NOT IN ('pending_review', 'cancelled', 'paid') ORDER BY id LIMIT 200",
+            IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2, 'stripe', 'stripe_pending', gmdate('Y-m-d H:i:s', $now - DAY_IN_SECONDS), IQU_Enrollment::BIT_SUMMER
         ), ARRAY_A) ?: [];
         foreach ($rows as $reg) {
-            $bits = (int) $reg['reminders_sent'];
-            if ($bits & IQU_Enrollment::BIT_SUMMER) continue;
-            if (in_array($reg['status'], ['pending_review', 'cancelled', 'paid'], true)) continue;
+            // Claimed first (one UPDATE): a second cron run at the same time sends nothing.
+            if (!IQU_Database::claim_reminder((int) $reg['id'], IQU_Enrollment::BIT_SUMMER, IQU_Enrollment::BIT_SUMMER)) continue;
             $to  = (string) $reg['email'];
             $kid = trim((string) $reg['first_name']);
             if (is_email($to)) {
@@ -382,7 +416,6 @@ class IQU_Summer_Pay
                     ],
                 ]);
             }
-            IQU_Database::update_enrollment((int) $reg['id'], ['reminders_sent' => $bits | IQU_Enrollment::BIT_SUMMER]);
         }
     }
 

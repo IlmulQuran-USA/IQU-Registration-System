@@ -536,7 +536,7 @@ class IQU_Billing_Service
         $previous_closed = self::expire_open_session($acc);
 
         $res = IQU_Stripe::post('/checkout/sessions', $params);
-        if (!$res['ok'] || empty($res['data']['url'])) return $fail('Could not open the payment page: ' . $res['error']);
+        if (!$res['ok'] || empty($res['data']['url'])) return $fail('Could not open the payment page: ' . $res['error']) + ['code' => (string) ($res['code'] ?? '')];
         $set = [
             'checkout_session_id' => substr((string) ($res['data']['id'] ?? ''), 0, 100),
             'checkout_amount'     => round($cents / 100, 2),

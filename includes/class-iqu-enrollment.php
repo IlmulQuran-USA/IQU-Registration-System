@@ -174,14 +174,14 @@ class IQU_Enrollment
         }
 
         $res = IQU_Billing_Service::create_account([$reg_id], []);
-        if (!$res['ok']) return self::fallback($reg_id, $clean, $response, implode(' ', $res['errors']));
+        if (!$res['ok']) return self::fallback($reg_id, $clean, $response, 'billing account not created');
 
         $acc = IQU_Billing_DB::get_account((int) $res['account_id']);
         if (!$acc) return self::fallback($reg_id, $clean, $response, 'billing account not readable');
         IQU_Database::update_enrollment($reg_id, ['billing_account_id' => (int) $acc['id']]);
 
         $co = IQU_Billing_Service::create_checkout_session($acc, ['success_args' => ['enrolled' => '1']]);
-        if (!$co['ok']) return self::fallback($reg_id, $clean, $response, $co['error']);
+        if (!$co['ok']) return self::fallback($reg_id, $clean, $response, 'checkout page not created (' . ((string) ($co['code'] ?? '') ?: 'no code') . ')');
         IQU_Database::update_enrollment($reg_id, ['pay_session_id' => substr((string) ($co['id'] ?? ''), 0, 100)]);
 
         self::telegram('🕓 Enrollment started — card pending', self::reg_rows($clean, $reg_id) + [
@@ -193,6 +193,7 @@ class IQU_Enrollment
         return $response;
     }
 
+    /** $why: a fixed reason (and a Stripe error code) — never a name, email or Stripe's message. */
     private static function fallback(int $reg_id, array $clean, array $response, string $why): array
     {
         error_log('[IQU] Enrollment card step could not start for #' . $reg_id . ': ' . $why);
@@ -232,8 +233,13 @@ class IQU_Enrollment
             foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
                 $reg = IQU_Database::get_registration((int) $m['registration_id']);
                 // Website enrollments only: admin / import rows get no welcome email, Meta event or Telegram here.
-                if ($reg && $reg['status'] === 'card_pending' && IQU_Database::is_public_row($reg) && IQU_Database::set_status((int) $reg['id'], 'enrolled')) {
+                if (!$reg || !IQU_Database::is_public_row($reg) || !in_array($reg['status'], ['card_pending', 'expired'], true)) continue;
+                // A family who adds the card after the 7-day expiry is charged too, so they are enrolled
+                // as well. One atomic change: a repeated webhook or a parallel "Mark as reviewed" gets false.
+                $was = (string) $reg['status'];
+                if (IQU_Database::transition_status((int) $reg['id'], ['card_pending', 'expired'], 'enrolled')) {
                     $reg['status'] = 'enrolled';
+                    $reg['_was_expired'] = $was === 'expired';
                     $done[] = $reg;
                 }
             }
@@ -259,7 +265,8 @@ class IQU_Enrollment
                 'Monthly'      => IQU_Telegram::esc(IQU_Pricing::format((float) $acc['net_amount'])),
                 'First charge' => IQU_Telegram::esc($first ? wp_date('j M Y', (int) strtotime($first . ' UTC')) : '—'),
                 'Method'       => IQU_Telegram::esc((string) ($acc['payment_method_label'] ?: $method)),
-            ], 'Card or bank confirmed by Stripe.' . (IQU_Billing_Service::has_free_first_month($acc) ? ' First month free.' : ' No free month (existing student).'));
+            ], 'Card or bank confirmed by Stripe.' . (IQU_Billing_Service::has_free_first_month($acc) ? ' First month free.' : ' No free month (existing student).')
+               . (array_filter(array_column($done, '_was_expired')) ? ' Finished after the 7-day window (was Expired).' : ''));
 
             if ($country !== '' && !in_array($country, ['US', 'CA'], true)) {
                 foreach ($done as $reg) IQU_Database::add_review_reason((int) $reg['id'], 'card_country');
@@ -335,10 +342,22 @@ class IQU_Enrollment
         global $wpdb;
         if (!IQU_Database::schema_ready()) return;
         $now = self::now();
-        $rows = $wpdb->get_results($wpdb->prepare(
-            'SELECT * FROM ' . $wpdb->prefix . IQU_TABLE_NAME . ' WHERE form_type = %s AND status = %s AND created_at <= %s ORDER BY id LIMIT 200',
-            IQU_Database::FORM_FREE, 'card_pending', gmdate('Y-m-d H:i:s', $now - DAY_IN_SECONDS)
+        $t   = $wpdb->prefix . IQU_TABLE_NAME;
+        $expire_before = gmdate('Y-m-d H:i:s', $now - self::EXPIRE_DAYS * DAY_IN_SECONDS);
+        // Due for a reminder: 1–7 days old and the last (72 h) reminder not sent yet.
+        $remind = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$t} WHERE form_type = %s AND status = %s AND created_at <= %s AND created_at > %s AND (reminders_sent & %d) = 0 ORDER BY id LIMIT 200",
+            IQU_Database::FORM_FREE, 'card_pending', gmdate('Y-m-d H:i:s', $now - DAY_IN_SECONDS), $expire_before, self::BIT_72H
         ), ARRAY_A) ?: [];
+        // Due to expire: over 7 days old, and no card or bank on file yet (those wait for the webhook / a review
+        // and must not fill the batch for good).
+        $expire = class_exists('IQU_Billing_DB') ? ($wpdb->get_results($wpdb->prepare(
+            "SELECT r.* FROM {$t} r WHERE r.form_type = %s AND r.status = %s AND r.created_at <= %s AND NOT EXISTS ("
+            . 'SELECT 1 FROM ' . IQU_Billing_DB::members_table() . ' m JOIN ' . IQU_Billing_DB::accounts_table() . " a ON a.id = m.account_id
+               WHERE m.registration_id = r.id AND m.mode = %s AND COALESCE(a.stripe_subscription_id, '') <> '') ORDER BY r.id LIMIT 200",
+            IQU_Database::FORM_FREE, 'card_pending', $expire_before, IQU_Stripe::expected_mode()
+        ), ARRAY_A) ?: []) : [];
+        $rows = array_merge($expire, $remind);
 
         foreach ($rows as $reg) {
             // Card reminders and the 7-day expiry are for website enrollments only.
@@ -357,12 +376,11 @@ class IQU_Enrollment
             // Card already added (the webhook will complete it), or no account to link to: no reminder.
             if (!$acc || !empty($acc['stripe_subscription_id']) || in_array((string) $acc['status'], self::ACTIVE, true)) continue;
 
+            // Claim first (one UPDATE), send only when this run claimed it.
             if ($age >= 72 * HOUR_IN_SECONDS && !($bits & self::BIT_72H)) {
-                self::reminder_email($reg, $acc, true);
-                IQU_Database::update_enrollment($id, ['reminders_sent' => $bits | self::BIT_72H | self::BIT_24H]);
+                if (IQU_Database::claim_reminder($id, self::BIT_72H | self::BIT_24H, self::BIT_72H)) self::reminder_email($reg, $acc, true);
             } elseif ($age < 72 * HOUR_IN_SECONDS && !($bits & self::BIT_24H)) {
-                self::reminder_email($reg, $acc, false);
-                IQU_Database::update_enrollment($id, ['reminders_sent' => $bits | self::BIT_24H]);
+                if (IQU_Database::claim_reminder($id, self::BIT_24H, self::BIT_24H)) self::reminder_email($reg, $acc, false);
             }
         }
 
