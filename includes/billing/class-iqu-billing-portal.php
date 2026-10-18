@@ -76,7 +76,7 @@ class IQU_Billing_Portal
 
     private static function handle_get(): void
     {
-        $token = isset($_GET['t']) ? (string) wp_unslash($_GET['t']) : '';
+        $token = isset($_GET['t']) && is_string($_GET['t']) ? (string) wp_unslash($_GET['t']) : '';
         if ($token === '') self::render_find();
 
         if (self::limited('bad_' . self::ip(), self::RL_BAD, 15 * MINUTE_IN_SECONDS, false)) {
@@ -111,11 +111,15 @@ class IQU_Billing_Portal
             self::page('Not allowed', '<p>This request was refused.</p>');
         }
 
-        $do = (string) ($_POST['do'] ?? '');
+        $do = is_string($_POST['do'] ?? null) ? (string) $_POST['do'] : '';
 
         if ($do === 'find') self::handle_find();
 
-        $token = (string) wp_unslash($_POST['t'] ?? '');
+        // The same limit as the page itself: after too many bad links from this address, no more lookups.
+        if (self::limited('bad_' . self::ip(), self::RL_BAD, 15 * MINUTE_IN_SECONDS, false)) {
+            self::page('Too many attempts', '<p>Please wait a few minutes and try again.</p>');
+        }
+        $token = is_string($_POST['t'] ?? null) ? (string) wp_unslash($_POST['t']) : '';
         $acc   = IQU_Billing_Service::account_for_token($token);
         if (!$acc) {
             self::limited('bad_' . self::ip(), self::RL_BAD, 15 * MINUTE_IN_SECONDS, true);

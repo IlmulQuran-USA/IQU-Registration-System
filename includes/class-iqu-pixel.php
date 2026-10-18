@@ -132,7 +132,8 @@ class IQU_Pixel
             }
             $code = (int) wp_remote_retrieve_response_code($response);
             if ($code !== 200) {
-                error_log('[IQU Pixel] CAPI HTTP ' . $code . ' — ' . wp_remote_retrieve_body($response));
+                $err = json_decode((string) wp_remote_retrieve_body($response), true)['error'] ?? [];
+                error_log('[IQU Pixel] CAPI HTTP ' . $code . ' — ' . (is_array($err) ? trim(($err['type'] ?? '') . ' ' . ($err['code'] ?? '') . '/' . ($err['error_subcode'] ?? ''), ' /') : 'error'));
             }
         } catch (\Throwable $e) {
             error_log('[IQU Pixel] Unexpected error: ' . $e->getMessage());

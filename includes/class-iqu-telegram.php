@@ -113,7 +113,15 @@ class IQU_Telegram
         if (mb_strlen($text) <= self::MAX_LENGTH) {
             return $text;
         }
-        return mb_substr($text, 0, self::MAX_LENGTH - 20) . "\n\n… (truncated)";
+        $cut = mb_substr($text, 0, self::MAX_LENGTH - 40);
+        // Never end inside a tag or an entity, and close the tags left open (HTML parse mode refuses broken markup).
+        $cut = preg_replace(['/<[^>]*$/', '/&[#A-Za-z0-9]*$/'], '', $cut);
+        foreach (['a', 'b', 'strong', 'i', 'em', 'u', 's', 'code', 'pre'] as $tag) {
+            $open = preg_match_all('/<' . $tag . '(\s[^>]*)?>/i', $cut);
+            $shut = preg_match_all('/<\/' . $tag . '>/i', $cut);
+            if ($open > $shut) $cut .= str_repeat('</' . $tag . '>', $open - $shut);
+        }
+        return $cut . "\n\n… (truncated)";
     }
 
     /**

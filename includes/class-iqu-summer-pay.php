@@ -311,14 +311,14 @@ class IQU_Summer_Pay
 
     public static function maybe_handle_link(): void
     {
-        if (($_GET[self::PAY_ARG] ?? '') !== 'summer') return;
+        if (!is_string($_GET[self::PAY_ARG] ?? null) || $_GET[self::PAY_ARG] !== 'summer') return;
         if (!defined('DONOTCACHEPAGE')) define('DONOTCACHEPAGE', true);
         nocache_headers();
         header('X-Robots-Tag: noindex, nofollow');
         header('Referrer-Policy: no-referrer');
 
         $id  = absint($_GET['r'] ?? 0);
-        $sig = (string) ($_GET['s'] ?? '');
+        $sig = is_string($_GET['s'] ?? null) ? (string) $_GET['s'] : '';
         $key = 'iqu_pay_' . substr(hash_hmac('sha256', class_exists('IQU_Geo') ? IQU_Geo::client_ip() : '', wp_salt('nonce')), 0, 32);
         $n = (int) get_transient($key);
         if ($n >= self::RL_MAX) self::page('Please try again later', 'Too many attempts. Please wait a while and try again.', '', '', 429);

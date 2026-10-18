@@ -53,7 +53,7 @@ class IQU_Billing_Page
     /** Hand chart definitions to admin/js/billing.js (call while rendering a billing screen). */
     public static function chart_data(array $charts): void
     {
-        wp_add_inline_script('iqu-billing-js', 'window.IQU_BILLING = ' . wp_json_encode(['charts' => array_values($charts)]) . ';', 'before');
+        wp_add_inline_script('iqu-billing-js', 'window.IQU_BILLING = ' . wp_json_encode(['charts' => array_values($charts)], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS) . ';', 'before');
     }
 
     public static function register(): void

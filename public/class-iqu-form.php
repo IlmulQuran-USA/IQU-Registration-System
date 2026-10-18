@@ -55,16 +55,16 @@ class IQU_Form
 
         wp_enqueue_style(
             'flatpickr-css',
-            'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+            'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css', // pinned: a new npm release never reaches the form unseen
             [],
-            null
+            '4.6.13'
         );
 
         wp_enqueue_script(
             'flatpickr-js',
-            'https://cdn.jsdelivr.net/npm/flatpickr',
+            'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js',
             [],
-            null,
+            '4.6.13',
             true
         );
 

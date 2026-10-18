@@ -497,7 +497,7 @@ class IQU_Billing_Add_Student
             if ($email === '' || isset($families[$email])) continue;
             $families[$email] = ['label' => IQU_Billing_Page::family_label($acc), 'url' => IQU_Billing_Page::family_url((int) $acc['id'])];
         }
-        wp_add_inline_script('iqu-billing-js', 'window.IQU_BILLING_ADD = ' . wp_json_encode(['pricing' => $pricing, 'families' => $families]) . ';', 'before');
+        wp_add_inline_script('iqu-billing-js', 'window.IQU_BILLING_ADD = ' . wp_json_encode(['pricing' => $pricing, 'families' => $families], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS) . ';', 'before');
 
         $x          = is_array($old['extra'] ?? null) ? $old['extra'] : [];
         $xv         = fn($k) => esc_attr((string) ($x[$k] ?? ''));

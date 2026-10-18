@@ -219,7 +219,13 @@ class IQU_Geo
     private static function writable_dir(): string
     {
         $dir = self::primary_dir();
-        if ((@is_dir($dir) || @wp_mkdir_p($dir)) && @is_writable($dir)) return $dir;
+        if ((@is_dir($dir) || @wp_mkdir_p($dir)) && @is_writable($dir)) {
+            // Normally outside the web root; when WordPress is installed in a subfolder it is not — deny downloads
+            // there as well (Apache; on Nginx see the deployment checklist).
+            if (!is_file($dir . '.htaccess')) @file_put_contents($dir . '.htaccess', "Require all denied\n");
+            if (!is_file($dir . 'index.php')) @file_put_contents($dir . 'index.php', '');
+            return $dir;
+        }
 
         $dir = self::fallback_dir();
         if (!(@is_dir($dir) || @wp_mkdir_p($dir)) || !@is_writable($dir)) return '';
