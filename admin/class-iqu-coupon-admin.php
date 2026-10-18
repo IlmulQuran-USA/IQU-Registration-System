@@ -627,13 +627,14 @@ class IQU_Coupon_Admin
         }
         check_admin_referer('iqu_create_coupon');
 
-        $occasion    = sanitize_text_field($_POST['occasion_name'] ?? '');
-        $course_type = sanitize_text_field($_POST['course_type'] ?? '');
-        $type        = sanitize_text_field($_POST['discount_type'] ?? '');
-        $value       = (float) ($_POST['discount_value'] ?? 0);
-        $expire      = sanitize_text_field($_POST['expire_date'] ?? '');
-        $max_uses    = absint($_POST['max_uses'] ?? 1);
-        $description = sanitize_textarea_field($_POST['description'] ?? '');
+        $post        = wp_unslash($_POST); // "Eid's gift" was saved as "Eid\'s gift"
+        $occasion    = sanitize_text_field($post['occasion_name'] ?? '');
+        $course_type = sanitize_text_field($post['course_type'] ?? '');
+        $type        = sanitize_text_field($post['discount_type'] ?? '');
+        $value       = (float) ($post['discount_value'] ?? 0);
+        $expire      = sanitize_text_field($post['expire_date'] ?? '');
+        $max_uses    = min(9999, absint($post['max_uses'] ?? 1)); // the form allows up to 9,999
+        $description = sanitize_textarea_field($post['description'] ?? '');
 
         // ── ভ্যালিডেশন ──
         $valid_types = [IQU_Coupon_DB::TYPE_PERCENTAGE, IQU_Coupon_DB::TYPE_FIXED];
@@ -650,6 +651,8 @@ class IQU_Coupon_Admin
         // শতকরা কখনোই ১০০-এর বেশি নয়
         if ($type === IQU_Coupon_DB::TYPE_PERCENTAGE) {
             $value = min(100.00, $value);
+        } else {
+            $value = min(10000.00, round($value, 2)); // fixed amount: the form's limit, also on the server
         }
 
         // তারিখ যাচাই — অতীতের তারিখ গ্রহণ করা হবে না

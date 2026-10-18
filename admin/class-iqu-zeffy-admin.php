@@ -100,7 +100,8 @@ class IQU_Zeffy_Admin
 
         // Only persist to the DB when the value is not locked by a constant.
         if (!IQU_Zeffy_API::key_is_locked() && isset($_POST['iqu_zeffy_api_key'])) {
-            $key = trim(sanitize_text_field(wp_unslash($_POST['iqu_zeffy_api_key'])));
+            // A token is kept exactly as pasted (sanitize_text_field strips %xx sequences); only whitespace and control characters go.
+            $key = preg_replace('/[\s\x00-\x1F\x7F]+/', '', (string) wp_unslash($_POST['iqu_zeffy_api_key']));
             // An all-bullet value means "unchanged" — the field renders masked.
             if ($key !== '' && strpos($key, '•') === false) {
                 update_option(IQU_Zeffy_API::OPT_API_KEY, $key, false);
@@ -110,7 +111,7 @@ class IQU_Zeffy_Admin
         }
 
         if (!IQU_Zeffy_Webhook::secret_is_locked() && isset($_POST['iqu_zeffy_webhook_secret'])) {
-            $secret = trim(sanitize_text_field(wp_unslash($_POST['iqu_zeffy_webhook_secret'])));
+            $secret = preg_replace('/[\s\x00-\x1F\x7F]+/', '', (string) wp_unslash($_POST['iqu_zeffy_webhook_secret']));
             if ($secret !== '' && strpos($secret, '•') === false) {
                 update_option(IQU_Zeffy_Webhook::OPT_SECRET, $secret, false);
             } elseif ($secret === '') {

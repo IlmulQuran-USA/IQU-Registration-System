@@ -193,7 +193,7 @@
           action: "iqu_update_status",
           id: id,
           status: status,
-          note: "",
+          // no note: a status change from the list keeps the admin note
           _wpnonce: IQU_Admin.nonce_status,
         },
         function (res) {

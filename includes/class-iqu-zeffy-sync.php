@@ -97,7 +97,31 @@ class IQU_Zeffy_Sync
      *
      * @return array Result summary.
      */
+    /** One sync at a time (atomic): cron, "Sync now" and "Import full history" never overlap. */
+    private static function lock(): bool
+    {
+        if (add_option('iqu_zeffy_sync_lock', time(), '', 'no')) return true;
+        if ((int) get_option('iqu_zeffy_sync_lock') > time() - 15 * MINUTE_IN_SECONDS) return false;
+        update_option('iqu_zeffy_sync_lock', time(), 'no'); // a run that died long ago
+        return true;
+    }
+
+    private static function busy(string $mode): array
+    {
+        return self::record_result(['ok' => false, 'mode' => $mode, 'message' => 'A sync is already running. Please try again in a few minutes.']);
+    }
+
     public static function reconcile(?int $days = null): array
+    {
+        if (!self::lock()) return self::busy('reconcile');
+        try {
+            return self::reconcile_locked($days);
+        } finally {
+            delete_option('iqu_zeffy_sync_lock');
+        }
+    }
+
+    private static function reconcile_locked(?int $days): array
     {
         $days  = $days ?? self::window_days();
         $since = time() - ($days * DAY_IN_SECONDS);
@@ -134,7 +158,7 @@ class IQU_Zeffy_Sync
                 $days,
                 $totals['inserted'],
                 $totals['updated']
-            ),
+            ) . ($totals['failed'] ? sprintf(' %d could not be saved.', $totals['failed']) : ''),
             'totals'  => $totals,
             'pages'   => $walk['pages'],
             'days'    => $days,
@@ -145,6 +169,16 @@ class IQU_Zeffy_Sync
      * Walk the entire payment history once.
      */
     public static function backfill(): array
+    {
+        if (!self::lock()) return self::busy('backfill');
+        try {
+            return self::backfill_locked();
+        } finally {
+            delete_option('iqu_zeffy_sync_lock');
+        }
+    }
+
+    private static function backfill_locked(): array
     {
         $totals = ['inserted' => 0, 'updated' => 0, 'failed' => 0];
 

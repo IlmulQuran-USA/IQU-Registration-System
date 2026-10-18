@@ -961,7 +961,8 @@ class IQU_Database
         }
         if (! empty($args['search'])) {
             $search   = '%' . $wpdb->esc_like(sanitize_text_field($args['search'])) . '%';
-            $where   .= ' AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s)';
+            $where   .= ' AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR whatsapp LIKE %s)'; // the same fields as the list
+            $values[] = $search;
             $values[] = $search;
             $values[] = $search;
             $values[] = $search;
@@ -987,7 +988,8 @@ class IQU_Database
         return $row ?: null;
     }
 
-    public static function update_status(int $id, string $status, string $note = ''): bool
+    /** $note null = leave the admin note as it is (a status change from a list). */
+    public static function update_status(int $id, string $status, ?string $note = null): bool
     {
         global $wpdb;
         $table = $wpdb->prefix . IQU_TABLE_NAME;
@@ -999,13 +1001,9 @@ class IQU_Database
             return false;
         }
 
-        $result = $wpdb->update(
-            $table,
-            ['status' => $status, 'admin_note' => sanitize_textarea_field($note)],
-            ['id' => $id],
-            ['%s', '%s'],
-            ['%d']
-        );
+        $data = ['status' => $status];
+        if ($note !== null) $data['admin_note'] = sanitize_textarea_field($note);
+        $result = $wpdb->update($table, $data, ['id' => $id], array_fill(0, count($data), '%s'), ['%d']);
         return false !== $result;
     }
 

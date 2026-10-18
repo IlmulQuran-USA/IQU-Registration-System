@@ -227,6 +227,12 @@ class IQU_Zeffy_Webhook
      */
     public static function log(string $status, string $message): void
     {
+        // Rejected (unauthenticated) requests: at most one entry every 5 minutes and never more than 5 in the
+        // log, so anyone posting junk cannot push real deliveries out or make the page look "idle".
+        if ($status === 'rejected') {
+            if (get_transient('iqu_zeffy_rejected_logged')) return;
+            set_transient('iqu_zeffy_rejected_logged', 1, 5 * MINUTE_IN_SECONDS);
+        }
         $log = get_option(self::OPT_LOG, []);
         if (!is_array($log)) $log = [];
 
@@ -235,6 +241,10 @@ class IQU_Zeffy_Webhook
             'status'  => $status,
             'message' => mb_substr($message, 0, 200),
         ]);
+        $rejected = 0;
+        $log = array_values(array_filter($log, function ($e) use (&$rejected) {
+            return ($e['status'] ?? '') !== 'rejected' || ++$rejected <= 5;
+        }));
 
         update_option(self::OPT_LOG, array_slice($log, 0, self::LOG_LIMIT), false);
     }

@@ -314,8 +314,8 @@ class IQU_Admin
 
     wp_enqueue_script('iqu-admin-script', IQU_PLUGIN_URL . 'admin/js/admin.js', ['jquery', 'chartjs', 'iqu-chart-defaults'], IQU_VERSION, true);
 
-    // Build chart data from DB for dashboard
-    $chart_data = $this->build_chart_data();
+    // Chart data: only the dashboard draws these charts (the queries used to run on every IQU screen).
+    $chart_data = $hook === 'toplevel_page_iqu-registrations' ? $this->build_chart_data() : [];
 
     wp_localize_script('iqu-admin-script', 'IQU_Admin', [
       'ajax_url' => admin_url('admin-ajax.php'),
@@ -329,6 +329,32 @@ class IQU_Admin
   // ════════════════════════════════════════════════════
   // CHART DATA BUILDER
   // ════════════════════════════════════════════════════
+
+  /**
+   * Money collected, per program: [Enroll for Free, Summer L1, Summer L2].
+   * - Enroll for Free: the monthly tuition actually paid through Stripe (paid invoices in the current mode,
+   *   as "Collected" on the Payments page). The registration's payment_amount is only the quoted monthly
+   *   fee — it was summed as if it had been collected.
+   * - Summer: the amount of each registration that is not still waiting for Stripe and not cancelled
+   *   (Zelle and Zeffy payments are confirmed outside the plugin, so they count as before).
+   */
+  private static function revenue_by_program(): array
+  {
+    global $wpdb;
+    $table = $wpdb->prefix . IQU_TABLE_NAME;
+    $free = 0.0;
+    if (class_exists('IQU_Billing_DB') && class_exists('IQU_Stripe')) {
+      $free = (float) $wpdb->get_var($wpdb->prepare(
+        'SELECT COALESCE(SUM(amount_paid), 0) FROM ' . IQU_Billing_DB::payments_table() . " WHERE mode = %s AND status = 'paid'",
+        IQU_Stripe::expected_mode()
+      ));
+    }
+    $summer = fn(string $type) => (float) $wpdb->get_var($wpdb->prepare(
+      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE form_type = %s AND payment_amount > 0 AND payment_status NOT IN ('stripe_pending', 'pending') AND status <> 'cancelled'",
+      $type
+    ));
+    return [round($free, 2), $summer(IQU_Database::FORM_SUMMER_LEVEL1), $summer(IQU_Database::FORM_SUMMER_LEVEL2)];
+  }
 
   /**
    * Build weekly registrations (last 6 weeks) and revenue by form type.
@@ -358,22 +384,9 @@ class IQU_Admin
       $week_counts[] = $count;
     }
 
-    // ── Revenue by form type (summer forms only) ─────────
-    $revenue_free = (float) $wpdb->get_var($wpdb->prepare(
-      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE form_type = %s AND payment_amount > 0",
-      IQU_Database::FORM_FREE
-    ));
-    $revenue_l1 = (float) $wpdb->get_var($wpdb->prepare(
-      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE form_type = %s AND payment_amount > 0",
-      IQU_Database::FORM_SUMMER_LEVEL1
-    ));
-    $revenue_l2 = (float) $wpdb->get_var($wpdb->prepare(
-      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE form_type = %s AND payment_amount > 0",
-      IQU_Database::FORM_SUMMER_LEVEL2
-    ));
-
-    // ── Total revenue ─────────────────────────────────────
-    $total_revenue = $revenue_l1 + $revenue_l2;
+    // ── Payment collected, by program (one figure for the card, the badge and the chart) ──
+    [$revenue_free, $revenue_l1, $revenue_l2] = self::revenue_by_program();
+    $total_revenue = $revenue_free + $revenue_l1 + $revenue_l2;
 
     // ── Referral breakdown ────────────────────────────────────
     // Only what families answered. The old "existing_student" marker that Billing used to
@@ -949,12 +962,10 @@ class IQU_Admin
     ]);
     $total = max(1, (int) $counts['total']);
 
-    // Revenue total for metric card
+    // Revenue total for the metric card: the same figure as the chart (revenue_by_program)
     global $wpdb;
     $table = $wpdb->prefix . IQU_TABLE_NAME;
-    $total_revenue = (float) $wpdb->get_var(
-      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE payment_amount > 0"
-    );
+    $total_revenue = array_sum(self::revenue_by_program());
   ?>
 <div class="wrap iqu-admin-wrap">
 
@@ -1901,7 +1912,9 @@ class IQU_Admin
       wp_send_json_error('Permission denied.');
     $id = absint($_POST['id'] ?? 0);
     $status = sanitize_text_field($_POST['status'] ?? '');
-    $note = sanitize_textarea_field($_POST['note'] ?? '');
+    // The note only when the request sends one (the detail page). A status change from a list sends none and
+    // keeps the note (it used to send note="" and erase it).
+    $note = isset($_POST['note']) && is_string($_POST['note']) ? sanitize_textarea_field(wp_unslash($_POST['note'])) : null;
     if (!$id)
       wp_send_json_error('Invalid ID.');
     if (!in_array($status, self::ALLOWED_STATUSES, true))
@@ -2021,6 +2034,11 @@ class IQU_Admin
     $table = $wpdb->prefix . IQU_TABLE_NAME;
     if (!$id)
       wp_send_json_error('Invalid ID.');
+    // A student on a billing record (any mode) is never deleted: Stripe would keep charging for a student who
+    // no longer exists here, and the family's pages would silently drop them. Stop billing / cancel instead.
+    if (class_exists('IQU_Billing_DB') && (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . IQU_Billing_DB::members_table() . ' WHERE registration_id = %d', $id)) > 0) {
+      wp_send_json_error('This student is on a billing record, so it cannot be deleted. Set the status to Cancelled, or stop the billing in Stripe first.');
+    }
     $deleted = $wpdb->delete($table, ['id' => $id], ['%d']);
     $deleted ? wp_send_json_success('Registration deleted.') : wp_send_json_error('Delete failed.');
   }

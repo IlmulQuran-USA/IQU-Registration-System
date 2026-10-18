@@ -171,7 +171,7 @@ class IQU_Zeffy_DB
             }
         }
 
-        return [
+        return self::fit([
             'payment_id'         => (string) ($p['id'] ?? ''),
             'created_ts'         => (int) ($p['created'] ?? 0),
             'amount'             => (int) ($p['amount'] ?? 0),
@@ -208,7 +208,31 @@ class IQU_Zeffy_DB
             'raw_json'           => wp_json_encode($p),
             'source'             => $source === self::SOURCE_WEBHOOK ? self::SOURCE_WEBHOOK : self::SOURCE_API,
             'synced_at'          => current_time('mysql', true),
-        ];
+        ]);
+    }
+
+    /** Column widths of the payments table: a longer third-party value is cut to fit (a link is dropped, not cut). */
+    private const FIELD_LIMITS = [
+        'payment_id' => 64, 'currency' => 8, 'status' => 20, 'pay_type' => 20, 'refund_status' => 20, 'dispute_status' => 30, 'dispute_reason' => 100,
+        'description' => 255, 'contact_id' => 64, 'buyer_email' => 191, 'buyer_first_name' => 100, 'buyer_last_name' => 100, 'company_name' => 191,
+        'method_type' => 30, 'card_brand' => 30, 'card_last4' => 8, 'campaign_id' => 64, 'campaign_type' => 30, 'campaign_category' => 30,
+        'fund_code' => 64, 'fund_name' => 191, 'recurring_interval' => 20, 'recurring_status' => 20, 'subscription_id' => 64,
+        'tribute_type' => 20, 'tribute_name' => 191,
+    ];
+
+    private static function fit(array $row): array
+    {
+        foreach (self::FIELD_LIMITS as $col => $len) {
+            if (isset($row[$col]) && is_string($row[$col]) && mb_strlen($row[$col]) > $len) $row[$col] = mb_substr($row[$col], 0, $len);
+        }
+        if (isset($row['receipt_url']) && strlen((string) $row['receipt_url']) > 255) $row['receipt_url'] = '';
+        return $row;
+    }
+
+    /** Unix time of the first day (00:00 UTC) of the month $back months before this one. */
+    public static function month_start(int $back): int
+    {
+        return (new DateTimeImmutable(gmdate('Y-m-01 00:00:00'), new DateTimeZone('UTC')))->modify(($back >= 0 ? '-' : '+') . abs($back) . ' months')->getTimestamp();
     }
 
     // ════════════════════════════════════════════════════
@@ -491,8 +515,8 @@ class IQU_Zeffy_DB
         $data   = [];
 
         for ($i = $months - 1; $i >= 0; $i--) {
-            $start = (int) strtotime(gmdate('Y-m-01 00:00:00', strtotime("-{$i} months")) . ' UTC');
-            $end   = (int) strtotime('+1 month', $start);
+            $start = self::month_start($i);
+            $end   = self::month_start($i - 1);
 
             $cents = (int) $wpdb->get_var($wpdb->prepare(
                 "SELECT COALESCE(SUM(amount - refunded_amount), 0) FROM `{$table}`
@@ -618,7 +642,6 @@ class IQU_Zeffy_DB
             $labels[] = $name;
             $data[]   = round((int) $r['net_cents'] / 100, 2);
             $meta[]   = [
-                'email'     => $r['buyer_email'],
                 'gifts'     => (int) $r['gift_count'],
                 'recurring' => (int) $r['is_recurring'] === 1,
             ];
@@ -772,7 +795,7 @@ class IQU_Zeffy_DB
         global $wpdb;
         $table = self::table();
 
-        $window_start = (int) strtotime(gmdate('Y-m-01 00:00:00', strtotime('-' . ($months - 1) . ' months')) . ' UTC');
+        $window_start = self::month_start($months - 1);
 
         // First-ever gift date for every donor.
         $first_rows = $wpdb->get_results(
@@ -802,7 +825,7 @@ class IQU_Zeffy_DB
         $index  = [];
 
         for ($i = $months - 1; $i >= 0; $i--) {
-            $start = (int) strtotime(gmdate('Y-m-01 00:00:00', strtotime("-{$i} months")) . ' UTC');
+            $start = self::month_start($i);
             $key   = gmdate('Y-m', $start);
 
             $index[$key] = count($labels);
@@ -889,7 +912,6 @@ class IQU_Zeffy_DB
             ]);
             $data[] = round((int) $r['net_cents'] / 100, 2);
             $meta[] = [
-                'email'     => $r['buyer_email'],
                 'gifts'     => (int) $r['donation_count'],
                 'recurring' => (int) $r['is_recurring'] === 1,
                 'last'      => self::format_date((int) $r['last_ts'], 'M j'),

@@ -62,7 +62,7 @@ class IQU_Zeffy_API
         $len = strlen($key);
         if ($len <= 8) return str_repeat('•', $len);
 
-        return substr($key, 0, 4) . str_repeat('•', 8) . substr($key, -4);
+        return str_repeat('•', 8) . substr($key, -4); // the last four only
     }
 
     // ════════════════════════════════════════════════════
