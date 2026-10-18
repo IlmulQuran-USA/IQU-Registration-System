@@ -145,6 +145,13 @@ class IQU_Billing_Notify
         ]);
     }
 
+    public static function duplicate_subscription(array $acc, string $note): void
+    {
+        self::send("\u{26A0}\u{FE0F} Review: two subscriptions", [self::e($note)], $acc, [], [
+            'The family would be charged twice. Nothing was cancelled automatically.',
+        ]);
+    }
+
     public static function payment_received(array $acc, float $amount, bool $first = false, array $inv = []): void
     {
         $ch  = self::latest_charge($acc);

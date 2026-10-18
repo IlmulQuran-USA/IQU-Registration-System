@@ -35,11 +35,13 @@ class IQU_Billing_Sync
             return $res;
         }
 
-        // Prefer the subscription made for this account; ignore anything else on the customer.
-        $sub = null;
+        // Prefer the subscription made for this account; ignore anything else on the customer. A live one
+        // wins over a cancelled one (after two subscriptions, the team may cancel the newer), then the newest.
+        $sub  = null;
+        $live = fn($s) => !in_array((string) ($s['status'] ?? ''), ['canceled', 'incomplete_expired'], true);
         foreach ((array) ($r['data']['data'] ?? []) as $s) {
             if ((string) ($s['metadata']['iqu_account_id'] ?? '') === (string) $acc['id']) {
-                if (!$sub || (int) $s['created'] > (int) $sub['created']) $sub = $s;
+                if (!$sub || [$live($s), (int) $s['created']] > [$live($sub), (int) $sub['created']]) $sub = $s;
             }
         }
 
@@ -49,8 +51,19 @@ class IQU_Billing_Sync
             return $res;
         }
 
+        // More than one live subscription for this family (two Checkout pages completed): the family would be
+        // billed twice. Flag for review and alert once; nothing is cancelled automatically.
+        $live = array_values(array_filter((array) ($r['data']['data'] ?? []), fn($s) => (string) ($s['metadata']['iqu_account_id'] ?? '') === (string) $acc['id']
+            && !in_array((string) ($s['status'] ?? ''), ['canceled', 'incomplete_expired'], true)));
+        if (count($live) > 1 && (string) ($acc['review_reason'] ?? '') === '') {
+            $note = 'Two Stripe subscriptions for this family (' . implode(', ', array_map(fn($s) => (string) $s['id'], $live)) . ') — cancel one in Stripe, then press "Mark as reviewed".';
+            IQU_Billing_DB::update_account((int) $acc['id'], ['review_reason' => 'duplicate_subscription', 'review_note' => substr($note, 0, 255)]);
+            $acc['review_reason'] = 'duplicate_subscription';
+            if (class_exists('IQU_Billing_Notify')) IQU_Billing_Notify::duplicate_subscription(IQU_Billing_DB::get_account((int) $acc['id']) ?: $acc, $note);
+        }
+
         $status = self::status_from($sub);
-        // An account under review (amount mismatch) stays in review until an admin clears it.
+        // An account under review (amount mismatch, two subscriptions) stays in review until an admin clears it.
         if ((string) ($acc['review_reason'] ?? '') !== '') $status = 'review';
         $upd = [
             'stripe_subscription_id' => (string) $sub['id'],

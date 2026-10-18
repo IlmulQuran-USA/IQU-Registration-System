@@ -384,6 +384,20 @@ class IQU_Billing_Service
     }
 
     /**
+     * What the family's billing record is set up to charge, in cents: the students' saved amounts. They are
+     * set when the record is created and priced again whenever a student's fee changes (change_amount →
+     * reprice_account), so an old Checkout page from before such a change is still caught — but a later
+     * change of the general course rates no longer sends every family who checks out afterwards to review
+     * (billable_cents() re-priced from today's rates).
+     */
+    public static function stored_cents(array $acc): int
+    {
+        $cents = 0;
+        foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) $cents += max(0, IQU_Billing_Pricing::to_cents((float) $m['amount']));
+        return $cents;
+    }
+
+    /**
      * checkout.session.completed: the monthly amount the new subscription charges (its items;
      * else the amount kept with the session) compared with billable_cents().
      * @return array{match:bool, charged:?int, expected:int}
@@ -400,7 +414,7 @@ class IQU_Billing_Service
         if ($charged === null && (string) ($session['id'] ?? '') !== '' && (string) $session['id'] === (string) ($acc['checkout_session_id'] ?? '')) {
             $charged = IQU_Billing_Pricing::to_cents((float) $acc['checkout_amount']);
         }
-        $expected = self::billable_cents($acc);
+        $expected = self::stored_cents($acc);
         return ['match' => $charged === null || $charged === $expected, 'charged' => $charged, 'expected' => $expected];
     }
 
@@ -531,11 +545,21 @@ class IQU_Billing_Service
         // page can be recognised; the webhook compares the subscription with the current amount.
         $cents = array_sum(array_map(fn($i) => (int) $i['price_data']['unit_amount'] * (int) $i['quantity'], $items));
         $params['metadata']['iqu_amount_cents'] = (string) $cents;
-        // One open page per family: close the previous one first (if that fails, it stays guarded
-        // by the webhook's amount check).
-        $previous_closed = self::expire_open_session($acc);
-
-        $res = IQU_Stripe::post('/checkout/sessions', $params);
+        // One page at a time per family (a double tap, two tabs): atomic lock, released below.
+        $lock = 'iqu_co_lock_' . (int) $acc['id'];
+        if (!add_option($lock, time(), '', 'no')) {
+            if ((int) get_option($lock) > time() - 60) return $fail('Your payment page is being prepared. Please try again in a moment.');
+            update_option($lock, time(), 'no');
+        }
+        try {
+            // One open page per family: close the previous one first. If it cannot be closed, no second
+            // page is made (both could be completed — two subscriptions).
+            $previous_closed = self::expire_open_session(IQU_Billing_DB::get_account((int) $acc['id']) ?: $acc);
+            if (!$previous_closed) return $fail('The previous payment page could not be closed. Please try again in a minute.');
+            $res = IQU_Stripe::post('/checkout/sessions', $params);
+        } finally {
+            delete_option($lock);
+        }
         if (!$res['ok'] || empty($res['data']['url'])) return $fail('Could not open the payment page: ' . $res['error']) + ['code' => (string) ($res['code'] ?? '')];
         $set = [
             'checkout_session_id' => substr((string) ($res['data']['id'] ?? ''), 0, 100),

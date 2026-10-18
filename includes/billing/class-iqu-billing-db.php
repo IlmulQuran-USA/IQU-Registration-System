@@ -574,6 +574,42 @@ class IQU_Billing_DB
         return $ok === 1;
     }
 
+    /** A claimed event still not finished after this long is taken as a request that died (fatal error, timeout). */
+    public const EVENT_RECLAIM_SECONDS = 600;
+
+    /**
+     * Claim an event for processing.
+     * 'new'       — first time seen: process it.
+     * 'reclaimed' — seen before, but that request died before finishing (more than EVENT_RECLAIM_SECONDS
+     *               ago): this delivery takes it over (one atomic UPDATE) and processes it.
+     * 'duplicate' — already processed: answer 200, do nothing.
+     * 'busy'      — another request is processing it right now: answer non-2xx so Stripe retries later.
+     * 'error'     — the database refused the write: answer 500 so Stripe retries.
+     * (record_event() said "duplicate" for all of the last four — an event whose request died was lost for good.)
+     */
+    public static function claim_event(string $event_id, string $type): string
+    {
+        global $wpdb;
+        if (!preg_match('/^evt_[A-Za-z0-9]+$/', $event_id)) return 'duplicate';
+        $t   = self::events_table();
+        $now = current_time('mysql', true);
+        $ok  = $wpdb->query($wpdb->prepare(
+            'INSERT IGNORE INTO ' . $t . ' (stripe_event_id, mode, type, received_at) VALUES (%s, %s, %s, %s)',
+            $event_id, IQU_Stripe::expected_mode(), substr($type, 0, 80), $now
+        ));
+        if ($ok === 1) return 'new';
+        if ($ok === false) return 'error';
+        $row = $wpdb->get_row($wpdb->prepare('SELECT processed_at, received_at FROM ' . $t . ' WHERE stripe_event_id = %s', $event_id), ARRAY_A);
+        if (!$row) return 'error';
+        if (!empty($row['processed_at'])) return 'duplicate';
+        $cutoff = gmdate('Y-m-d H:i:s', time() - self::EVENT_RECLAIM_SECONDS);
+        $taken  = $wpdb->query($wpdb->prepare(
+            'UPDATE ' . $t . ' SET received_at = %s WHERE stripe_event_id = %s AND processed_at IS NULL AND received_at < %s',
+            $now, $event_id, $cutoff
+        ));
+        return $taken === 1 ? 'reclaimed' : 'busy';
+    }
+
     public static function finish_event(string $event_id, string $result, ?int $account_id = null, string $note = ''): void
     {
         global $wpdb;

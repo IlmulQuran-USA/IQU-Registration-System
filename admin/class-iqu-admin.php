@@ -203,11 +203,12 @@ class IQU_Admin
     $msg = sanitize_key($_GET['iqu_msg'] ?? '');
     if ($msg === 'review_done') echo '<div class="iqu-detail-item iqu-detail-full"><div class="iqu-detail-val"><p class="iqu-free-month-note" role="status">Marked as reviewed. The billing status now follows Stripe again.</p></div></div>';
     if (!$acc) return;
-    if ((string) $acc['review_reason'] === 'amount_mismatch'): ?>
+    $review_labels = ['amount_mismatch' => 'Review: amount mismatch', 'duplicate_subscription' => 'Review: two subscriptions'];
+    if (isset($review_labels[(string) $acc['review_reason']])): ?>
                 <div class="iqu-detail-item iqu-detail-full iqu-billing-review" data-billing-review role="alert">
                     <div class="iqu-detail-lbl">Billing review</div>
                     <div class="iqu-detail-val">
-                        <span class="iqu-status-badge iqu-sb-cancelled">Review: amount mismatch</span>
+                        <span class="iqu-status-badge iqu-sb-cancelled"><?php echo esc_html($review_labels[(string) $acc['review_reason']]); ?></span>
                         <p class="iqu-free-month-note"><?php echo esc_html((string) $acc['review_note']); ?> The family is not marked active and nothing was cancelled. Check the subscription in Stripe first.</p>
                         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-free-month-form">
                             <input type="hidden" name="action" value="iqu_billing_review_done">

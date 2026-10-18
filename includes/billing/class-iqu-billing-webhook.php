@@ -90,7 +90,12 @@ class IQU_Billing_Webhook
         $is_live = !empty($event['livemode']);
         if ($is_live !== (IQU_Stripe::expected_mode() === 'live')) return self::reply(200, 'ignored_other_mode');
         if (!in_array($event['type'], self::EVENTS, true)) return self::reply(200, 'ignored_type');
-        if (!IQU_Billing_DB::record_event((string) $event['id'], (string) $event['type'])) return self::reply(200, 'duplicate');
+        $claim = IQU_Billing_DB::claim_event((string) $event['id'], (string) $event['type']);
+        if ($claim === 'duplicate') return self::reply(200, 'duplicate');
+        if ($claim === 'busy') return self::reply(409, 'processing');   // Stripe retries later
+        if ($claim === 'error') return self::reply(500, 'retry');
+        // Several Stripe calls follow: finish even if Stripe stops waiting for the answer.
+        if (function_exists('ignore_user_abort')) ignore_user_abort(true);
 
         try {
             [$result, $account_id, $note] = self::process($event);
@@ -136,17 +141,30 @@ class IQU_Billing_Webhook
                 }
                 IQU_Billing_DB::update_account($id, ['checkout_session_id' => '', 'link_outdated' => 0]);
                 $had_method = in_array($sync['old'], ['free_month', 'waiting_first_charge', 'active', 'past_due', 'unpaid', 'paused'], true);
-                if (!$had_method && in_array($sync['new'], ['free_month', 'waiting_first_charge', 'active'], true)) {
+                // The page this account was waiting for has completed (it is cleared just above, so a repeat is not "first").
+                $this_page  = (string) ($before['checkout_session_id'] ?? '') !== '' && (string) $before['checkout_session_id'] === (string) ($obj['id'] ?? '');
+                if ((!$had_method || $this_page) && in_array($sync['new'], ['free_month', 'waiting_first_charge', 'active'], true)) {
                     IQU_Billing_Notify::method_added($acc);
                 }
                 // Enroll for Free: Stripe has confirmed the card → registrations become "enrolled". Never throws.
                 if (class_exists('IQU_Enrollment')) IQU_Enrollment::on_checkout_completed($acc);
                 break;
 
+            case 'customer.subscription.created':
+                if (($before['review_reason'] ?? '') === '' && !empty($sync['subscription'])) {
+                    $check = IQU_Billing_Service::amount_check($acc, $sync['subscription'], []);
+                    if (!$check['match']) {
+                        IQU_Billing_Service::flag_amount_mismatch($acc, $check, '');
+                        return ['amount_mismatch', $id, 'charged ' . $check['charged'] . ' expected ' . $check['expected']];
+                    }
+                }
+                break;
+
             case 'invoice.paid':
                 $inv = self::invoice((string) ($obj['id'] ?? ''), $acc);
                 $amount = $inv ? ((int) ($inv['amount_paid'] ?? 0)) / 100 : 0;
                 if ($amount > 0) {
+                    if (!IQU_Billing_History::refresh_invoice((string) $inv['id'], $acc)) throw new RuntimeException('history write failed');
                     $first = ((string) $before['last_payment_status']) === '';
                     IQU_Billing_DB::update_account($id, [
                         'last_payment_status' => 'paid',
@@ -160,6 +178,9 @@ class IQU_Billing_Webhook
 
             case 'invoice.payment_failed':
                 $inv = self::invoice((string) ($obj['id'] ?? ''), $acc);
+                // Stripe does not promise the order of events: a failure notice that arrives after the invoice
+                // was paid (or voided) is old news — no "failed" status, no alert.
+                if ($inv && in_array((string) ($inv['status'] ?? ''), ['paid', 'void'], true)) break;
                 if ($inv) {
                     $amount  = ((int) ($inv['amount_due'] ?? 0)) / 100;
                     $attempt = (int) ($inv['attempt_count'] ?? 1);
@@ -188,8 +209,8 @@ class IQU_Billing_Webhook
                 break;
         }
 
-        // Payment history: store the invoice as Stripe has it now. Never throws.
-        if (in_array($event['type'], ['invoice.paid', 'invoice.payment_failed', 'invoice.payment_action_required'], true)) {
+        // Payment history: store the invoice as Stripe has it now. Never throws. (invoice.paid did it above.)
+        if (in_array($event['type'], ['invoice.payment_failed', 'invoice.payment_action_required'], true)) {
             IQU_Billing_History::refresh_invoice((string) ($obj['id'] ?? ''), IQU_Billing_DB::get_account($id) ?: $acc);
         }
         // Our own receipt (only when that setting is on; once per invoice). Never throws.

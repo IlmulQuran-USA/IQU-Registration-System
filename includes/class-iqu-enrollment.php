@@ -222,12 +222,12 @@ class IQU_Enrollment
 
     /**
      * Called by IQU_Billing_Webhook after the existing sync of a checkout.session.completed
-     * event. Never throws.
+     * event. Never throws. True when it enrolled at least one website registration (and sent "✅ Enrolled").
      */
-    public static function on_checkout_completed(array $acc): void
+    public static function on_checkout_completed(array $acc): bool
     {
         try {
-            if (!in_array((string) $acc['status'], self::ACTIVE, true)) return;
+            if (!in_array((string) $acc['status'], self::ACTIVE, true)) return false;
 
             $done = [];
             foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
@@ -243,7 +243,7 @@ class IQU_Enrollment
                     $done[] = $reg;
                 }
             }
-            if (!$done) return;
+            if (!$done) return false;
 
             [$country, $method] = self::payment_country($acc);
             $kids = implode(', ', array_map(fn($r) => trim($r['first_name'] . ' ' . $r['last_name']), $done));
@@ -275,8 +275,10 @@ class IQU_Enrollment
                     'Card'    => IQU_Telegram::esc($country),
                 ], 'The card was issued outside the US and Canada. Nothing was cancelled — please check with the family.');
             }
+            return true;
         } catch (\Throwable $e) {
-            error_log('[IQU] Enrollment completion failed for account #' . (int) ($acc['id'] ?? 0) . ': ' . $e->getMessage());
+            error_log('[IQU] Enrollment completion failed for account #' . (int) ($acc['id'] ?? 0) . ': ' . get_class($e));
+            return false;
         }
     }
 
