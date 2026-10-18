@@ -65,7 +65,8 @@ class IQU_Billing_Add_Student
             'course'        => sanitize_key(wp_unslash($_POST['course'] ?? '')),
             'days'          => absint($_POST['days'] ?? 0),
             'use_agreed'    => !empty($_POST['use_agreed']),
-            'agreed_fee'    => isset($_POST['agreed_fee']) ? (float) $_POST['agreed_fee'] : 0.0,
+            'agreed_fee'    => isset($_POST['agreed_fee']) && is_string($_POST['agreed_fee']) ? (float) $_POST['agreed_fee'] : 0.0,
+            'agreed_fee_invalid' => isset($_POST['agreed_fee']) && is_string($_POST['agreed_fee']) && trim($_POST['agreed_fee']) !== '' && !preg_match('/^-?\d+(\.\d{1,2})?$/', trim($_POST['agreed_fee'])),
             'zakat'         => !empty($_POST['zakat']),
             'note'          => sanitize_textarea_field(wp_unslash($_POST['note'] ?? '')),
             'extra'         => self::extra_from_post(wp_unslash($_POST)),
@@ -280,6 +281,9 @@ class IQU_Billing_Add_Student
         $errors = self::validate($in, $course_missing);
         if (!empty($in['agreed_fee_invalid'])) {
             $errors[] = 'The agreed fee must be one amount, for example 30 or 30.50.';
+            $in['use_agreed'] = false;
+        } elseif (!empty($in['use_agreed']) && (!is_finite((float) $in['agreed_fee']) || (float) $in['agreed_fee'] > IQU_Billing_Pricing::AGREED_MAX)) {
+            $errors[] = 'The agreed fee must be at most ' . IQU_Pricing::format(IQU_Billing_Pricing::AGREED_MAX) . ' a month — check the amount.';
             $in['use_agreed'] = false;
         }
         [$extra_cols, $extra_errors, $extra_warnings] = self::clean_extra(is_array($in['extra'] ?? null) ? $in['extra'] : [], (int) ($in['days'] ?? 0));

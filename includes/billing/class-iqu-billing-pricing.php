@@ -39,6 +39,27 @@ class IQU_Billing_Pricing
     }
 
     /** The monthly fee agreed with the family (agreed_fee), or null when none was agreed. */
+    /** Highest agreed monthly fee an admin can enter (a typo such as 3000 for 30, or 1e9, is refused). */
+    public const AGREED_MAX = 5000.0;
+
+    /**
+     * The name of the discount on a family's bill, for emails and receipts: the students' own label
+     * (Zakat Fund support, Agreed reduced fee, Special discount …) when they agree, else "Discount".
+     * Every discount used to be called "Zakat Fund support".
+     */
+    public static function account_discount_label(array $acc): string
+    {
+        $labels = [];
+        foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
+            $reg = IQU_Database::get_registration((int) $m['registration_id']);
+            if (!$reg) continue;
+            $p = self::for_registration($reg);
+            if ((float) ($p['discount'] ?? 0) > 0 && (string) ($p['discount_label'] ?? '') !== '') $labels[] = (string) $p['discount_label'];
+        }
+        $labels = array_values(array_unique($labels));
+        return count($labels) === 1 ? $labels[0] : 'Discount';
+    }
+
     public static function agreed_fee(array $reg): ?float
     {
         if (!array_key_exists('agreed_fee', $reg) || $reg['agreed_fee'] === null || $reg['agreed_fee'] === '') return null;
@@ -227,6 +248,20 @@ class IQU_Billing_Pricing
         $out['warnings'][]        = $legacy['custom']
             ? sprintf('Fee the family offered at enrollment: %s a month.', IQU_Pricing::format($amt))
             : sprintf('Fee chosen at enrollment: %s a month.', IQU_Pricing::format($amt));
+        // An agreed fee set later by an admin wins over the old form's fee, as on every other record.
+        $agreed = self::agreed_fee($reg);
+        if ($agreed !== null) {
+            $out['standard'] = $amt;
+            $out['agreed']   = $agreed;
+            if ($agreed <= $amt) {
+                $out['discount']       = round($amt - $agreed, 2);
+                $out['discount_label'] = $out['discount'] > 0 ? (!empty($reg['zakat_declaration']) ? 'Zakat Fund support' : 'Agreed reduced fee') : '';
+            } else {
+                $out['gross'] = $agreed;
+            }
+            $out['net'] = round($out['gross'] - (float) ($out['discount'] ?? 0), 2);
+            $amt = $out['net'];
+        }
 
         if ($amt <= 0) {
             $out['reason']      = 'Full scholarship — not billed.';

@@ -152,21 +152,32 @@ class IQU_Billing_Service
         return 'current';
     }
 
-    /** Suggested first charge date (Y-m-d) for a new student; null for current students. */
+    /** Suggested first charge date (Y-m-d, the site's calendar) for a new student; null for current students. */
     public static function suggested_first_charge(array $reg): ?string
     {
         if (self::student_type($reg) !== 'new') return null;
         $created = strtotime((string) $reg['created_at'] . ' UTC');
-        return gmdate('Y-m-d', $created + self::FREE_MONTH_DAYS * DAY_IN_SECONDS);
+        return wp_date('Y-m-d', $created + self::FREE_MONTH_DAYS * DAY_IN_SECONDS);
     }
 
-    /** Unix time of the first charge, or 0 when it should be charged at checkout. */
+    /**
+     * Unix time of the first charge, or 0 when it is charged at checkout.
+     * - Today or earlier: charged at checkout (an admin picks today for a current student whose date has passed).
+     * - Later, and at least 48 h away: that date at CHARGE_HOUR_UTC.
+     * - Later but closer than 48 h (Stripe needs that much): the first charge slot at least 48 h away — a day
+     *   or two after the date, never before it (it used to fall back to "charged at checkout", i.e. before
+     *   the date the family was told).
+     */
     public static function first_charge_timestamp(?string $date): int
     {
-        if (!$date) return 0;
+        if (!$date || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) return 0;
+        if ($date <= wp_date('Y-m-d')) return 0;
         $ts = strtotime($date . ' ' . self::CHARGE_HOUR_UTC . ':00:00 UTC');
-        if (!$ts || $ts < time() + self::MIN_FUTURE_HOURS * HOUR_IN_SECONDS) return 0;
-        return $ts;
+        if (!$ts) return 0;
+        $min = time() + self::MIN_FUTURE_HOURS * HOUR_IN_SECONDS;
+        if ($ts >= $min) return $ts;
+        $slot = strtotime(gmdate('Y-m-d', $min) . ' ' . self::CHARGE_HOUR_UTC . ':00:00 UTC');
+        return $slot >= $min ? $slot : $slot + DAY_IN_SECONDS;
     }
 
     // ------------------------------------------------------------
@@ -230,6 +241,7 @@ class IQU_Billing_Service
         if ($date === '') return $fail(['Choose the date of the first charge.']);
         $d = DateTime::createFromFormat('!Y-m-d', $date, new DateTimeZone('UTC'));
         if (!$d || $d->format('Y-m-d') !== $date) return $fail(['The first charge date is not valid.']);
+        if ($date < wp_date('Y-m-d')) return $fail(['The first charge date cannot be in the past. Choose today if the payment is already due.']);
         if ($d->getTimestamp() > time() + self::MAX_DAYS_AHEAD * DAY_IN_SECONDS) {
             return $fail(['The first charge date must be within the next ' . self::MAX_DAYS_AHEAD . ' days.']);
         }
@@ -256,7 +268,11 @@ class IQU_Billing_Service
         if (!$account_id) return $fail(['Could not save the billing record.']);
 
         foreach ($priced as $id => $p) {
-            IQU_Billing_DB::add_member($account_id, (int) $id, (float) $p['net']);
+            if (!IQU_Billing_DB::add_member($account_id, (int) $id, (float) $p['net'])) {
+                // Another request set up billing for this student a moment earlier (unique student + mode).
+                self::delete_local($account_id);
+                return $fail([trim($regs[$id]['first_name'] . ' ' . $regs[$id]['last_name']) . ' already has billing set up.']);
+            }
         }
 
         // Stripe customer. The idempotency key makes a retry return the same customer.
@@ -278,7 +294,7 @@ class IQU_Billing_Service
                 'iqu_mode'             => IQU_Stripe::expected_mode(),
                 'iqu_registration_ids' => implode(',', array_keys($regs)),
             ],
-        ], 'iqu-cus-' . IQU_Stripe::expected_mode() . '-' . $account_id);
+        ], 'iqu-cus-' . IQU_Stripe::expected_mode() . '-' . md5(implode(',', array_keys($regs)) . '|' . $email . '|' . $guardian)); // the family, not this attempt's account id
 
         if (!$res['ok'] || empty($res['data']['id'])) {
             self::delete_local($account_id);
@@ -538,7 +554,7 @@ class IQU_Billing_Service
             'managed_payments'       => ['enabled' => false], // tuition is never sold through Managed Payments
         ];
         if ($first_ts) {
-            $params['custom_text'] = ['submit' => ['message' => 'Nothing is charged today. Your first payment is on ' . gmdate('j F Y', $first_ts) . ', then on the same date every month.']];
+            $params['custom_text'] = ['submit' => ['message' => 'Nothing is charged today. Your first payment is on ' . wp_date('j F Y', $first_ts) . ', then on the same date every month.']];
         }
 
         // The amount this page sets up, kept with the session (and on the record below) so an old

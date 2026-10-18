@@ -129,7 +129,7 @@ class IQU_Billing_Receipt
         $gross = (float) ($acc['monthly_amount'] ?? 0);
         $disc  = (float) ($acc['discount_amount'] ?? 0);
         $money = ($disc > 0 && abs($gross - $disc - $due) < 0.01)
-            ? [['Amount', IQU_Pricing::format($gross)], ['Zakat Fund support', '−' . IQU_Pricing::format($disc)]]
+            ? [['Amount', IQU_Pricing::format($gross)], [IQU_Billing_Pricing::account_discount_label($acc), '−' . IQU_Pricing::format($disc)]]
             : [['Amount', IQU_Pricing::format($due)]];
         $money[] = ['Total paid', $amount];
 

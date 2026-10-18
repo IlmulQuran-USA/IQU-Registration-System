@@ -639,7 +639,7 @@ class IQU_Billing_Page
                                 <?php endforeach; ?></td>
                             <td><strong><?php echo esc_html(IQU_Pricing::format((float) $f['total'])); ?></strong></td>
                             <td><label class="screen-reader-text" for="d<?php echo esc_attr($key); ?>">First charge date</label>
-                                <input id="d<?php echo esc_attr($key); ?>" type="date" name="date[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($suggest); ?>" min="<?php echo esc_attr(gmdate('Y-m-d')); ?>" max="<?php echo esc_attr(gmdate('Y-m-d', time() + 45 * DAY_IN_SECONDS)); ?>"></td>
+                                <input id="d<?php echo esc_attr($key); ?>" type="date" name="date[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($suggest); ?>" min="<?php echo esc_attr(wp_date('Y-m-d')); ?>" max="<?php echo esc_attr(wp_date('Y-m-d', time() + 45 * DAY_IN_SECONDS)); ?>"></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

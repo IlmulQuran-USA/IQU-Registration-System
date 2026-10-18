@@ -242,7 +242,7 @@ class IQU_Billing_Send
                 <div class="iqu-fld-grid">
                     <div class="iqu-fld">
                         <label for="first_charge_date">First charge <em>*</em></label>
-                        <input id="first_charge_date" type="date" name="first_charge_date" required value="<?php echo esc_attr((string) $suggest); ?>" min="<?php echo esc_attr(gmdate('Y-m-d')); ?>" max="<?php echo esc_attr(gmdate('Y-m-d', time() + 45 * DAY_IN_SECONDS)); ?>">
+                        <input id="first_charge_date" type="date" name="first_charge_date" required value="<?php echo esc_attr((string) $suggest); ?>" min="<?php echo esc_attr(wp_date('Y-m-d')); ?>" max="<?php echo esc_attr(wp_date('Y-m-d', time() + 45 * DAY_IN_SECONDS)); ?>">
                         <p class="iqu-fld-hint">
                             <?php if ($type === 'new'): ?>
                                 New student: filled in as the day the free first month ends.
@@ -810,7 +810,7 @@ class IQU_Billing_Send
             $free  = IQU_Billing_Service::has_free_first_month($acc);
             $table = array_merge($rows, IQU_Billing_Email::tuition_rows($acc), $free ? [['First month', 'Free']] : [], [
                 ['First payment', $first . ($ts ? ' (' . gmdate('F', $ts) . ' tuition)' : '')],
-                ['After that', $ts ? $amount . ' on the ' . IQU_Billing_Email::ordinal((int) gmdate('j', $ts)) . ' of each month' : ''],
+                ['After that', $ts ? $amount . ' on the ' . IQU_Billing_Email::ordinal((int) gmdate('j', $ts)) . ' of each month' . ((int) gmdate('j', $ts) >= 29 ? ' (the last day in shorter months)' : '') : ''],
                 ['Pay with', 'US bank account (ACH) or card — your choice'],
             ]);
             return ["Action needed: set up {$kids}'s monthly tuition — Ilm-ul-Quran USA", $base + [

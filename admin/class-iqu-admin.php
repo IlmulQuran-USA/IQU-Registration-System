@@ -127,8 +127,8 @@ class IQU_Admin
       $msg = 'fee_locked';
     } elseif (!empty($_POST['clear'])) {
       $msg = IQU_Billing_Service::change_amount($id, fn() => IQU_Database::set_agreed_fee($id, null)) ? 'fee_cleared' : 'fee_failed';
-    } elseif (!preg_match('/^\d+(\.\d{1,2})?$/', $raw)) {
-      $msg = 'fee_invalid'; // empty, negative or not a number
+    } elseif (!preg_match('/^\d+(\.\d{1,2})?$/', $raw) || (float) $raw > IQU_Billing_Pricing::AGREED_MAX) {
+      $msg = 'fee_invalid'; // empty, negative, not a number, or more than the cap
     } else {
       $msg = IQU_Billing_Service::change_amount($id, fn() => IQU_Database::set_agreed_fee($id, (float) $raw)) ? 'fee_saved' : 'fee_failed';
     }

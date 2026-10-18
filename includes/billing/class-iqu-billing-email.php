@@ -254,7 +254,7 @@ class IQU_Billing_Email
         if ($disc > 0 && $gross > $net) {
             return [
                 ['Monthly tuition', IQU_Pricing::format($gross)],
-                ['Zakat Fund support', '−' . IQU_Pricing::format($disc)],
+                [IQU_Billing_Pricing::account_discount_label($acc), '−' . IQU_Pricing::format($disc)],
                 ['Your monthly payment', IQU_Pricing::format($net)],
             ];
         }
