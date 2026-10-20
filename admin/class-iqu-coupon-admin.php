@@ -338,8 +338,8 @@ class IQU_Coupon_Admin
         $state = sanitize_key($_GET['status'] ?? '');
         if ($state === IQU_Coupon_DB::STATUS_DISABLED) $state = IQU_Coupon::STATE_INACTIVE;
         if (!isset(IQU_Coupon::STATE_LABELS[$state])) $state = '';
-        $course_type = sanitize_text_field($_GET['course_type'] ?? '');
-        $search      = sanitize_text_field($_GET['search'] ?? '');
+        $course_type = sanitize_text_field(wp_unslash($_GET['course_type'] ?? ''));
+        $search      = sanitize_text_field(wp_unslash($_GET['search'] ?? '')); // O'Brien, not O\'Brien
         $paged       = max(1, absint($_GET['paged'] ?? 1));
 
         $allowed_per_page = [10, 20, 50];
@@ -426,7 +426,7 @@ class IQU_Coupon_Admin
     <!-- ── State tabs: same counts as the cards (IQU_Coupon::effective_status) ── -->
     <?php
         $tab_url = fn(string $s) => add_query_arg(array_filter([
-            'page' => self::PAGE_LIST, 'status' => $s, 'search' => $search, 'course_type' => $course_type,
+            'page' => self::PAGE_LIST, 'status' => $s, 'search' => rawurlencode($search), 'course_type' => rawurlencode($course_type), // add_query_arg does not encode
             'per_page' => $per_page !== 20 ? $per_page : null,
         ], fn($v) => $v !== null && $v !== ''), admin_url('admin.php'));
         $tabs = ['' => ['All', (int) $stats['total']]];
@@ -542,7 +542,7 @@ class IQU_Coupon_Admin
                                     btn.classList.remove('iqu-copied');
                                     btn.innerHTML='<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><rect x=&quot;9&quot; y=&quot;9&quot; width=&quot;13&quot; height=&quot;13&quot; rx=&quot;2&quot; ry=&quot;2&quot;></rect><path d=&quot;M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1&quot;></path></svg>';
                                 },1200);
-                                " "><svg xmlns=" http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                "><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                     stroke-linejoin="round">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -633,7 +633,9 @@ class IQU_Coupon_Admin
         $type        = sanitize_text_field($post['discount_type'] ?? '');
         $value       = (float) ($post['discount_value'] ?? 0);
         $expire      = sanitize_text_field($post['expire_date'] ?? '');
-        $max_uses    = min(9999, absint($post['max_uses'] ?? 1)); // the form allows up to 9,999
+        // The form allows up to 9,999; 0 = unlimited only when typed. An emptied field is the default 1, never unlimited.
+        $max_uses_raw = is_string($post['max_uses'] ?? null) ? trim($post['max_uses']) : '';
+        $max_uses    = $max_uses_raw === '' ? 1 : min(9999, absint($max_uses_raw));
         $description = sanitize_textarea_field($post['description'] ?? '');
 
         // ── ভ্যালিডেশন ──
@@ -657,7 +659,7 @@ class IQU_Coupon_Admin
 
         // তারিখ যাচাই — অতীতের তারিখ গ্রহণ করা হবে না
         $expire_clean = null;
-        if ($expire !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $expire)) {
+        if ($expire !== '' && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $expire, $ymd) && checkdate((int) $ymd[2], (int) $ymd[3], (int) $ymd[1])) {
             if ($expire >= current_time('Y-m-d')) {
                 $expire_clean = $expire;
             }

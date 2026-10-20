@@ -950,7 +950,7 @@ class IQU_Admin
 
     $allowed_per_page = [10, 20, 30];
     $raw_per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
-    $dash_perpage = in_array($raw_per_page, $allowed_per_page) ? $raw_per_page : 10;
+    $dash_perpage = in_array($raw_per_page, $allowed_per_page, true) ? $raw_per_page : 10;
     $dash_perpage = max(1, $dash_perpage);
     $dash_page    = max(1, absint($_GET['paged'] ?? 1));
     $dash_total   = IQU_Database::count_registrations();
@@ -1235,12 +1235,12 @@ class IQU_Admin
     if (!current_user_can('manage_options'))
       wp_die('Permission denied.');
 
-    $status = sanitize_text_field($_GET['status'] ?? '');
-    $search = sanitize_text_field($_GET['search'] ?? '');
+    $status = sanitize_text_field(wp_unslash($_GET['status'] ?? ''));
+    $search = sanitize_text_field(wp_unslash($_GET['search'] ?? '')); // O'Brien, not O\'Brien
     $page = max(1, absint($_GET['paged'] ?? 1));
     $allowed_per_page = [10, 20, 30];
     $raw_per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
-    $perpage = in_array($raw_per_page, $allowed_per_page) ? $raw_per_page : 10;
+    $perpage = in_array($raw_per_page, $allowed_per_page, true) ? $raw_per_page : 10;
     $perpage = max(1, $perpage);
     $page_slug = sanitize_key($_GET['page'] ?? '');
 
@@ -1321,7 +1321,7 @@ class IQU_Admin
             <tbody>
                 <?php if (empty($rows)): ?>
                 <tr>
-                    <td colspan="<?php echo $is_summer ? 11 : 11; ?>" class="iqu-empty-state">No registrations found.
+                    <td colspan="<?php echo $is_summer ? 11 : 10; ?>" class="iqu-empty-state">No registrations found.
                     </td>
                 </tr>
                 <?php else:

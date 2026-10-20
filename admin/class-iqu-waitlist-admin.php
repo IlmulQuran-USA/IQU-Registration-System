@@ -124,7 +124,8 @@ class IQU_Waitlist_Admin
         $total    = IQU_Waitlist::count($f['country'], $f['program'], $f['more']);
         $rows     = IQU_Waitlist::rows($f['country'], $f['program'], self::PER, ($page - 1) * self::PER, $f['more']);
         $query    = array_filter(['country' => $f['country'], 'program' => $f['program'], 's' => $f['s'], 'from' => $f['from_date'], 'to' => $f['to_date']]);
-        $export   = wp_nonce_url(add_query_arg(['action' => self::EXPORT] + $query, admin_url('admin-post.php')), self::EXPORT);
+        // add_query_arg does not encode: a search with & or # would cut the link (and its nonce) short.
+        $export   = wp_nonce_url(add_query_arg(['action' => self::EXPORT] + rawurlencode_deep($query), admin_url('admin-post.php')), self::EXPORT);
         $stats    = IQU_Waitlist::stats(self::utc((new DateTimeImmutable('now', wp_timezone()))->format('Y-m-01 00:00:00')));
         $pages    = (int) ceil($total / self::PER);
         $filtered = $query !== [];

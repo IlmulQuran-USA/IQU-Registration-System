@@ -62,7 +62,7 @@ class IQU_Billing_Add_Student
             'last_name'     => sanitize_text_field(wp_unslash($_POST['last_name'] ?? '')),
             'guardian_name' => sanitize_text_field(wp_unslash($_POST['guardian_name'] ?? '')),
             'email'         => sanitize_email(wp_unslash($_POST['email'] ?? '')),
-            'whatsapp'      => preg_replace('/[^0-9+\-\s()]/', '', (string) wp_unslash($_POST['whatsapp'] ?? '')),
+            'whatsapp'      => preg_replace('/[^0-9+\-\s()]/', '', is_string($_POST['whatsapp'] ?? null) ? wp_unslash($_POST['whatsapp']) : ''),
             'course'        => sanitize_key(wp_unslash($_POST['course'] ?? '')),
             'days'          => absint($_POST['days'] ?? 0),
             'use_agreed'    => !empty($_POST['use_agreed']),

@@ -164,7 +164,7 @@ class IQU_Billing_Portal
             self::render_find('', 'Too many requests. Please try again in an hour.');
         }
 
-        $email = sanitize_email((string) wp_unslash($_POST['email'] ?? ''));
+        $email = sanitize_email(is_string($_POST['email'] ?? null) ? wp_unslash($_POST['email']) : '');
         if (!is_email($email)) self::render_find('', 'Please enter a valid email address.');
 
         if (!self::limited('find_eml_' . strtolower($email), self::RL_FIND_EML, HOUR_IN_SECONDS, true)) {

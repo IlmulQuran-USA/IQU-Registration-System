@@ -206,9 +206,9 @@ class IQU_Zeffy_Admin
         if (!preg_match($date_re, $date_to))   $date_to   = '';
 
         return [
-            'search'      => sanitize_text_field($_GET['search'] ?? ''),
+            'search'      => sanitize_text_field(wp_unslash($_GET['search'] ?? '')), // O'Brien, not O\'Brien
             'status'      => sanitize_text_field($_GET['status'] ?? ''),
-            'campaign_id' => sanitize_text_field($_GET['campaign_id'] ?? ''),
+            'campaign_id' => sanitize_text_field(wp_unslash($_GET['campaign_id'] ?? '')),
             'recurring'   => sanitize_text_field($_GET['recurring'] ?? ''),
             'date_from'   => $date_from,
             'date_to'     => $date_to,

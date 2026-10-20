@@ -238,7 +238,8 @@ class IQU_Billing_Page
         $from  = $total ? ($page - 1) * $per + 1 : 0;
         $to    = min($total, $page * $per);
         // The list with the current filter chip, search and page size (page links add "paged").
-        $list  = fn(array $args = []) => add_query_arg($args + ['page' => self::SLUG, 'show' => $filter, 'q' => $q !== '' ? $q : null, 'per_page' => $per], admin_url('admin.php'));
+        // (add_query_arg does not encode: a search with & # = would break the links or add parameters.)
+        $list  = fn(array $args = []) => add_query_arg($args + ['page' => self::SLUG, 'show' => $filter, 'q' => $q !== '' ? rawurlencode($q) : null, 'per_page' => $per], admin_url('admin.php'));
 
         $not_set_up_total = 0.0;
         foreach ($rows as $r) if ($r['group'] === 'not_set_up') $not_set_up_total += (float) $r['p']['net'];
