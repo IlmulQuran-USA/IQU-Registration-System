@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) exit;
 class IQU_Billing_Sync
 {
     /**
-     * @return array{ok:bool, error:string, old:string, new:string, account:array}
+     * @return array{ok:bool, error:string, old:string, new:string, account:array, subscription?:array}
      */
     public static function sync(array $acc): array
     {

@@ -270,7 +270,7 @@ class IQU_Billing_Add_Student
      *
      * @param array $in first_name, last_name, guardian_name, email, whatsapp, course,
      *                  days, use_agreed, agreed_fee, zakat, note, extra[]
-     * @return array{errors:string[], row:array, gross:float, net:float}
+     * @return array{errors:string[], warnings:string[], row:array, gross:float, net:float, course_missing?:bool}
      */
     public static function prepare(array $in): array
     {

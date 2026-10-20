@@ -491,7 +491,7 @@ class IQU_Billing_Service
      * the monthly subscription is created when they finish.
      * @param array $opts success_args: extra query args on the success URL (enrollment flow:
      *                    enrolled=1). Without it the session is exactly as before.
-     * @return array{ok:bool, url:string, error:string, id?:string}
+     * @return array{ok:bool, url:string, error:string, id?:string, code?:string} code: Stripe's error code, or already_set_up
      */
     public static function create_checkout_session(array $acc, array $opts = []): array
     {
