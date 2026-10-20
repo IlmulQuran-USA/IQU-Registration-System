@@ -410,9 +410,11 @@ class IQU_Coupon_DB
                  SET `used_count` = `used_count` + 1
                  WHERE `id` = %d
                    AND `status` = %s
-                   AND (`max_uses` = 0 OR `used_count` < `max_uses`)",
+                   AND (`max_uses` = 0 OR `used_count` < `max_uses`)
+                   AND (`expire_date` IS NULL OR `expire_date` >= %s)",
                 $id,
-                self::STATUS_ACTIVE
+                self::STATUS_ACTIVE,
+                current_time('Y-m-d')
             )
         );
 

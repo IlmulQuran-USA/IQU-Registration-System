@@ -24,7 +24,7 @@
   B.csvCell = function (value) {
     var s = value === null || value === undefined ? "" : String(value);
     if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s;
-    if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    if (/[",;\t\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"'; // ; and tab too (other spreadsheet locales)
     return s;
   };
 

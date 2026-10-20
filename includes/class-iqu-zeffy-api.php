@@ -90,7 +90,8 @@ class IQU_Zeffy_API
         }
 
         $response = wp_remote_get($url, [
-            'timeout' => self::TIMEOUT,
+            'timeout'     => self::TIMEOUT,
+            'redirection' => 0, // a redirect would carry the Bearer key to another host
             'headers' => [
                 'Authorization' => 'Bearer ' . $key,
                 'Accept'        => 'application/json',
@@ -105,6 +106,9 @@ class IQU_Zeffy_API
         $code = (int) wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
 
+        if ($code >= 300 && $code < 400) {
+            return new WP_Error('iqu_zeffy_redirect', __('Zeffy answered with a redirect (HTTP ' . $code . '); it was not followed. Please try again later.', 'iqu-registration'));
+        }
         if ($code === 401) {
             return new WP_Error('iqu_zeffy_auth', __('Zeffy rejected the API key (401). Generate a new key and save it again.', 'iqu-registration'));
         }
@@ -217,7 +221,9 @@ class IQU_Zeffy_API
 
             $pages++;
             $has_more = !empty($response['has_more']);
+            $previous = $cursor;
             $cursor   = (string) ($response['next_cursor'] ?? '');
+            if ($cursor === $previous) $has_more = false; // the same page again: stop, not walk until MAX_PAGES
 
             if ($has_more && $cursor !== '' && $pages < self::MAX_PAGES) {
                 usleep(self::THROTTLE_USEC);

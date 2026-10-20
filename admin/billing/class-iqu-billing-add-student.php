@@ -183,7 +183,7 @@ class IQU_Billing_Add_Student
         }
         foreach (['country_origin', 'country_res'] as $k) {
             $v = self::clean_text((string) ($x[$k] ?? ''));
-            if ($v !== '') $cols[$k] = substr($v, 0, self::EXTRA_FIELDS[$k]);
+            if ($v !== '') $cols[$k] = mb_substr($v, 0, self::EXTRA_FIELDS[$k]); // characters, not bytes (Arabic, Bengali)
         }
         $lvl = strtolower(trim((string) ($x['quran_level'] ?? '')));
         if ($lvl !== '') {
@@ -191,7 +191,7 @@ class IQU_Billing_Add_Student
             else $cols['quran_level'] = $lvl;
         }
         $mem = trim(sanitize_textarea_field((string) ($x['memorized'] ?? '')));
-        if ($mem !== '') $cols['memorized'] = substr(ltrim($mem, "=+@\t\r"), 0, self::EXTRA_FIELDS['memorized']);
+        if ($mem !== '') $cols['memorized'] = mb_substr(ltrim($mem, "=+@\t\r"), 0, self::EXTRA_FIELDS['memorized']);
 
         $langs = $list($x['languages'] ?? []);
         if ($langs) {
@@ -226,7 +226,7 @@ class IQU_Billing_Add_Student
             elseif (!isset(IQU_Reg_Fields::TIME_ZONES[$tz])) $e[] = 'Preferred time: choose a time zone.';
             else $cols['time_slot'] = $t($start)->format('h:i A') . ' – ' . $t($end)->format('h:i A') . ' (' . $tz . ')';
         } elseif (($slot = self::clean_text((string) ($x['time_slot'] ?? ''))) !== '') {
-            $cols['time_slot'] = substr($slot, 0, self::EXTRA_FIELDS['time_slot']);
+            $cols['time_slot'] = mb_substr($slot, 0, self::EXTRA_FIELDS['time_slot']);
         }
 
         $dur = strtolower(trim((string) ($x['session_dur'] ?? '')));
@@ -249,7 +249,7 @@ class IQU_Billing_Add_Student
         if (preg_match('/^\s*other\b\s*[:\-–(]?\s*(.*?)\)?\s*$/iu', (string) ($x['referral'] ?? ''), $om)) {
             $other = self::clean_text(trim(($om[1] ?? '') !== '' ? $om[1] : (string) ($x['referral_other'] ?? '')));
             $cols['referral']       = 'other';
-            $cols['referral_other'] = substr($other, 0, 200);
+            $cols['referral_other'] = mb_substr($other, 0, 200);
             $w[] = "'Other' answer — check and update manually.";
             $ref = '';
         }

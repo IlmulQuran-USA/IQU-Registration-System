@@ -45,7 +45,7 @@ define(
 );
 
 // Google reCAPTCHA v3 keys (user-provided) 
-define('IQU_RECAPTCHA_THRESHOLD', 0.5);
+if (!defined('IQU_RECAPTCHA_THRESHOLD')) define('IQU_RECAPTCHA_THRESHOLD', 0.5); // may be set in wp-config.php
 
 // Zeffy fundraising URL
 define('IQU_ZEFFY_URL', 'https://www.zeffy.com/en-US/fundraising/d912691e-fbd0-4140-9453-a7b230b333eb');

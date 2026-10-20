@@ -172,7 +172,7 @@ class IQU_Billing_Notify
         if (!empty($ch['reason'])) $top[] = 'Bank said: ' . self::e($ch['reason']);
         $top[] = 'Attempt: ' . max(1, $attempt);
         self::send("\u{26A0}\u{FE0F} Payment failed", $top, $acc, $inv, [
-            $next_attempt ? 'Stripe tries again on ' . self::e(gmdate('j M', $next_attempt)) . '. No action needed yet.' : '<b>No more automatic attempts.</b>',
+            $next_attempt ? 'Stripe tries again on ' . self::e(wp_date('j M', $next_attempt)) . '. No action needed yet.' : '<b>No more automatic attempts.</b>',
         ]);
     }
 

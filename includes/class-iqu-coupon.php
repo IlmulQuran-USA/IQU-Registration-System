@@ -245,7 +245,7 @@ class IQU_Coupon
             $value    = min(100.00, max(0.00, $value));
             $discount = round($base_amount * ($value / 100), 2);
         } else {
-            $discount = round($value, 2);
+            $discount = round(max(0.0, $value), 2); // a negative stored value never raises the price
         }
 
         // ডিসকাউন্ট কখনোই মূল অঙ্কের চেয়ে বেশি হবে না

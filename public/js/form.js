@@ -1462,6 +1462,8 @@
                 .join("")
             : "";
 
+          // Only ever the Zeffy site (the server builds this from IQU_ZEFFY_URL).
+          if (payment.zeffy_url && !/^https:\/\/(www\.)?zeffy\.com\//.test(String(payment.zeffy_url))) payment.zeffy_url = "";
           const zeffyHTML = payment.zeffy_url
             ? `<div class="iqu-sp-redirect">
           <svg class="iqu-sp-redirect-spinner" width="28" height="28" viewBox="0 0 44 44">

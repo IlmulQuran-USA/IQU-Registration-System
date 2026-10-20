@@ -74,7 +74,8 @@ class IQU_Enrollment_Settings
             'geo_url'        => esc_url_raw(rest_url('iqu/v1/geo')),
             'waitlist_url'   => esc_url_raw(rest_url('iqu/v1/waitlist')),
             'waitlist_nonce' => wp_create_nonce('iqu_waitlist'),
-            'rest_nonce'     => wp_create_nonce('wp_rest'),
+            // No wp_rest nonce: form.js never sends one, and for a logged-in admin it would be a REST
+            // token in the page (and in any page cache that stored it).
             'nanp'           => IQU_Eligibility::js_nanp(),
             'block_title'    => 'We are not in your country yet',
             'block_message'  => IQU_Eligibility::block_message(),

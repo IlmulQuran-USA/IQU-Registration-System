@@ -97,13 +97,27 @@ class IQU_Zeffy_Sync
      *
      * @return array Result summary.
      */
-    /** One sync at a time (atomic): cron, "Sync now" and "Import full history" never overlap. */
+    /** This run's lock value ("time|token"): a run frees only its own lock, never one a later run took over. */
+    private static $lock_token = '';
+
+    /**
+     * One sync at a time (atomic): cron, "Sync now" and "Import full history" never overlap. A lock older
+     * than the longest possible run (200 pages × 20 s) belongs to a run that died, and is taken over.
+     */
     private static function lock(): bool
     {
-        if (add_option('iqu_zeffy_sync_lock', time(), '', 'no')) return true;
-        if ((int) get_option('iqu_zeffy_sync_lock') > time() - 15 * MINUTE_IN_SECONDS) return false;
-        update_option('iqu_zeffy_sync_lock', time(), 'no'); // a run that died long ago
+        $token = time() . '|' . wp_generate_password(12, false);
+        if (!add_option('iqu_zeffy_sync_lock', $token, '', 'no')) {
+            if ((int) get_option('iqu_zeffy_sync_lock') > time() - 90 * MINUTE_IN_SECONDS) return false;
+            update_option('iqu_zeffy_sync_lock', $token, 'no'); // a run that died long ago
+        }
+        self::$lock_token = $token;
         return true;
+    }
+
+    private static function owns_lock(): bool
+    {
+        return self::$lock_token !== '' && (string) get_option('iqu_zeffy_sync_lock') === self::$lock_token;
     }
 
     private static function busy(string $mode): array
@@ -117,7 +131,7 @@ class IQU_Zeffy_Sync
         try {
             return self::reconcile_locked($days);
         } finally {
-            delete_option('iqu_zeffy_sync_lock');
+            if (self::owns_lock()) delete_option('iqu_zeffy_sync_lock');
         }
     }
 
@@ -174,7 +188,7 @@ class IQU_Zeffy_Sync
         try {
             return self::backfill_locked();
         } finally {
-            delete_option('iqu_zeffy_sync_lock');
+            if (self::owns_lock()) delete_option('iqu_zeffy_sync_lock');
         }
     }
 
