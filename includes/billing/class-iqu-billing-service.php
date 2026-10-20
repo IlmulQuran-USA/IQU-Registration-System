@@ -289,8 +289,10 @@ class IQU_Billing_Service
                 ['name' => 'Student',   'value' => substr($students, 0, 140)],
                 ['name' => 'Reference', 'value' => substr($refs, 0, 140)],
             ]],
+            // Only what is the same on every attempt for this family: the idempotency key below is the family,
+            // and Stripe refuses a reused key with different parameters (a new account id each attempt). The
+            // account is found by the subscription's iqu_account_id and by this customer id, never by this.
             'metadata' => [
-                'iqu_account_id'       => (string) $account_id,
                 'iqu_mode'             => IQU_Stripe::expected_mode(),
                 'iqu_registration_ids' => implode(',', array_keys($regs)),
             ],
@@ -351,19 +353,24 @@ class IQU_Billing_Service
      * completed); false when Stripe could not be reached or refused. Needs only Checkout
      * Sessions (write), which creating the page already needs.
      */
-    public static function expire_open_session(array $acc): bool
+    public static function expire_open_session(array $acc, ?string &$status = null): bool
     {
+        $status = ''; // the previous page's status, when there was one: expired / complete
         $sid = (string) ($acc['checkout_session_id'] ?? '');
         if ($sid === '' || !empty($acc['stripe_subscription_id'])) return true;
         if (!preg_match('/^cs_[A-Za-z0-9_]+$/', $sid)) return true;
         $r = IQU_Stripe::post('/checkout/sessions/' . $sid . '/expire', []);
         $closed = $r['ok'];
+        if ($closed) $status = 'expired';
         if (!$closed) {
             // Stripe refuses to expire a page that is not open; check which it is.
             $g = IQU_Stripe::get('/checkout/sessions/' . $sid);
-            $closed = $g['ok'] && (string) ($g['data']['status'] ?? '') !== 'open';
+            $status = $g['ok'] ? (string) ($g['data']['status'] ?? '') : '';
+            $closed = $g['ok'] && $status !== 'open';
         }
-        if ($closed) IQU_Billing_DB::update_account((int) $acc['id'], ['checkout_session_id' => '']);
+        // A completed page stays on the record until its webhook links the subscription (and clears it):
+        // the family is set up, and no second page may be made meanwhile (two subscriptions).
+        if ($closed && $status !== 'complete') IQU_Billing_DB::update_account((int) $acc['id'], ['checkout_session_id' => '']);
         return $closed;
     }
 
@@ -568,22 +575,34 @@ class IQU_Billing_Service
             update_option($lock, time(), 'no');
         }
         try {
+            // Read again inside the lock: the request just before may have set the family up.
+            $cur = IQU_Billing_DB::get_account((int) $acc['id']) ?: $acc;
+            if (!empty($cur['stripe_subscription_id'])) return $fail('Monthly billing is already set up.') + ['code' => 'already_set_up'];
             // One open page per family: close the previous one first. If it cannot be closed, no second
             // page is made (both could be completed — two subscriptions).
-            $previous_closed = self::expire_open_session(IQU_Billing_DB::get_account((int) $acc['id']) ?: $acc);
+            $previous = '';
+            $previous_closed = self::expire_open_session($cur, $previous);
+            if ($previous === 'complete') {
+                // The family finished the previous page; its webhook has not linked the subscription yet
+                // (late, or the tab was closed early). Link it now — never a second page.
+                if (class_exists('IQU_Billing_Sync')) IQU_Billing_Sync::sync($cur);
+                return $fail('Monthly billing is already set up.') + ['code' => 'already_set_up'];
+            }
             if (!$previous_closed) return $fail('The previous payment page could not be closed. Please try again in a minute.');
             $res = IQU_Stripe::post('/checkout/sessions', $params);
+            if ($res['ok'] && !empty($res['data']['url'])) {
+                // Saved before the lock is freed, so the next request sees this page and closes it.
+                IQU_Billing_DB::update_account((int) $acc['id'], [
+                    'checkout_session_id' => substr((string) ($res['data']['id'] ?? ''), 0, 100),
+                    'checkout_amount'     => round($cents / 100, 2),
+                    'checkout_created_at' => current_time('mysql', true),
+                    'link_outdated'       => 0,
+                ]);
+            }
         } finally {
             delete_option($lock);
         }
         if (!$res['ok'] || empty($res['data']['url'])) return $fail('Could not open the payment page: ' . $res['error']) + ['code' => (string) ($res['code'] ?? '')];
-        $set = [
-            'checkout_session_id' => substr((string) ($res['data']['id'] ?? ''), 0, 100),
-            'checkout_amount'     => round($cents / 100, 2),
-            'checkout_created_at' => current_time('mysql', true),
-        ];
-        if ($previous_closed) $set['link_outdated'] = 0;
-        IQU_Billing_DB::update_account((int) $acc['id'], $set);
         return ['ok' => true, 'url' => (string) $res['data']['url'], 'error' => '', 'id' => (string) ($res['data']['id'] ?? '')];
     }
 

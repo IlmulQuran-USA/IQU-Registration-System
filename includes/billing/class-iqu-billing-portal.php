@@ -129,6 +129,8 @@ class IQU_Billing_Portal
         if ($do === 'checkout') {
             $r = IQU_Billing_Service::create_checkout_session($acc);
             if ($r['ok']) self::to_stripe($r['url'], 'checkout.stripe.com');
+            // Set up already (the page was completed; the record has just been linked): show it, no error.
+            if (($r['code'] ?? '') === 'already_set_up') self::render_account(IQU_Billing_DB::get_account((int) $acc['id']) ?: $acc, $token);
             self::render_account($acc, $token, 'We could not open the payment page just now. Please try again in a minute.');
         }
 
