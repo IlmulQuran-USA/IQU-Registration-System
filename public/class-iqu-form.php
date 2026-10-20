@@ -979,9 +979,16 @@ class IQU_Form
         $coupon_result = null;
 
         if ($coupon_input !== '') {
+            // The guessing guard of "Apply" also applies here: a bot could post codes straight to the submit.
+            $guard = self::coupon_guard_message();
+            if ($guard !== '') {
+                wp_send_json_error(['message' => $guard, 'errors' => ['coupon_code' => $guard], 'code' => 'coupon_busy']);
+            }
             $coupon_result = IQU_Coupon::validate($coupon_input, $course, $base_amount);
 
             if (!$coupon_result['valid']) {
+                self::count_coupon_try();
+                self::count_coupon_failure('iqu_coupon_fail_' . gmdate('YmdH'));
                 wp_send_json_error([
                     'message' => $coupon_result['error'],
                     'errors'  => ['coupon_code' => $coupon_result['error']],
@@ -1092,28 +1099,14 @@ class IQU_Form
             ]);
         }
 
-        // 🔒 রেট লিমিট — কুপন কোড ব্রুট-ফোর্স ঠেকাতে।
+        // 🔒 রেট লিমিট — কুপন কোড ব্রুট-ফোর্স ঠেকাতে (the same guard covers the submit).
         // এক IP থেকে ঘণ্টায় ২০ বারের বেশি চেষ্টা করা যাবে না।
-        $ip  = self::client_ip();
-        $key = 'iqu_coupon_try_' . md5($ip);
-
-        $attempts = (int) get_transient($key);
-        if ($attempts >= 20) {
-            wp_send_json_error([
-                'message' => 'Too many attempts. Please wait a while and try again, or contact us for help.',
-            ]);
+        $guard = self::coupon_guard_message();
+        if ($guard !== '') {
+            wp_send_json_error(['message' => $guard]);
         }
-        set_transient($key, $attempts + 1, HOUR_IN_SECONDS);
-
-        // Site-wide: many failed codes in one hour from anywhere means someone is guessing; pause the
-        // check for the rest of the hour and tell the team once. Real families are not affected by the
-        // per-IP limit above, and a valid code typed during a pause can be checked again next hour.
+        self::count_coupon_try();
         $fail_key = 'iqu_coupon_fail_' . gmdate('YmdH');
-        if ((int) get_transient($fail_key) >= self::COUPON_FAILS_PER_HOUR) {
-            wp_send_json_error([
-                'message' => 'Coupon check is busy right now. Please try again in an hour, or contact us for help.',
-            ]);
-        }
 
         $code   = sanitize_text_field($_POST['coupon_code'] ?? '');
         $course = sanitize_text_field($_POST['course_type'] ?? '');
@@ -1164,6 +1157,29 @@ class IQU_Form
 
     /** Failed coupon lookups, site-wide, per hour, before the check pauses (see handle_apply_coupon). */
     private const COUPON_FAILS_PER_HOUR = 100;
+
+    /**
+     * Coupon guessing guard, shared by "Apply" and the submit. Per IP: 20 tries an hour. Site-wide: many
+     * failed codes in one hour from anywhere means someone is guessing; the check pauses for the rest of
+     * the hour and the team is told once. Real families are not affected by the per-IP limit, and a valid
+     * code typed during a pause can be checked again next hour. '' = go ahead.
+     */
+    private static function coupon_guard_message(): string
+    {
+        if ((int) get_transient('iqu_coupon_try_' . md5(self::client_ip())) >= 20) {
+            return 'Too many attempts. Please wait a while and try again, or contact us for help.';
+        }
+        if ((int) get_transient('iqu_coupon_fail_' . gmdate('YmdH')) >= self::COUPON_FAILS_PER_HOUR) {
+            return 'Coupon check is busy right now. Please try again in an hour, or contact us for help.';
+        }
+        return '';
+    }
+
+    private static function count_coupon_try(): void
+    {
+        $key = 'iqu_coupon_try_' . md5(self::client_ip());
+        set_transient($key, (int) get_transient($key) + 1, HOUR_IN_SECONDS);
+    }
 
     private static function count_coupon_failure(string $fail_key): void
     {
