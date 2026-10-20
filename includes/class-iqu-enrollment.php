@@ -371,7 +371,8 @@ class IQU_Enrollment
             $acc = class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
             if ($age >= self::EXPIRE_DAYS * DAY_IN_SECONDS) {
                 // A card or bank is already on file (e.g. waiting for an amount review): not expired.
-                if (!$acc || empty($acc['stripe_subscription_id'])) IQU_Database::set_status($id, 'expired');
+                // Only from card_pending, in one UPDATE: the webhook may enroll the family between the read above and here.
+                if (!$acc || empty($acc['stripe_subscription_id'])) IQU_Database::transition_status($id, ['card_pending'], 'expired');
                 continue;
             }
 

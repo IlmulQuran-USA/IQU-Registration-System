@@ -197,27 +197,14 @@ class IQU_Summer_Pay
         }
         $pi = $s['payment_intent'] ?? null;
         $pi_id = is_array($pi) ? (string) ($pi['id'] ?? '') : (string) $pi;
-        if ($reg['payment_status'] === 'paid') {
-            // The same payment again (a repeated event): nothing to do. A second, different payment for
-            // the same place (two pages paid): tell the team so one can be refunded.
-            if ($pi_id !== '' && $pi_id !== (string) $reg['transaction_id']) {
-                self::telegram('⚠️ Summer place paid twice', [
-                    'Registration' => IQU_Telegram::link(admin_url('admin.php?page=iqu-view-registration&id=' . $id), '#' . $id),
-                    'Second payment' => IQU_Telegram::esc($pi_id),
-                ], 'This place was already paid. Please refund one of the two payments in Stripe.');
-                return ['summer_paid_twice', null, 'IQU-' . $id . ' ' . substr($pi_id, 0, 40)];
-            }
-            return ['summer_already_paid', null, 'IQU-' . $id];
-        }
+        if ($reg['payment_status'] === 'paid') return self::already_paid($id, $pi_id, $reg);
         // A11: the team cancelled this registration — record the money, keep it cancelled, and ask the team.
         $cancelled = (string) $reg['status'] === 'cancelled';
         $amount = ((int) $s['amount_total']) / 100;
-        IQU_Database::update_payment($id, [
-            'payment_status' => 'paid',
-            'payment_amount' => $amount,
-            'transaction_id' => substr($pi_id, 0, 100),
-            'payment_method' => 'stripe',
-        ]);
+        if (!IQU_Database::mark_paid_once($id, $amount, substr($pi_id, 0, 100), 'stripe')) {
+            // Another delivery marked it paid a moment ago (the same payment, or a second page paid too).
+            return self::already_paid($id, $pi_id, IQU_Database::get_registration($id) ?: $reg);
+        }
         if ($cancelled) {
             self::telegram('⚠️ Summer payment for a cancelled registration', [
                 'Registration' => IQU_Telegram::link(admin_url('admin.php?page=iqu-view-registration&id=' . $id), '#' . $id),
@@ -253,6 +240,22 @@ class IQU_Summer_Pay
                 'Summer payment with a card issued outside the US and Canada. Nothing was refunded — please check with the family.');
         }
         return ['ok', null, 'summer IQU-' . $id];
+    }
+
+    /**
+     * The place is paid already. The same payment again (a repeated event): nothing to do. A second,
+     * different payment for the same place (two pages paid): tell the team so one can be refunded.
+     */
+    private static function already_paid(int $id, string $pi_id, array $reg): array
+    {
+        if ($pi_id !== '' && $pi_id !== (string) $reg['transaction_id']) {
+            self::telegram('⚠️ Summer place paid twice', [
+                'Registration' => IQU_Telegram::link(admin_url('admin.php?page=iqu-view-registration&id=' . $id), '#' . $id),
+                'Second payment' => IQU_Telegram::esc($pi_id),
+            ], 'This place was already paid. Please refund one of the two payments in Stripe.');
+            return ['summer_paid_twice', null, 'IQU-' . $id . ' ' . substr($pi_id, 0, 40)];
+        }
+        return ['summer_already_paid', null, 'IQU-' . $id];
     }
 
     private static function confirmation_email(array $reg, float $amount): void

@@ -819,6 +819,20 @@ class IQU_Database
     /**
      * Update payment fields on an existing row.
      */
+    /**
+     * Mark a payment paid only while the row is not paid yet, in one UPDATE: true for the one request that
+     * did (two "payment completed" events for the same place can be processed at the same moment).
+     */
+    public static function mark_paid_once(int $id, float $amount, string $transaction_id, string $method): bool
+    {
+        global $wpdb;
+        $n = $wpdb->query($wpdb->prepare(
+            'UPDATE ' . $wpdb->prefix . IQU_TABLE_NAME . " SET payment_status = 'paid', payment_amount = %f, transaction_id = %s, payment_method = %s WHERE id = %d AND payment_status <> 'paid'",
+            $amount, $transaction_id, $method, $id
+        ));
+        return $n === 1;
+    }
+
     public static function update_payment(int $id, array $fields): bool
     {
         global $wpdb;

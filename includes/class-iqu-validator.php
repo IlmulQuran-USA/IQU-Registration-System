@@ -279,6 +279,7 @@ class IQU_Validator
 
         // Complimentary — no payment needed
         if ($fee === 'complimentary') {
+            $pm = ''; // also for the status below: a posted method never makes a free place "submitted" / "redirected"
             $this->clean['payment_method'] = '';
             $this->clean['payment_status'] = 'complimentary';
         }
