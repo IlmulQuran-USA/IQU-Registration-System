@@ -98,24 +98,31 @@ class IQU_Zeffy_Admin
         }
         check_admin_referer('iqu_zeffy_settings');
 
-        // Only persist to the DB when the value is not locked by a constant.
-        if (!IQU_Zeffy_API::key_is_locked() && isset($_POST['iqu_zeffy_api_key'])) {
-            // A token is kept exactly as pasted (sanitize_text_field strips %xx sequences); only whitespace and control characters go.
-            $key = preg_replace('/[\s\x00-\x1F\x7F]+/', '', (string) wp_unslash($_POST['iqu_zeffy_api_key']));
-            // An all-bullet value means "unchanged" — the field renders masked.
-            if ($key !== '' && strpos($key, '•') === false) {
-                update_option(IQU_Zeffy_API::OPT_API_KEY, $key, false);
-            } elseif ($key === '') {
+        // Only persist to the DB when the value is not locked by a constant. The two fields are never
+        // pre-filled (the saved key shows only as a masked placeholder), so an empty field means "keep
+        // the saved one" — saving the reconcile window must not wipe the key and secret. Only the
+        // "Remove the saved …" box deletes one.
+        if (!IQU_Zeffy_API::key_is_locked()) {
+            if (!empty($_POST['iqu_zeffy_api_key_remove'])) {
                 delete_option(IQU_Zeffy_API::OPT_API_KEY);
+            } elseif (isset($_POST['iqu_zeffy_api_key']) && is_string($_POST['iqu_zeffy_api_key'])) {
+                // A token is kept exactly as pasted (sanitize_text_field strips %xx sequences); only whitespace and control characters go.
+                $key = preg_replace('/[\s\x00-\x1F\x7F]+/', '', wp_unslash($_POST['iqu_zeffy_api_key']));
+                // An all-bullet value (the masked placeholder pasted back) also means "unchanged".
+                if ($key !== '' && strpos($key, '•') === false) {
+                    update_option(IQU_Zeffy_API::OPT_API_KEY, $key, false);
+                }
             }
         }
 
-        if (!IQU_Zeffy_Webhook::secret_is_locked() && isset($_POST['iqu_zeffy_webhook_secret'])) {
-            $secret = preg_replace('/[\s\x00-\x1F\x7F]+/', '', (string) wp_unslash($_POST['iqu_zeffy_webhook_secret']));
-            if ($secret !== '' && strpos($secret, '•') === false) {
-                update_option(IQU_Zeffy_Webhook::OPT_SECRET, $secret, false);
-            } elseif ($secret === '') {
+        if (!IQU_Zeffy_Webhook::secret_is_locked()) {
+            if (!empty($_POST['iqu_zeffy_webhook_secret_remove'])) {
                 delete_option(IQU_Zeffy_Webhook::OPT_SECRET);
+            } elseif (isset($_POST['iqu_zeffy_webhook_secret']) && is_string($_POST['iqu_zeffy_webhook_secret'])) {
+                $secret = preg_replace('/[\s\x00-\x1F\x7F]+/', '', wp_unslash($_POST['iqu_zeffy_webhook_secret']));
+                if ($secret !== '' && strpos($secret, '•') === false) {
+                    update_option(IQU_Zeffy_Webhook::OPT_SECRET, $secret, false);
+                }
             }
         }
 
@@ -813,6 +820,9 @@ class IQU_Zeffy_Admin
             <?php else: ?>
             <input type="password" id="iquz-api-key" name="iqu_zeffy_api_key" autocomplete="off"
                 placeholder="<?php echo esc_attr(IQU_Zeffy_API::masked_key() ?: 'Paste your Zeffy API key'); ?>">
+            <?php if ((string) get_option(IQU_Zeffy_API::OPT_API_KEY, '') !== ''): ?>
+            <label class="iquz-hint"><input type="checkbox" name="iqu_zeffy_api_key_remove" value="1"> Remove the saved key (leave the field empty to keep it)</label>
+            <?php endif; ?>
             <p class="iquz-hint">
                 Zeffy dashboard → Settings → Organization → Integrations → API Key.
                 For better security, define <code>IQU_ZEFFY_API_KEY</code> in <code>wp-config.php</code> instead.
@@ -830,6 +840,9 @@ class IQU_Zeffy_Admin
             <?php else: ?>
             <input type="password" id="iquz-secret" name="iqu_zeffy_webhook_secret" autocomplete="off"
                 placeholder="<?php echo IQU_Zeffy_Webhook::has_secret() ? 'whsec_••••••••' : 'whsec_…'; ?>">
+            <?php if ((string) get_option(IQU_Zeffy_Webhook::OPT_SECRET, '') !== ''): ?>
+            <label class="iquz-hint"><input type="checkbox" name="iqu_zeffy_webhook_secret_remove" value="1"> Remove the saved secret (leave the field empty to keep it)</label>
+            <?php endif; ?>
             <p class="iquz-hint">
                 Zeffy dashboard → Settings → Integrations → Webhook. Without this, incoming deliveries are rejected.
             </p>
