@@ -89,6 +89,8 @@ if (!defined('IQU_EMAIL_LOGO_SRC')) {
 // ============================================================
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-schema.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-csv.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-cdn.php';
+IQU_CDN::init(); // integrity hashes on the version-pinned CDN files
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-submit-guard.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-database.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-contact.php';
