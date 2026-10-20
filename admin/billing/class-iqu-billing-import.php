@@ -14,7 +14,9 @@ if (!defined('ABSPATH')) exit;
  * - .csv only, 1 MB and 500 rows maximum.
  * - Every row goes through IQU_Billing_Add_Student::prepare() — the same
  *   validation and pricing as the single form — and is checked again at confirm.
- * - Fees are always computed by IQU_Pricing; an agreed fee can only lower it.
+ * - Fees are always computed by IQU_Pricing; an "Agreed Monthly Fee" cell must be
+ *   one amount ("30", "$30.50", "1,250") — anything else is an error, never its
+ *   digits joined together — and one above the standard fee gets a warning.
  * - Cells are cleaned of spreadsheet formula characters.
  */
 class IQU_Billing_Import
@@ -326,9 +328,12 @@ class IQU_Billing_Import
         if ($wa === '') $wa = $r['guardian_whatsapp'] ?? '';
         $wa = trim(substr(preg_replace('/[^0-9+\-\s()]/', '', $wa), 0, 25));
 
-        // Keep a leading minus so "-5" is rejected as negative instead of read as 5.
-        $fee_raw = preg_replace('/[^0-9.\-]/', '', (string) ($r['agreed_fee'] ?? ''));
-        $fee_bad = $fee_raw !== '' && !preg_match('/^-?(\d+\.?\d*|\.\d+)$/', $fee_raw); // e.g. "5-10": not one amount
+        // One amount only: "30", "$30", "30.50", "1,250.00", "30 USD". Anything else ("25 or 30", "30,50",
+        // "30 (was 45)", "5-10") is an error — its digits are never joined into a fee. A leading minus is
+        // kept so "-5" is rejected as negative instead of read as 5.
+        $fee_cell = trim((string) ($r['agreed_fee'] ?? ''));
+        $fee_bad  = $fee_cell !== '' && !preg_match('/^-?\s*\$?\s*(\d{1,3}(,\d{3})+|\d+)(\.\d{1,2})?\s*(usd)?$/i', $fee_cell);
+        $fee_raw  = $fee_bad ? '' : preg_replace('/[^0-9.\-]/', '', $fee_cell);
         $zak     = strtolower((string) ($r['zakat'] ?? ''));
 
         return [
@@ -340,7 +345,7 @@ class IQU_Billing_Import
             'course'        => self::normalise_course((string) ($r['course'] ?? '')),
             'course_raw'    => IQU_Billing_Add_Student::clean_text((string) ($r['course'] ?? '')), // for the "not found" warning
             'days'          => (int) preg_replace('/\D/', '', (string) ($r['days'] ?? '')),
-            'use_agreed'    => $fee_raw !== '',
+            'use_agreed'    => $fee_cell !== '',
             'agreed_fee'    => $fee_raw !== '' ? (float) $fee_raw : 0.0,
             'agreed_fee_invalid' => $fee_bad,
             'zakat'         => in_array($zak, ['yes', 'y', 'true', '1'], true),

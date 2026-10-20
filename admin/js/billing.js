@@ -302,8 +302,10 @@
       return fee(val("course"), val("days"));
     }
 
-    function agreedError() {
-      if (!useAgreed.checked || agreed.value === "") return "";
+    function agreedError(onSubmit) {
+      if (!useAgreed.checked) return "";
+      // Ticked but empty is never $0: said on submit (not while typing), as the server does.
+      if (agreed.value.trim() === "") return onSubmit ? "Enter the agreed monthly fee (0 for a full scholarship), or untick the agreed fee." : "";
       var a = Math.round(Number(agreed.value) * 100) / 100;
       var std = standard();
       if (isNaN(a)) return "";
@@ -352,7 +354,7 @@
       var days = val("days");
       setError("days", days ? "" : "Choose classes per week (1–7).");
       if (!days) bad.push(form.querySelector('.iqu-chips--days input:not([disabled])'));
-      var fe = agreedError();
+      var fe = agreedError(true);
       setError("agreed_fee", fe);
       if (fe) bad.push(agreed);
       return bad;

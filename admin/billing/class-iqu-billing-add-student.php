@@ -12,8 +12,9 @@ if (!defined('ABSPATH')) exit;
  * Security:
  * - manage_options only; nonce on submit.
  * - Every field is sanitised and validated on the server.
- * - The fee is computed by IQU_Pricing; an agreed fee may only LOWER it,
- *   never raise it, and is stored as a discount.
+ * - The fee is computed by IQU_Pricing. An agreed fee is billed as agreed
+ *   (a lower one is stored as a discount; a higher one gets a warning), and
+ *   ticking "agreed fee" without an amount is an error, never $0.
  * - Exact duplicates (same student name + email) are refused.
  * - Writes through IQU_Database::insert_registration() with a fixed set of
  *   columns. No notification emails or Telegram messages are triggered.
@@ -67,6 +68,7 @@ class IQU_Billing_Add_Student
             'use_agreed'    => !empty($_POST['use_agreed']),
             'agreed_fee'    => isset($_POST['agreed_fee']) && is_string($_POST['agreed_fee']) ? (float) $_POST['agreed_fee'] : 0.0,
             'agreed_fee_invalid' => isset($_POST['agreed_fee']) && is_string($_POST['agreed_fee']) && trim($_POST['agreed_fee']) !== '' && !preg_match('/^-?\d+(\.\d{1,2})?$/', trim($_POST['agreed_fee'])),
+            'agreed_fee_missing' => !isset($_POST['agreed_fee']) || !is_string($_POST['agreed_fee']) || trim($_POST['agreed_fee']) === '',
             'zakat'         => !empty($_POST['zakat']),
             'note'          => sanitize_textarea_field(wp_unslash($_POST['note'] ?? '')),
             'extra'         => self::extra_from_post(wp_unslash($_POST)),
@@ -282,6 +284,10 @@ class IQU_Billing_Add_Student
         if (!empty($in['agreed_fee_invalid'])) {
             $errors[] = 'The agreed fee must be one amount, for example 30 or 30.50.';
             $in['use_agreed'] = false;
+        } elseif (!empty($in['use_agreed']) && !empty($in['agreed_fee_missing'])) {
+            // Ticked but left empty: never read as $0 (a full scholarship, never billed).
+            $errors[] = 'Enter the agreed monthly fee (0 for a full scholarship), or untick the agreed fee.';
+            $in['use_agreed'] = false;
         } elseif (!empty($in['use_agreed']) && (!is_finite((float) $in['agreed_fee']) || (float) $in['agreed_fee'] > IQU_Billing_Pricing::AGREED_MAX)) {
             $errors[] = 'The agreed fee must be at most ' . IQU_Pricing::format(IQU_Billing_Pricing::AGREED_MAX) . ' a month — check the amount.';
             $in['use_agreed'] = false;
@@ -317,6 +323,9 @@ class IQU_Billing_Add_Student
                 // Billed exactly as agreed, lower or higher than the standard fee (a higher one
                 // is no reduction; IQU_Billing_Pricing bills agreed_fee as the monthly price).
                 $discount = max(0.0, round($gross - $agreed, 2));
+                if ($agreed > $gross) {
+                    $warnings[] = 'Agreed fee ' . IQU_Pricing::format($agreed) . ' is higher than the standard fee ' . IQU_Pricing::format($gross) . ' — check the amount.';
+                }
             }
         }
 
