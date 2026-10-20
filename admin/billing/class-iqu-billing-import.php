@@ -420,6 +420,14 @@ class IQU_Billing_Import
             }
         }
 
+        // One import per checked file: a double click or a second tab must not add every student twice
+        // (the duplicate check below is check-then-insert). Freed once the result is stored.
+        $claim = 'iqu_import_claim_' . md5((string) $state['key']);
+        if (!add_option($claim, time(), '', 'no')) {
+            self::store(['error' => 'This file is already being imported. Check Student Billing in a moment, and upload it again only if the students are missing.']);
+            self::back();
+        }
+
         $added = 0; $billed = 0; $warned = 0; $no_course = 0; $failed = [];
         $skipped = []; // for the result card only: rows the preview already marked as skipped, with their reasons
         $levels  = []; // line => what happened to it (ok / warning / error)
@@ -444,6 +452,7 @@ class IQU_Billing_Import
             'added' => $added, 'billed' => $billed, 'warned' => $warned, 'no_course' => $no_course,
             'failed' => $failed, 'skipped' => $skipped, 'levels' => $levels,
         ]]);
+        delete_option($claim); // the checked copy is now the result: confirming it again finds no preview
         self::back();
     }
 

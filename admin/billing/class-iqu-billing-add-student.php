@@ -86,9 +86,19 @@ class IQU_Billing_Add_Student
             self::back();
         }
 
-        $id = IQU_Database::insert_registration($prep['row']);
+        // The duplicate check in prepare() is check-then-insert: a double click must not add the student twice.
+        $lock = 'iqu_add_lock_' . md5(strtolower($in['first_name'] . '|' . $in['last_name'] . '|' . $in['email']));
+        if (!add_option($lock, time(), '', 'no')) {
+            if ((int) get_option($lock) > time() - 60) {
+                self::flash(['errors' => ['This student is being saved already. Check Student Billing in a moment.'], 'old' => $in]);
+                self::back();
+            }
+            update_option($lock, time(), 'no'); // left behind by a request that died
+        }
+        $id = self::is_duplicate($in['first_name'], $in['last_name'], $in['email']) ? 0 : IQU_Database::insert_registration($prep['row']);
+        delete_option($lock);
         if (!$id) {
-            self::flash(['errors' => ['Could not save the student. Nothing was added.'], 'old' => $in]);
+            self::flash(['errors' => [self::is_duplicate($in['first_name'], $in['last_name'], $in['email']) ? 'Already in the enrollment records (same name and email).' : 'Could not save the student. Nothing was added.'], 'old' => $in]);
             self::back();
         }
 
