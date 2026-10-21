@@ -406,8 +406,9 @@ class IQU_Zeffy_DB
         if (!empty($args['search'])) {
             $like     = '%' . $wpdb->esc_like(sanitize_text_field($args['search'])) . '%';
             $where   .= ' AND (buyer_email LIKE %s OR buyer_first_name LIKE %s OR buyer_last_name LIKE %s'
+                . " OR CONCAT(buyer_first_name, ' ', buyer_last_name) LIKE %s" // "Sara Khan"
                 . ' OR company_name LIKE %s OR description LIKE %s OR payment_id LIKE %s)';
-            array_push($values, $like, $like, $like, $like, $like, $like);
+            array_push($values, $like, $like, $like, $like, $like, $like, $like);
         }
 
         if (!empty($args['date_from'])) {

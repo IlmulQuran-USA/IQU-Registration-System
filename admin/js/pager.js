@@ -213,9 +213,98 @@
     (scope || document).querySelectorAll("table[data-iqu-pager]").forEach(P.init);
   };
 
+  // ── Live search ───────────────────────────────────────────────
+  // form[data-iqu-live="ID"]: results update as you type (≈300 ms after the last key; Enter at once) and as
+  // soon as a filter changes. The list's own admin page (capability-checked) is fetched for the new query and
+  // only [data-iqu-live-region="ID"] (table + chip + page numbers) is replaced; a newer request cancels the
+  // older one (AbortController), so older results never overwrite newer ones. The URL follows (replaceState).
+  // Without JavaScript the form submits as before (a <noscript> button).
+  P.DEBOUNCE = 300;
+
+  /** The URL for the form's current values: empty fields left out, back to page 1. */
+  P.formUrl = function (form) {
+    var u = new URL(form.getAttribute("action") || root.location.href, root.location.href);
+    u.search = "";
+    new FormData(form).forEach(function (v, k) {
+      if (typeof v === "string" && v.trim() !== "") u.searchParams.append(k, v.trim());
+    });
+    return u;
+  };
+
+  P.live = function (form) {
+    var id = form.getAttribute("data-iqu-live");
+    var status = form.querySelector("[data-iqu-live-status]");
+    var search = form.querySelector('input[type="search"]');
+    var clearAll = form.querySelector("[data-iqu-clear-all]");
+    var ctrl = null, timer = null;
+    var say = function (t) { if (status) status.textContent = t; };
+
+    function run() {
+      clearTimeout(timer);
+      var u = P.formUrl(form), q = search ? search.value.trim() : "";
+      if (ctrl) ctrl.abort();
+      var mine = ctrl = new AbortController();
+      var region = document.querySelector('[data-iqu-live-region="' + id + '"]');
+      if (region) region.setAttribute("aria-busy", "true");
+      say("Searching…");
+      if (clearAll) clearAll.hidden = !Array.prototype.some.call(form.elements, function (el) {
+        return el.type !== "hidden" && el.name && el.name !== "per_page" && el.value !== "";
+      });
+      return fetch(u.toString(), { credentials: "same-origin", signal: mine.signal, headers: { "X-Requested-With": "IQUPager" } })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+        .then(function (html) {
+          if (mine !== ctrl) return; // a newer search is on its way
+          var fresh = new DOMParser().parseFromString(html, "text/html").querySelector('[data-iqu-live-region="' + id + '"]');
+          var now = document.querySelector('[data-iqu-live-region="' + id + '"]');
+          if (!fresh || !now) throw new Error("list not found");
+          var node = document.importNode(fresh, true);
+          now.replaceWith(node);
+          if (root.history && root.history.replaceState) root.history.replaceState(root.history.state, "", u.pathname + u.search + u.hash);
+          var head = node.querySelector("[data-iqu-total]"), n = head ? parseInt(head.getAttribute("data-iqu-total"), 10) : NaN;
+          if (isNaN(n)) n = node.querySelectorAll("tbody tr").length;
+          say(n === 0 ? (q !== "" ? "No results for ‘" + q + "’" : "No results") : n + (n === 1 ? " result" : " results"));
+          P.scan(node);
+          document.dispatchEvent(new CustomEvent("iqu:region", { detail: { region: node, id: id } }));
+          ctrl = null;
+        })
+        .catch(function (e) {
+          if (e && e.name === "AbortError") return;
+          var r = document.querySelector('[data-iqu-live-region="' + id + '"]');
+          if (r) r.removeAttribute("aria-busy");
+          say("Could not update the list. Press Enter to try again.");
+        });
+    }
+    P.lives = P.lives || {};
+    P.lives[id] = run;
+
+    if (search) {
+      search.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(run, P.DEBOUNCE); });
+      search.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); run(); } });
+    }
+    form.addEventListener("change", function (e) { if (e.target !== search) run(); });
+    form.addEventListener("submit", function (e) { e.preventDefault(); run(); });
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest ? e.target.closest("[data-iqu-clear]") : null;
+      if (!a || !a.closest('[data-iqu-live-region="' + id + '"]')) return;
+      e.preventDefault();
+      if (search) { search.value = ""; search.focus(); }
+      run();
+    });
+  };
+
+  /** form[data-iqu-auto]: a choice (month, range, report) applies as soon as it changes. */
+  P.auto = function (form) {
+    form.addEventListener("change", function () { form.submit(); });
+  };
+
   root.IQUPager = P;
   if (typeof document !== "undefined" && document.addEventListener) {
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { P.scan(); });
-    else P.scan();
+    var start = function () {
+      P.scan();
+      document.querySelectorAll("form[data-iqu-live]").forEach(P.live);
+      document.querySelectorAll("form[data-iqu-auto]").forEach(P.auto);
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
   }
 })(typeof window !== "undefined" ? window : this);

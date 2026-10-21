@@ -436,12 +436,12 @@ class IQU_Coupon_Admin
     </nav>
 
     <!-- ── Filter Bar ───────────────────────────────── -->
-    <form method="GET" class="iqu-filter-bar">
+    <form method="GET" class="iqu-filter-bar" role="search" data-iqu-live="iqu-coupons">
         <input type="hidden" name="page" value="<?php echo esc_attr(self::PAGE_LIST); ?>">
         <?php if ($state !== ''): ?><input type="hidden" name="status" value="<?php echo esc_attr($state); ?>"><?php endif; ?>
         <input type="search" name="search" value="<?php echo esc_attr($search); ?>"
-            placeholder="Search code or occasion…">
-        <select name="course_type">
+            placeholder="Search code or occasion…" aria-label="Search coupons">
+        <select name="course_type" aria-label="Course">
             <option value="">All courses</option>
             <?php foreach (IQU_Pricing::course_options() as $key => $label): ?>
             <option value="<?php echo esc_attr($key); ?>" <?php selected($course_type, $key); ?>>
@@ -450,14 +450,14 @@ class IQU_Coupon_Admin
             <?php endforeach; ?>
         </select>
         <?php if ($per_page !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $per_page; ?>"><?php endif; ?>
-        <button type="submit" class="button">Filter</button>
+        <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter'); // results update as you type ?>
         <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
         <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_CREATE)); ?>"
             class="button button-primary">+ New Coupon</a>
     </form>
 
     <!-- ── Table ────────────────────────────────────── -->
-    <div class="iqu-card iqu-list-card">
+    <div class="iqu-card iqu-list-card" data-iqu-live-region="iqu-coupons">
         <div class="iqu-card-head iqu-list-head">
             <span class="iqu-card-head-title">All Coupons</span>
             <?php echo IQU_Pager::head($pager, $list_url, 'Coupons per page'); // escaped inside ?>
@@ -481,9 +481,11 @@ class IQU_Coupon_Admin
                     <?php if (empty($rows)): ?>
                     <tr>
                         <td colspan="9" class="iqu-empty-state">
+                            <?php if ($search !== ''): echo IQU_Pager::no_results($search, IQU_Pager::url(self::PAGE_LIST, ['status' => $state, 'course_type' => $course_type])(['per_page' => $per_page])); else: ?>
                             No coupons found. <a
                                 href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_CREATE)); ?>">Create
                                 your first one.</a>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php else: ?>

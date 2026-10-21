@@ -74,7 +74,25 @@
   function updateCount(table) {
     var shown = rowsOf(table).filter(function (r) { return !isOut(r); }).length;
     var none = table.querySelector("tr.iqu-dt-none");
-    if (none) none.classList.toggle("is-visible", shown === 0 && rowsOf(table).length > 0);
+    if (none) {
+      none.classList.toggle("is-visible", shown === 0 && rowsOf(table).length > 0);
+      // "No results for ‘xyz’." and a button that clears the filter box (the same as the server lists)
+      var input = document.querySelector('input[data-filter-for="' + table.id + '"]'), cell = none.cells[0];
+      var q = input ? input.value.trim() : "";
+      if (cell && shown === 0 && q !== "") {
+        cell.textContent = "";
+        var msg = document.createElement("span");
+        msg.className = "iqu-no-results";
+        msg.textContent = "No results for ‘" + q + "’. ";
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "button-link";
+        btn.textContent = "Clear search";
+        btn.addEventListener("click", function () { input.value = ""; input.dispatchEvent(new Event("input")); input.focus(); });
+        cell.appendChild(msg);
+        cell.appendChild(btn);
+      }
+    }
     document.querySelectorAll('[data-count-for="' + table.id + '"]').forEach(function (el) {
       el.textContent = shown + (shown === 1 ? " row" : " rows");
     });
@@ -584,7 +602,14 @@
     });
   };
 
+  /** A part of the page that live search just replaced (pager.js): wire its tables again. */
+  B.initRegion = function (region) {
+    region.querySelectorAll("table.iqu-students-tbl").forEach(B.rowLinks);
+    region.querySelectorAll("table.iqu-dt").forEach(function (t) { initSort(t); updateCount(t); });
+  };
+
   B.init = function () {
+    document.addEventListener("iqu:region", function (e) { if (e.detail && e.detail.region) B.initRegion(e.detail.region); });
     document.querySelectorAll("table.iqu-students-tbl").forEach(B.rowLinks);
     document.querySelectorAll("[data-receipt-sender]").forEach(B.receiptSender);
     document.querySelectorAll("table.iqu-dt").forEach(function (t) { initSort(t); updateCount(t); });

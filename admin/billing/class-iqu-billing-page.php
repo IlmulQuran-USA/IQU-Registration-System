@@ -224,8 +224,10 @@ class IQU_Billing_Page
         $shown = array_values(array_filter($rows, function ($r) use ($filter, $q) {
             if ($filter !== 'all' && $r['group'] !== $filter) return false;
             if ($q === '') return true;
-            $hay = strtolower($r['reg']['first_name'] . ' ' . $r['reg']['last_name'] . ' ' . $r['reg']['email'] . ' ' . $r['reg']['guardian_name'] . ' iqu-' . $r['reg']['id']);
-            return strpos($hay, strtolower($q)) !== false;
+            // Case-insensitive in any language (mb_), partial: name, guardian, email, WhatsApp (also its digits), IQU number.
+            $wa  = (string) ($r['reg']['whatsapp'] ?? '');
+            $hay = mb_strtolower($r['reg']['first_name'] . ' ' . $r['reg']['last_name'] . ' ' . $r['reg']['email'] . ' ' . $r['reg']['guardian_name'] . ' ' . $wa . ' ' . preg_replace('/\D+/', '', $wa) . ' iqu-' . $r['reg']['id'] . ' #' . $r['reg']['id'], 'UTF-8');
+            return mb_strpos($hay, mb_strtolower($q, 'UTF-8'), 0, 'UTF-8') !== false;
         }));
 
         // The shared pager (IQU_Pager): this list is filtered in PHP, then one page of it is shown.
@@ -287,13 +289,13 @@ class IQU_Billing_Page
 
             <!-- ── Filter Bar ────────────────────────────────── -->
             <div class="iqu-billing-toolbar">
-                <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-filter-bar">
+                <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-filter-bar" role="search" data-iqu-live="iqu-students">
                     <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
-                    <input type="hidden" name="show" value="<?php echo esc_attr($filter); ?>">
-                    <input type="hidden" name="per_page" value="<?php echo (int) $per; ?>">
+                    <?php if ($filter !== 'all'): ?><input type="hidden" name="show" value="<?php echo esc_attr($filter); ?>"><?php endif; ?>
+                    <?php if ($per !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $per; ?>"><?php endif; ?>
                     <label class="screen-reader-text" for="iqu-q">Search students</label>
-                    <input id="iqu-q" type="search" name="q" value="<?php echo esc_attr($q); ?>" placeholder="Name, email or IQU number">
-                    <button type="submit" class="iqu-btn iqu-btn--secondary"><?php echo self::icon('search'); ?>Search</button>
+                    <input id="iqu-q" type="search" name="q" value="<?php echo esc_attr($q); ?>" placeholder="Name, email, WhatsApp or IQU number">
+                    <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Search', 'iqu-btn iqu-btn--secondary'); // results update as you type ?>
                 </form>
                 <div class="iqu-btn-group iqu-billing-toolbar-actions">
                     <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>" class="iqu-btn iqu-btn--secondary"><?php echo self::icon('upload'); ?>Import CSV</a>
@@ -303,7 +305,7 @@ class IQU_Billing_Page
             </div>
 
             <!-- ── Table ─────────────────────────────────────── -->
-            <div class="iqu-card iqu-students-card">
+            <div class="iqu-card iqu-students-card" data-iqu-live-region="iqu-students">
                 <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" id="iqu-bulk-form">
                     <input type="hidden" name="page" value="<?php echo esc_attr(self::BULK_SLUG); ?>">
                     <div class="iqu-card-head iqu-billing-bulkbar">
@@ -325,7 +327,7 @@ class IQU_Billing_Page
                         </tr></thead>
                         <tbody>
                         <?php if (!$shown): ?>
-                            <tr><td colspan="6" class="iqu-empty-state">No students here.</td></tr>
+                            <tr><td colspan="6" class="iqu-empty-state"><?php echo $q !== '' ? IQU_Pager::no_results($q, $list(['q' => null, 'per_page' => $per])) : 'No students here.'; ?></td></tr>
                         <?php endif; ?>
                         <?php foreach ($shown as $r): self::render_row($r); endforeach; ?>
                         </tbody>
@@ -338,15 +340,21 @@ class IQU_Billing_Page
         </div>
         <script>
         (function () {
-            var form = document.getElementById('iqu-bulk-form'), btn = document.getElementById('iqu-bulk-btn'), info = document.getElementById('iqu-bulk-count');
-            var boxes = form.querySelectorAll('input[name="ids[]"]'), all = document.getElementById('iqu-all');
+            // Delegated: live search replaces the table, so the elements are looked up on every change.
             function sync() {
+                var form = document.getElementById('iqu-bulk-form'), btn = document.getElementById('iqu-bulk-btn');
+                if (!form || !btn) return;
                 var n = form.querySelectorAll('input[name="ids[]"]:checked').length;
                 btn.disabled = n === 0;
                 btn.textContent = n ? 'Send payment links to ' + n + ' selected' : 'Send payment links to selected';
             }
-            boxes.forEach(function (b) { b.addEventListener('change', sync); });
-            all.addEventListener('change', function () { boxes.forEach(function (b) { b.checked = all.checked; }); sync(); });
+            document.addEventListener('change', function (e) {
+                var t = e.target;
+                if (t.id === 'iqu-all') {
+                    document.querySelectorAll('#iqu-bulk-form input[name="ids[]"]').forEach(function (b) { b.checked = t.checked; });
+                    sync();
+                } else if (t.name === 'ids[]' && t.form && t.form.id === 'iqu-bulk-form') sync();
+            });
         })();
         </script>
         <?php

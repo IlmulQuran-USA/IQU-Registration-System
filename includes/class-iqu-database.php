@@ -927,12 +927,9 @@ class IQU_Database
         }
 
         if (! empty($args['search'])) {
-            $search   = '%' . $wpdb->esc_like(sanitize_text_field($args['search'])) . '%';
-            $where   .= ' AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR whatsapp LIKE %s)';
-            $values[] = $search;
-            $values[] = $search;
-            $values[] = $search;
-            $values[] = $search;
+            [$clause, $more] = self::search_clause((string) $args['search']); // the same in the list and its count
+            $where  .= ' AND ' . $clause;
+            $values  = array_merge($values, $more);
         }
 
         $offset   = (absint($args['page']) - 1) * absint($args['per_page']);
@@ -945,6 +942,31 @@ class IQU_Database
         }
 
         return $wpdb->get_results($sql, ARRAY_A) ?: [];
+    }
+
+    /**
+     * An admin search box's WHERE part: partial, case-insensitive matches on the student's name (also
+     * "first last"), the guardian, email and WhatsApp (also typed without spaces or dashes), and the IQU
+     * number ("IQU-12", "#12" or "12"). Prepared values; LIKE wildcards in the text are escaped.
+     * @return array{0:string, 1:array}
+     */
+    public static function search_clause(string $term): array
+    {
+        global $wpdb;
+        $term = trim(sanitize_text_field($term));
+        $like = '%' . $wpdb->esc_like($term) . '%';
+        $sql  = "first_name LIKE %s OR last_name LIKE %s OR CONCAT(first_name, ' ', last_name) LIKE %s OR guardian_name LIKE %s OR email LIKE %s OR whatsapp LIKE %s";
+        $vals = [$like, $like, $like, $like, $like, $like];
+        $digits = preg_replace('/\D+/', '', $term);
+        if (strlen($digits) >= 3 && preg_match('/^[\d\s()+\-.]+$/', $term)) {
+            $sql   .= " OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(whatsapp, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') LIKE %s";
+            $vals[] = '%' . $digits . '%';
+        }
+        if (preg_match('/^(?:iqu[\s\-#]*|#)?(\d{1,10})$/i', $term, $m)) {
+            $sql   .= ' OR id = %d';
+            $vals[] = (int) $m[1];
+        }
+        return ['(' . $sql . ')', $vals];
     }
 
     public static function count_registrations(array $args = []): int
@@ -974,12 +996,9 @@ class IQU_Database
             $where .= ' AND billing_account_id > 0';
         }
         if (! empty($args['search'])) {
-            $search   = '%' . $wpdb->esc_like(sanitize_text_field($args['search'])) . '%';
-            $where   .= ' AND (first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR whatsapp LIKE %s)'; // the same fields as the list
-            $values[] = $search;
-            $values[] = $search;
-            $values[] = $search;
-            $values[] = $search;
+            [$clause, $more] = self::search_clause((string) $args['search']); // the same in the list and its count
+            $where  .= ' AND ' . $clause;
+            $values  = array_merge($values, $more);
         }
 
         $sql = "SELECT COUNT(*) FROM `{$table}` WHERE {$where}";

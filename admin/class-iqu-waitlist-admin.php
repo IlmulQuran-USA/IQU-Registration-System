@@ -166,7 +166,7 @@ class IQU_Waitlist_Admin
                 </div>
             </div>
 
-            <form method="GET" class="iqu-filter-bar">
+            <form method="GET" class="iqu-filter-bar" role="search" data-iqu-live="iqu-waitlist">
                 <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
                 <input type="search" name="s" value="<?php echo esc_attr($f['s']); ?>" placeholder="Search name or email…" aria-label="Search name or email">
                 <select name="country" aria-label="Country">
@@ -184,14 +184,12 @@ class IQU_Waitlist_Admin
                 <label class="iqu-wl-date"><span>From</span><input type="date" name="from" value="<?php echo esc_attr($f['from_date']); ?>"></label>
                 <label class="iqu-wl-date"><span>To</span><input type="date" name="to" value="<?php echo esc_attr($f['to_date']); ?>"></label>
                 <?php if ($pager['per'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $pager['per']; ?>"><?php endif; ?>
-                <button type="submit" class="button">Filter</button>
-                <?php if ($filtered): ?>
-                    <a class="iqu-wl-clear" href="<?php echo esc_url($plain); ?>">Clear filters</a>
-                <?php endif; ?>
+                <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter'); // results update as you type ?>
+                <a class="iqu-wl-clear" href="<?php echo esc_url($plain); ?>" data-iqu-clear-all<?php echo $filtered ? '' : ' hidden'; ?>>Clear filters</a>
                 <a href="<?php echo esc_url($export); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
             </form>
 
-            <div class="iqu-card iqu-list-card">
+            <div class="iqu-card iqu-list-card" data-iqu-live-region="iqu-waitlist">
                 <div class="iqu-card-head iqu-list-head">
                     <span class="iqu-card-head-title">Families</span>
                     <?php echo IQU_Pager::head($pager, $list_url, 'Families per page'); // escaped inside ?>
@@ -200,7 +198,9 @@ class IQU_Waitlist_Admin
                 <?php if (!$rows): ?>
                     <div class="iqu-empty-state iqu-wl-empty">
                         <span class="dashicons dashicons-groups iqu-wl-empty-icon" aria-hidden="true"></span>
-                        <?php if ($filtered): ?>
+                        <?php if ($f['s'] !== ''): ?>
+                            <span class="iqu-wl-empty-line"><?php echo IQU_Pager::no_results($f['s'], IQU_Pager::url(self::SLUG, array_diff_key($query, ['s' => 1]))(['per_page' => $pager['per']])); // escaped inside ?></span>
+                        <?php elseif ($filtered): ?>
                             <span class="iqu-wl-empty-line">No families match these filters.</span>
                             <a href="<?php echo esc_url($plain); ?>">Show everyone</a>
                         <?php else: ?>

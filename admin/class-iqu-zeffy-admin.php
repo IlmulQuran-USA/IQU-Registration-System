@@ -493,13 +493,13 @@ class IQU_Zeffy_Admin
                 'date_to'
             ]))));
     ?>
-<form method="GET" class="iquz-filters">
+<form method="GET" class="iquz-filters" role="search" data-iqu-live="iqu-zeffy">
     <input type="hidden" name="page" value="<?php echo esc_attr(self::PAGE_SLUG); ?>">
 
     <input type="search" name="search" value="<?php echo esc_attr($args['search']); ?>"
-        placeholder="Search donor, email, company, campaign…" class="iquz-input iquz-input--search">
+        placeholder="Search donor, email, company, campaign…" class="iquz-input iquz-input--search" aria-label="Search donations">
 
-    <select name="status" class="iquz-input">
+    <select name="status" class="iquz-input" aria-label="Status">
         <option value="">All statuses</option>
         <?php foreach (IQU_Zeffy_DB::PAYMENT_STATES as $st): ?>
         <option value="<?php echo esc_attr($st); ?>" <?php selected($args['status'], $st); ?>>
@@ -532,7 +532,7 @@ class IQU_Zeffy_Admin
 
     <?php if ($args['per_page'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $args['per_page']; ?>"><?php endif; ?>
 
-    <button type="submit" class="iquz-btn">Filter</button>
+    <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter', 'iquz-btn'); // results update as you type ?>
     <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_SLUG)); ?>" class="iquz-btn
         iquz-btn--ghost">Reset</a>
     <a href="<?php echo esc_url($export); ?>" class="iquz-btn iquz-btn--export">⬇ Export CSV</a>
@@ -554,7 +554,7 @@ class IQU_Zeffy_Admin
     {
         $url = $this->list_url($args);
     ?>
-<div class="iquz-table-wrap iqu-list-card">
+<div class="iquz-table-wrap iqu-list-card" data-iqu-live-region="iqu-zeffy">
     <div class="iqu-card-head iqu-list-head">
         <span class="iqu-card-head-title">Donations</span>
         <?php echo IQU_Pager::head($pager, $url, 'Donations per page'); // escaped inside ?>
@@ -578,6 +578,8 @@ class IQU_Zeffy_Admin
                 <td colspan="8" class="iquz-empty">
                     <?php if ($total === 0 && !IQU_Zeffy_Sync::backfill_done()): ?>
                     No donations imported yet. Run <strong>Import full history</strong> in Settings below.
+                    <?php elseif ($args['search'] !== ''): ?>
+                    <?php echo IQU_Pager::no_results($args['search'], $this->list_url(['search' => ''] + $args)(['per_page' => $args['per_page']])); // escaped inside ?>
                     <?php else: ?>
                     No donations match these filters.
                     <?php endif; ?>

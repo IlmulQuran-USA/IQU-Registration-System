@@ -255,7 +255,7 @@ class IQU_Billing_Reports
 
             <!-- ── Toolbar: Month, Report, Show · Import CSV / Download CSV on the right ── -->
             <div class="iqu-toolbar">
-            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-period-bar">
+            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-period-bar" data-iqu-auto>
                 <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
                 <span class="iqu-period-field">
                     <label class="iqu-period-label" for="iqu-rep-month">Month</label>
@@ -269,7 +269,7 @@ class IQU_Billing_Reports
                         <?php endforeach; ?>
                     </select>
                 </span>
-                <button type="submit" class="iqu-btn iqu-btn--secondary">Show</button>
+                <?php echo IQU_Pager::noscript_submit('Show', 'iqu-btn iqu-btn--secondary'); // applies as soon as a choice changes ?>
             </form>
             <div class="iqu-toolbar-actions">
                 <a class="iqu-btn iqu-btn--secondary" href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>"><?php echo IQU_Billing_Page::icon('upload'); ?>Import CSV</a>

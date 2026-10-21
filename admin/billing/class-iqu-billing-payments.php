@@ -67,7 +67,7 @@ class IQU_Billing_Payments_Screen
             <?php IQU_Billing_Page::page_header('Payments', 'Tuition collected and billed, payment problems and the charges coming up.', $mode === 'test' ? IQU_Billing_Page::mode_note('These are test payments, not real money.') : ''); ?>
 
             <!-- ── Toolbar: tuition month, 6 / 12 months, Show ──── -->
-            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-period-bar iqu-toolbar">
+            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-period-bar iqu-toolbar" data-iqu-auto>
                 <input type="hidden" name="page" value="<?php echo esc_attr(IQU_Billing_Page::PAYMENTS_SLUG); ?>">
                 <label class="iqu-period-label" for="iqu-pay-month">Tuition month</label>
                 <input id="iqu-pay-month" type="month" name="month" value="<?php echo esc_attr($month); ?>">
@@ -76,7 +76,7 @@ class IQU_Billing_Payments_Screen
                         <label><input type="radio" name="range" value="<?php echo (int) $n; ?>" <?php checked($range, $n); ?>><span><?php echo (int) $n; ?> months</span></label>
                     <?php endforeach; ?>
                 </div>
-                <button type="submit" class="iqu-btn iqu-btn--secondary">Show</button>
+                <?php echo IQU_Pager::noscript_submit('Show', 'iqu-btn iqu-btn--secondary'); // applies as soon as a choice changes ?>
             </form>
 
             <details class="iqu-howto iqu-help">

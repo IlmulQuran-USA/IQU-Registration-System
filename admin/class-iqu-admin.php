@@ -1256,11 +1256,11 @@ class IQU_Admin
     <?php $this->render_top_bar($title, 'Ilm-ul-Quran USA — Admin Panel', $active_tab); ?>
 
     <!-- ── Filter Bar ────────────────────────────────── -->
-    <form method="GET" class="iqu-filter-bar">
+    <form method="GET" class="iqu-filter-bar" role="search" data-iqu-live="iqu-list">
         <input type="hidden" name="page" value="<?php echo esc_attr($page_slug); ?>">
         <input type="search" name="search" value="<?php echo esc_attr($search); ?>"
-            placeholder="Search name, email, WhatsApp…">
-        <select name="status">
+            placeholder="Search name, email, WhatsApp or IQU number…" aria-label="Search registrations">
+        <select name="status" aria-label="Status">
             <option value="">All statuses</option>
             <?php foreach (self::ALLOWED_STATUSES as $s): ?>
             <option value="<?php echo esc_attr($s); ?>" <?php selected($status, $s); ?>>
@@ -1269,12 +1269,12 @@ class IQU_Admin
             <option value="needs_review" <?php selected($status, 'needs_review'); ?>>Needs review</option>
         </select>
         <?php if ($pager['per'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $pager['per']; ?>"><?php endif; ?>
-        <button type="submit" class="button">Filter</button>
+        <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter'); // results update as you type ?>
         <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
     </form>
 
     <!-- ── Table ─────────────────────────────────────── -->
-    <div class="iqu-card iqu-list-card">
+    <div class="iqu-card iqu-list-card" data-iqu-live-region="iqu-list">
     <div class="iqu-card-head iqu-list-head">
         <span class="iqu-card-head-title">Registrations</span>
         <?php echo IQU_Pager::head($pager, $list_url, 'Registrations per page'); // escaped inside ?>
@@ -1306,7 +1306,9 @@ class IQU_Admin
             <tbody>
                 <?php if (empty($rows)): ?>
                 <tr>
-                    <td colspan="<?php echo $is_summer ? 11 : 10; ?>" class="iqu-empty-state">No registrations found.
+                    <td colspan="<?php echo $is_summer ? 11 : 10; ?>" class="iqu-empty-state"><?php echo $search !== ''
+                        ? IQU_Pager::no_results($search, IQU_Pager::url($page_slug, ['status' => $status])(['per_page' => $pager['per']]))
+                        : 'No registrations found.'; ?>
                     </td>
                 </tr>
                 <?php else:

@@ -114,6 +114,28 @@ final class IQU_Pager
         return '<nav class="iqu-pagination" data-iqu-pager-foot="' . esc_attr($table_id) . '" aria-label="Pages" hidden></nav>';
     }
 
+    // ── Live search (admin/js/pager.js): a list's form[data-iqu-live="ID"] updates [data-iqu-live-region="ID"]
+    //    as you type (≈300 ms) or change a filter; without JavaScript the form submits as before. ──
+
+    /** "Searching…" / "12 results" next to the search box, read out by screen readers. */
+    public static function live_status(): string
+    {
+        return '<span class="iqu-live-status" data-iqu-live-status aria-live="polite"></span>';
+    }
+
+    /** The submit button only without JavaScript (with it, results update as you type). */
+    public static function noscript_submit(string $label = 'Search', string $class = 'button'): string
+    {
+        return '<noscript><button type="submit" class="' . esc_attr($class) . '">' . esc_html($label) . '</button></noscript>';
+    }
+
+    /** Empty state of a search: "No results for ‘xyz’." and a link that clears the search (other filters kept). */
+    public static function no_results(string $search, string $clear_url): string
+    {
+        return '<span class="iqu-no-results">No results for ‘' . esc_html($search) . '’.</span> '
+            . '<a href="' . esc_url($clear_url) . '" data-iqu-clear>Clear search</a>';
+    }
+
     /**
      * The attributes that make a table page in the browser: its id, a short key for the URL
      * ("{key}_pp" page size, "{key}_pg" page, "{key}_q" filter text).
