@@ -199,6 +199,10 @@
         function (res) {
           if (res.success) {
             var $tr = $sel.closest("tr");
+            // a list searched in the browser (IQU_Pager::row_attrs) filters on the new status from now on
+            var tokens = ($tr.attr("data-iqu-v-status") || "").split("\n");
+            if ($tr.is("[data-iqu-v-status]")) $tr.attr("data-iqu-v-status", [status].concat(tokens.slice(1)).join("\n"));
+            document.dispatchEvent(new CustomEvent("iqu:changed"));
             $tr.find("td").css("background", "#e6f5ec");
             setTimeout(function () {
               $tr.find("td").css("background", "");
@@ -239,8 +243,12 @@
         function (res) {
           if (res.success) {
             $btn.closest("tr").fadeOut(350, function () {
+              var table = $(this).closest("table[data-iqu-pager]")[0];
               $(this).remove();
+              // the chip and page numbers count one row less; the next row moves up
+              if (table && window.IQUPager) window.IQUPager.update(table);
             });
+            document.dispatchEvent(new CustomEvent("iqu:changed"));
           } else {
             alert("Error: " + res.data);
             $btn.prop("disabled", false).text("Delete");

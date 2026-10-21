@@ -32,6 +32,8 @@ class IQU_Coupon_Admin
         add_action('admin_post_iqu_toggle_coupon', [$this, 'handle_toggle']);
         add_action('admin_post_iqu_delete_coupon', [$this, 'handle_delete']);
         add_action('wp_ajax_iqu_export_coupons', [$this, 'handle_export_csv']);
+        // more than IQU_Pager::LOCAL_MAX coupons: the table card alone, for live search and paging
+        IQU_Pager::remote('iqu-coupons', function () { $this->list_region($this->list_context()); });
     }
 
     // ════════════════════════════════════════════════════
@@ -327,12 +329,12 @@ class IQU_Coupon_Admin
     // LIST PAGE
     // ════════════════════════════════════════════════════
 
-    public function render_list_page(): void
+    /**
+     * The coupon list for the request's filters (state tab, course, search) and page. Up to
+     * IQU_Pager::LOCAL_MAX coupons: every one is sent and pager.js filters and pages them (local).
+     */
+    private function list_context(): array
     {
-        if (!current_user_can('manage_options')) {
-            wp_die('Permission denied.');
-        }
-
         // Filter tab = the coupon's state (IQU_Coupon::effective_status). "disabled" is the
         // value older links used for the same thing.
         $state = sanitize_key($_GET['status'] ?? '');
@@ -345,16 +347,37 @@ class IQU_Coupon_Admin
         // The shared pager (IQU_Pager): 10 / 20 / 30, default 10; a page past the end shows the last one.
         $per_page = IQU_Pager::per($_GET);
         $query    = ['state' => $state, 'course_type' => $course_type, 'search' => $search, 'per_page' => $per_page];
-        $data     = IQU_Coupon_DB::get_coupons($query + ['paged' => $paged]);
-        $pager    = IQU_Pager::from($_GET, (int) $data['total']);
-        if ($pager['page'] !== $paged) $data = IQU_Coupon_DB::get_coupons($query + ['paged' => $pager['page']]);
-        $rows  = $data['items'];
-        $total = $data['total'];
-        $list_url = IQU_Pager::url(self::PAGE_LIST, ['status' => $state, 'search' => $search, 'course_type' => $course_type]);
+        $local    = IQU_Pager::local((int) IQU_Coupon_DB::get_coupons(['per_page' => 1])['total']);
+        $out = $shown = [];
+        if ($local) {
+            $rows  = IQU_Coupon_DB::get_coupons(['per_page' => IQU_Pager::LOCAL_MAX, 'paged' => 1])['items'];
+            $match = $state !== '' || $course_type !== '' || $search !== ''
+                ? array_column(IQU_Coupon_DB::get_coupons(['per_page' => IQU_Pager::LOCAL_MAX, 'paged' => 1] + $query)['items'], 'id')
+                : array_column($rows, 'id');
+            ['pager' => $pager, 'out' => $out, 'shown' => $shown] = IQU_Pager::local_view(array_column($rows, 'id'), $match, $_GET);
+        } else {
+            $data  = IQU_Coupon_DB::get_coupons($query + ['paged' => $paged]);
+            $pager = IQU_Pager::from($_GET, (int) $data['total']);
+            if ($pager['page'] !== $paged) $data = IQU_Coupon_DB::get_coupons($query + ['paged' => $pager['page']]);
+            $rows  = $data['items'];
+        }
+        return [
+            'state' => $state, 'course_type' => $course_type, 'search' => $search, 'per_page' => $per_page,
+            'local' => $local, 'rows' => $rows, 'pager' => $pager, 'out' => $out, 'shown' => $shown,
+            'list_url' => IQU_Pager::url(self::PAGE_LIST, ['status' => $state, 'search' => $search, 'course_type' => $course_type]),
+        ];
+    }
+
+    public function render_list_page(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Permission denied.');
+        }
+
+        $c = $this->list_context();
+        ['state' => $state, 'course_type' => $course_type, 'search' => $search, 'per_page' => $per_page] = $c;
         $stats     = IQU_Coupon_DB::get_stats();
         $discounts = IQU_Coupon_DB::get_discount_summary();
-
-        $today = current_time('Y-m-d');
 
         $export_url = admin_url(
             'admin-ajax.php?action=iqu_export_coupons&_wpnonce=' . wp_create_nonce('iqu_export_coupons')
@@ -427,9 +450,9 @@ class IQU_Coupon_Admin
         $tabs = ['' => ['All', (int) $stats['total']]];
         foreach (IQU_Coupon::STATE_LABELS as $k => $label) $tabs[$k] = [$label, (int) $stats[$k]];
     ?>
-    <nav class="iqu-cpn-tabs" aria-label="Filter coupons by state">
-        <?php foreach ($tabs as $k => [$label, $n]): ?>
-        <a class="iqu-cpn-tab iqu-cpn-tab--<?php echo esc_attr($k !== '' ? $k : 'all'); ?>" href="<?php echo esc_url($tab_url($k)); ?>"<?php echo $state === $k ? ' aria-current="page"' : ''; ?>>
+    <nav class="iqu-cpn-tabs" aria-label="Filter coupons by state" data-iqu-tabs>
+        <?php foreach ($tabs as $k => [$label, $n]): // with JavaScript a tab filters the list in place (data-iqu-set) ?>
+        <a class="iqu-cpn-tab iqu-cpn-tab--<?php echo esc_attr($k !== '' ? $k : 'all'); ?>" href="<?php echo esc_url($tab_url($k)); ?>"<?php echo $state === $k ? ' aria-current="page"' : ''; ?> data-iqu-set="status=<?php echo esc_attr($k); ?>" data-iqu-set-for="iqu-coupons">
             <?php echo esc_html($label); ?> <span class="iqu-cpn-tab-count"><?php echo (int) $n; ?></span>
         </a>
         <?php endforeach; ?>
@@ -440,7 +463,7 @@ class IQU_Coupon_Admin
         <input type="hidden" name="page" value="<?php echo esc_attr(self::PAGE_LIST); ?>">
         <?php if ($state !== ''): ?><input type="hidden" name="status" value="<?php echo esc_attr($state); ?>"><?php endif; ?>
         <input type="search" name="search" value="<?php echo esc_attr($search); ?>"
-            placeholder="Search code or occasion…" aria-label="Search coupons">
+            placeholder="Search code or occasion…" aria-label="Search coupons" data-iqu-search="like">
         <select name="course_type" aria-label="Course">
             <option value="">All courses</option>
             <?php foreach (IQU_Pricing::course_options() as $key => $label): ?>
@@ -456,14 +479,30 @@ class IQU_Coupon_Admin
             class="button button-primary">+ New Coupon</a>
     </form>
 
+    <?php $this->list_region($c); ?>
+</div>
+<?php
+
+    }
+
+    /** The coupon table card (data-iqu-live-region="iqu-coupons"): printed by the page and by IQU_Pager::ajax(). */
+    private function list_region(array $c): void
+    {
+        ['state' => $state, 'course_type' => $course_type, 'search' => $search, 'per_page' => $per_page, 'local' => $local,
+         'rows' => $rows, 'pager' => $pager, 'list_url' => $list_url] = $c;
+        $today = current_time('Y-m-d');
+        $tid   = $local ? 'iqu-coupons-tbl' : '';
+        $clear = IQU_Pager::url(self::PAGE_LIST, ['status' => $state, 'course_type' => $course_type])(['per_page' => $per_page]);
+        $none  = 'No coupons found. <a href="' . esc_url(admin_url('admin.php?page=' . self::PAGE_CREATE)) . '">Create your first one.</a>';
+    ?>
     <!-- ── Table ────────────────────────────────────── -->
-    <div class="iqu-card iqu-list-card" data-iqu-live-region="iqu-coupons">
+    <div class="iqu-card iqu-list-card"<?php echo IQU_Pager::region_attrs('iqu-coupons', $local); ?>>
         <div class="iqu-card-head iqu-list-head">
             <span class="iqu-card-head-title">All Coupons</span>
-            <?php echo IQU_Pager::head($pager, $list_url, 'Coupons per page'); // escaped inside ?>
+            <?php echo IQU_Pager::head($pager, $list_url, 'Coupons per page', $tid); // escaped inside ?>
         </div>
         <div class="iqu-table-wrap">
-            <table class="iqu-tbl iqu-coupon-tbl">
+            <table class="iqu-tbl iqu-coupon-tbl"<?php echo $local ? ' id="iqu-coupons-tbl"' . IQU_Pager::local_attrs() : ''; ?>>
                 <thead>
                     <tr>
                         <th>Code</th>
@@ -477,19 +516,39 @@ class IQU_Coupon_Admin
                         <th>Actions</th>
                     </tr>
                 </thead>
+                <?php if ($local):
+                    // every coupon: what pager.js filters on (state tab, course; the search's code and occasion)
+                    IQU_Pager::local_body($rows, 'id', fn(array $r) => [
+                        'v-status' => IQU_Coupon::effective_status($r, $today),
+                        'v-course_type' => (string) $r['course_type'],
+                        's' => [$r['code'], $r['occasion_name']],
+                    ], $c, '<td colspan="9" class="iqu-empty-state">' . IQU_Pager::none_variants($search, $clear, $none) . '</td>',
+                    fn(array $r, string $attrs) => $this->list_row($r, $today, $attrs));
+                else: ?>
                 <tbody>
                     <?php if (empty($rows)): ?>
                     <tr>
                         <td colspan="9" class="iqu-empty-state">
-                            <?php if ($search !== ''): echo IQU_Pager::no_results($search, IQU_Pager::url(self::PAGE_LIST, ['status' => $state, 'course_type' => $course_type])(['per_page' => $per_page])); else: ?>
+                            <?php if ($search !== ''): echo IQU_Pager::no_results($search, $clear); else: ?>
                             No coupons found. <a
                                 href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_CREATE)); ?>">Create
                                 your first one.</a>
                             <?php endif; ?>
                         </td>
                     </tr>
-                    <?php else: ?>
-                    <?php foreach ($rows as $row):
+                    <?php else: foreach ($rows as $row) $this->list_row($row, $today, ''); endif; ?>
+                </tbody>
+                <?php endif; ?>
+            </table>
+        </div>
+        <?php echo IQU_Pager::foot($pager, $list_url, $tid); // escaped inside ?>
+    </div>
+<?php
+    }
+
+    /** One coupon of the list ($attrs: IQU_Pager::row_attrs on a local list). */
+    private function list_row(array $row, string $today, string $attrs): void
+    {
                                     $id         = (int) $row['id'];
                                     $is_expired = !empty($row['expire_date']) && $row['expire_date'] < $today;
                                     $max_uses   = (int) $row['max_uses'];
@@ -520,7 +579,7 @@ class IQU_Coupon_Admin
                                         ? rtrim(rtrim(number_format((float) $row['discount_value'], 2), '0'), '.') . '%'
                                         : '$' . number_format((float) $row['discount_value'], 2);
                                 ?>
-                    <tr>
+                    <tr<?php echo $attrs; ?>>
                         <td>
                             <span style="display:flex;align-items:center;gap:6px;">
                                 <code style="font-weight:600;"><?php echo esc_html($row['code']); ?></code>
@@ -575,16 +634,7 @@ class IQU_Coupon_Admin
                                 </a>
                             </td>
                     </tr>
-                    <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-        <?php echo IQU_Pager::foot($pager, $list_url); // escaped inside ?>
-    </div>
-</div>
 <?php
-
     }
 
     // ════════════════════════════════════════════════════

@@ -25,6 +25,8 @@ class IQU_Zeffy_Admin
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('admin_init', [$this, 'maybe_save_settings']);
         add_action('wp_ajax_iqu_zeffy_export_csv', [$this, 'handle_export_csv']);
+        // more than IQU_Pager::LOCAL_MAX donations: the table alone, for live search and paging
+        IQU_Pager::remote('iqu-zeffy', function () { $this->render_table($this->table_context($this->request_args())); });
     }
 
     // ════════════════════════════════════════════════════
@@ -153,12 +155,8 @@ class IQU_Zeffy_Admin
         $args = $this->request_args();
 
         $stats     = IQU_Zeffy_DB::get_stats();
-        // The shared pager: counted with the same filters, then one page (LIMIT/OFFSET).
-        $total     = IQU_Zeffy_DB::count_payments($args);
-        $pager     = IQU_Pager::from($_GET, $total);
-        $args['per_page'] = $pager['per'];
-        $args['page']     = $pager['page'];
-        $rows      = IQU_Zeffy_DB::get_payments($args);
+        $table     = $this->table_context($args);
+        $args['per_page'] = $table['pager']['per'];
         $campaigns = IQU_Zeffy_DB::get_campaign_options();
 
         $configured = IQU_Zeffy_API::has_key();
@@ -183,7 +181,7 @@ class IQU_Zeffy_Admin
     <?php $this->render_insights($stats); ?>
     <?php $this->render_analytics(); ?>
     <?php $this->render_filters($args, $campaigns); ?>
-    <?php $this->render_table($rows, $args, $total, $pager); ?>
+    <?php $this->render_table($table); ?>
     <?php endif; ?>
 
     <?php $this->render_settings($show_setup); ?>
@@ -497,7 +495,7 @@ class IQU_Zeffy_Admin
     <input type="hidden" name="page" value="<?php echo esc_attr(self::PAGE_SLUG); ?>">
 
     <input type="search" name="search" value="<?php echo esc_attr($args['search']); ?>"
-        placeholder="Search donor, email, company, campaign…" class="iquz-input iquz-input--search" aria-label="Search donations">
+        placeholder="Search donor, email, company, campaign…" class="iquz-input iquz-input--search" aria-label="Search donations" data-iqu-search="like" data-iqu-zero="none">
 
     <select name="status" class="iquz-input" aria-label="Status">
         <option value="">All statuses</option>
@@ -526,15 +524,15 @@ class IQU_Zeffy_Admin
     </select>
 
     <input type="date" name="date_from" value="<?php echo esc_attr($args['date_from']); ?>" class="iquz-input"
-        title="From date">
+        title="From date" data-iqu-op="ge" data-iqu-on="day">
     <input type="date" name="date_to" value="<?php echo esc_attr($args['date_to']); ?>" class="iquz-input"
-        title="To date">
+        title="To date" data-iqu-op="le" data-iqu-on="day">
 
     <?php if ($args['per_page'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $args['per_page']; ?>"><?php endif; ?>
 
     <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter', 'iquz-btn'); // results update as you type ?>
     <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_SLUG)); ?>" class="iquz-btn
-        iquz-btn--ghost">Reset</a>
+        iquz-btn--ghost" data-iqu-reset="iqu-zeffy">Reset</a>
     <a href="<?php echo esc_url($export); ?>" class="iquz-btn iquz-btn--export">⬇ Export CSV</a>
 </form>
 <?php
@@ -550,16 +548,45 @@ class IQU_Zeffy_Admin
         return IQU_Pager::url(self::PAGE_SLUG, array_intersect_key($args, array_flip(['search', 'status', 'campaign_id', 'recurring', 'date_from', 'date_to'])));
     }
 
-    private function render_table(array $rows, array $args, int $total, array $pager): void
+    /**
+     * The donations for the request's filters and page. Up to IQU_Pager::LOCAL_MAX donations: every one
+     * is sent and pager.js filters and pages them (local); more: counted with the same filters, then
+     * one page (LIMIT/OFFSET).
+     */
+    private function table_context(array $args): array
     {
+        $local = IQU_Pager::local(IQU_Zeffy_DB::count_payments([]));
+        $out = $shown = [];
+        if ($local) {
+            $rows  = IQU_Zeffy_DB::get_payments(['per_page' => IQU_Pager::LOCAL_MAX, 'page' => 1, 'orderby' => $args['orderby'], 'order' => $args['order']]);
+            $set   = array_filter(array_intersect_key($args, array_flip(['search', 'status', 'campaign_id', 'recurring', 'date_from', 'date_to'])), fn($v) => $v !== '');
+            $match = $set ? array_column(IQU_Zeffy_DB::get_payments(['per_page' => IQU_Pager::LOCAL_MAX, 'page' => 1] + $args), 'payment_id') : array_column($rows, 'payment_id');
+            ['pager' => $pager, 'out' => $out, 'shown' => $shown] = IQU_Pager::local_view(array_column($rows, 'payment_id'), $match, $_GET);
+            $total = $pager['total'];
+        } else {
+            $total = IQU_Zeffy_DB::count_payments($args);
+            $pager = IQU_Pager::from($_GET, $total);
+            $rows  = IQU_Zeffy_DB::get_payments(['per_page' => $pager['per'], 'page' => $pager['page']] + $args);
+        }
+        $args['per_page'] = $pager['per'];
+        $args['page']     = $pager['page'];
+        return ['args' => $args, 'local' => $local, 'rows' => $rows, 'total' => $total, 'pager' => $pager, 'out' => $out, 'shown' => $shown];
+    }
+
+    /** The donations table (data-iqu-live-region="iqu-zeffy"): printed by the page and by IQU_Pager::ajax(). */
+    private function render_table(array $c): void
+    {
+        ['args' => $args, 'local' => $local, 'rows' => $rows, 'total' => $total, 'pager' => $pager] = $c;
         $url = $this->list_url($args);
+        $tid = $local ? 'iquz-donations' : '';
+        $clear = $this->list_url(['search' => ''] + $args)(['per_page' => $args['per_page']]);
     ?>
-<div class="iquz-table-wrap iqu-list-card" data-iqu-live-region="iqu-zeffy">
+<div class="iquz-table-wrap iqu-list-card"<?php echo IQU_Pager::region_attrs('iqu-zeffy', $local); ?>>
     <div class="iqu-card-head iqu-list-head">
         <span class="iqu-card-head-title">Donations</span>
-        <?php echo IQU_Pager::head($pager, $url, 'Donations per page'); // escaped inside ?>
+        <?php echo IQU_Pager::head($pager, $url, 'Donations per page', $tid); // escaped inside ?>
     </div>
-    <table class="iquz-tbl">
+    <table class="iquz-tbl"<?php echo $local ? ' id="iquz-donations"' . IQU_Pager::local_attrs() : ''; ?>>
         <thead>
             <tr>
                 <th>Date</th>
@@ -572,6 +599,18 @@ class IQU_Zeffy_Admin
                 <th></th>
             </tr>
         </thead>
+        <?php if ($local):
+            // before the first import nothing can match yet: that one sentence, whatever the filters
+            $none = !IQU_Zeffy_Sync::backfill_done()
+                ? '<span data-iqu-none-filter>No donations imported yet. Run <strong>Import full history</strong> in Settings below.</span>'
+                : IQU_Pager::none_variants($args['search'], $clear, 'No donations match these filters.');
+            // every donation: what pager.js filters on (status, campaign, recurring, the UTC day; the search's fields)
+            IQU_Pager::local_body($rows, 'payment_id', fn(array $r) => [
+                'v-status' => (string) $r['status'], 'v-campaign_id' => (string) $r['campaign_id'],
+                'v-recurring' => !empty($r['is_recurring']) ? '1' : '0', 'v-day' => gmdate('Y-m-d', (int) $r['created_ts']),
+                's' => [$r['buyer_email'], $r['buyer_first_name'], $r['buyer_last_name'], $r['buyer_first_name'] . ' ' . $r['buyer_last_name'], $r['company_name'], $r['description'], $r['payment_id']],
+            ], $c, '<td colspan="8" class="iquz-empty">' . $none . '</td>', fn(array $r, string $attrs) => $this->render_row($r, $attrs));
+        else: ?>
         <tbody>
             <?php if (empty($rows)): ?>
             <tr>
@@ -579,17 +618,29 @@ class IQU_Zeffy_Admin
                     <?php if ($total === 0 && !IQU_Zeffy_Sync::backfill_done()): ?>
                     No donations imported yet. Run <strong>Import full history</strong> in Settings below.
                     <?php elseif ($args['search'] !== ''): ?>
-                    <?php echo IQU_Pager::no_results($args['search'], $this->list_url(['search' => ''] + $args)(['per_page' => $args['per_page']])); // escaped inside ?>
+                    <?php echo IQU_Pager::no_results($args['search'], $clear); // escaped inside ?>
                     <?php else: ?>
                     No donations match these filters.
                     <?php endif; ?>
                 </td>
             </tr>
-            <?php else: foreach ($rows as $row):
+            <?php else: foreach ($rows as $row) $this->render_row($row, ''); endif; ?>
+        </tbody>
+        <?php endif; ?>
+    </table>
+
+    <?php echo IQU_Pager::foot($pager, $url, $tid); // escaped inside ?>
+</div>
+<?php
+    }
+
+    /** One donation and its (closed) detail row ($attrs: IQU_Pager::row_attrs on a local list). */
+    private function render_row(array $row, string $attrs): void
+    {
                             $net = (int) $row['amount'] - (int) $row['refunded_amount'];
                             $cur = (string) $row['currency'];
                         ?>
-            <tr class="iquz-row" data-payment="<?php echo esc_attr($row['payment_id']); ?>">
+            <tr class="iquz-row" data-payment="<?php echo esc_attr($row['payment_id']); ?>"<?php echo $attrs; ?>>
                 <td class="iquz-td-date">
                     <?php echo esc_html(IQU_Zeffy_DB::format_date((int) $row['created_ts'], 'M j, Y')); ?>
                     <small><?php echo esc_html(IQU_Zeffy_DB::format_date((int) $row['created_ts'], 'g:i A')); ?></small>
@@ -659,18 +710,11 @@ class IQU_Zeffy_Admin
                 </td>
             </tr>
 
-            <tr class="iquz-detail-row" hidden>
+            <tr class="iquz-detail-row iqu-pager-detail" hidden>
                 <td colspan="8">
                     <?php $this->render_detail($row); ?>
                 </td>
             </tr>
-            <?php endforeach;
-                    endif; ?>
-        </tbody>
-    </table>
-
-    <?php echo IQU_Pager::foot($pager, $url); // escaped inside ?>
-</div>
 <?php
     }
 

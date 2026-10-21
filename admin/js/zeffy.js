@@ -605,6 +605,11 @@
       runAction("iqu_telegram_test", $(this), "Sending…");
     });
 
+    // a donation that leaves the page (pager.js) closes its details: its button reads "Details" again
+    document.addEventListener("iqu:paged", function (e) {
+      $(e.target).find(".iquz-detail-row[hidden]").prev(".iquz-row").find(".iquz-toggle-detail").text("Details");
+    });
+
     $(document).on("click", ".iquz-toggle-detail", function () { // delegated: the table can be replaced (live search)
       var $detail = $(this).closest("tr").next(".iquz-detail-row");
       var isHidden = $detail.prop("hidden");

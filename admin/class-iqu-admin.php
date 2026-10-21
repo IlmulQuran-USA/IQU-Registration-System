@@ -62,6 +62,9 @@ class IQU_Admin
     add_action('admin_post_iqu_set_course', [$this, 'handle_set_course']);
     add_action('admin_post_iqu_set_agreed_fee', [$this, 'handle_set_agreed_fee']);
     add_action('admin_post_iqu_billing_review_done', [$this, 'handle_billing_review_done']);
+    // a list longer than IQU_Pager::LOCAL_MAX: its table card alone, for live search and paging
+    IQU_Pager::remote('iqu-list', [$this, 'list_region_from_request']);
+    IQU_Pager::remote('iqu-recent', [$this, 'recent_region']);
   }
 
   /**
@@ -952,15 +955,6 @@ class IQU_Admin
       'needs_review' => IQU_Database::count_registrations(['review' => true]),
     ];
 
-    // Recent Submissions: the shared pager (IQU_Pager), 10 / 20 / 30, default 10.
-    $dash_total = IQU_Database::count_registrations();
-    $dash_pager = IQU_Pager::from($_GET, $dash_total);
-    $dash_url   = IQU_Pager::url('iqu-registrations', []);
-
-    $latest = IQU_Database::get_registrations([
-      'per_page' => $dash_pager['per'],
-      'page'     => $dash_pager['page'],
-    ]);
     $total = max(1, (int) $counts['total']);
 
     // Revenue total for the metric card: the same figure as the chart (revenue_by_program)
@@ -1141,14 +1135,41 @@ class IQU_Admin
         </div>
     </div>
 
+    <?php $this->recent_region(); ?>
+</div>
+<?php
+  }
+
+  /**
+   * Recent Submissions (the dashboard), the shared pager (IQU_Pager), 10 / 20 / 30, default 10. Up to
+   * IQU_Pager::LOCAL_MAX registrations: all sent, paged in the browser; more: one page (IQU_Pager::ajax()).
+   */
+  public function recent_region(): void
+  {
+    $dash_total = IQU_Database::count_registrations();
+    $local      = IQU_Pager::local($dash_total);
+    $dash_url   = IQU_Pager::url('iqu-registrations', []);
+    if ($local) {
+      $latest = $dash_total ? IQU_Database::get_registrations(['per_page' => IQU_Pager::LOCAL_MAX, 'page' => 1]) : [];
+      $view = IQU_Pager::local_view(array_column($latest, 'id'), array_column($latest, 'id'), $_GET);
+      $dash_pager = $view['pager'];
+    } else {
+      $dash_pager = IQU_Pager::from($_GET, $dash_total);
+      $latest = IQU_Database::get_registrations([
+        'per_page' => $dash_pager['per'],
+        'page'     => $dash_pager['page'],
+      ]);
+    }
+    $tid = $local ? 'iqu-recent-tbl' : '';
+  ?>
     <!-- ── Recent Submissions ────────────────────────── -->
-    <div class="iqu-card iqu-list-card">
+    <div class="iqu-card iqu-list-card"<?php echo IQU_Pager::region_attrs('iqu-recent', $local); ?>>
     <div class="iqu-card-head iqu-list-head">
         <span class="iqu-card-head-title iqu-dash-recent-title">Recent Submissions</span>
-        <?php echo IQU_Pager::head($dash_pager, $dash_url, 'Submissions per page'); // escaped inside ?>
+        <?php echo IQU_Pager::head($dash_pager, $dash_url, 'Submissions per page', $tid); // escaped inside ?>
     </div>
     <div class="iqu-table-wrap">
-        <table class="iqu-tbl">
+        <table class="iqu-tbl"<?php echo $local ? ' id="iqu-recent-tbl"' . IQU_Pager::local_attrs() : ''; ?>>
             <thead>
                 <tr>
                     <th>ID</th>
@@ -1162,15 +1183,33 @@ class IQU_Admin
                     <th>Action</th>
                 </tr>
             </thead>
+            <?php if ($local):
+              IQU_Pager::local_body($latest, 'id', fn(array $r) => [], $view, '<td colspan="9" class="iqu-empty-state">No registrations yet.</td>',
+                fn(array $r, string $attrs) => $this->recent_row($r, $attrs));
+            else: ?>
             <tbody>
                 <?php if (empty($latest)): ?>
                 <tr>
                     <td colspan="9" class="iqu-empty-state">No registrations yet.</td>
                 </tr>
                 <?php else:
-              foreach ($latest as $row):
-                $view = admin_url('admin.php?page=iqu-view-registration&id=' . (int) $row['id'] . '&from=iqu-registrations'); ?>
-                <tr>
+              foreach ($latest as $row) $this->recent_row($row, '');
+            endif; ?>
+            </tbody>
+            <?php endif; ?>
+        </table>
+    </div>
+    <?php echo IQU_Pager::foot($dash_pager, $dash_url, $tid); // escaped inside ?>
+    </div>
+<?php
+  }
+
+  /** One row of Recent Submissions ($attrs: IQU_Pager::row_attrs while the list is local). */
+  private function recent_row(array $row, string $attrs): void
+  {
+    $view = admin_url('admin.php?page=iqu-view-registration&id=' . (int) $row['id'] . '&from=iqu-registrations');
+  ?>
+                <tr<?php echo $attrs; ?>>
                     <td class="iqu-td-id">#<?php echo (int) $row['id']; ?></td>
                     <td class="iqu-td-name"><strong>
                             <a
@@ -1193,14 +1232,6 @@ class IQU_Admin
                             data-id="<?php echo (int) $row['id']; ?>">Delete</button>
                     </td>
                 </tr>
-                <?php endforeach;
-            endif; ?>
-            </tbody>
-        </table>
-    </div>
-    <?php echo IQU_Pager::foot($dash_pager, $dash_url); // escaped inside ?>
-    </div>
-</div>
 <?php
   }
 
@@ -1211,29 +1242,71 @@ class IQU_Admin
   /**
    * @param string|array $form_type একটি টাইপ, বা Weekend-এর মতো টাইপের তালিকা
    */
+  /** The Enroll list pages: admin page slug => form type(s). */
+  private static function list_types(): array
+  {
+    return [
+      'iqu-list-free' => IQU_Database::FORM_FREE,
+      'iqu-list-summer-l1' => IQU_Database::FORM_SUMMER_LEVEL1,
+      'iqu-list-summer-l2' => IQU_Database::FORM_SUMMER_LEVEL2,
+      'iqu-list-weekend' => IQU_Database::weekend_types(),
+    ];
+  }
+
+  /**
+   * An Enroll list for the request's filters (status, search) and page. Up to IQU_Pager::LOCAL_MAX
+   * registrations: every one is sent and pager.js searches and pages them (local); more: one page.
+   */
+  private function list_context($form_type, string $page_slug): array
+  {
+    $status = sanitize_text_field(wp_unslash($_GET['status'] ?? ''));
+    $search = sanitize_text_field(wp_unslash($_GET['search'] ?? '')); // O'Brien, not O\'Brien
+
+    // "Needs review" (3.3.0) is a filter on review reasons, not a status.
+    $needs_review = ($status === 'needs_review');
+    $args = ['form_type' => $form_type, 'status' => $needs_review ? '' : $status, 'review' => $needs_review, 'search' => $search];
+    $local = IQU_Pager::local(IQU_Database::count_registrations(['form_type' => $form_type]));
+    $out = $shown = [];
+    if ($local) {
+      $rows = IQU_Database::get_registrations(['form_type' => $form_type, 'page' => 1, 'per_page' => IQU_Pager::LOCAL_MAX]);
+      $match = $status !== '' || $search !== ''
+        ? array_column(IQU_Database::get_registrations($args + ['page' => 1, 'per_page' => IQU_Pager::LOCAL_MAX]), 'id')
+        : array_column($rows, 'id');
+      $view = IQU_Pager::local_view(array_column($rows, 'id'), $match, $_GET);
+      ['pager' => $pager, 'out' => $out, 'shown' => $shown] = $view;
+    } else {
+      // The shared pager: counted with the same WHERE, then that page (LIMIT/OFFSET), default 10.
+      $pager = IQU_Pager::from($_GET, IQU_Database::count_registrations($args));
+      $rows = IQU_Database::get_registrations($args + ['page' => $pager['page'], 'per_page' => $pager['per']]);
+    }
+    // একাধিক টাইপ হলে URL-এ একটাই সিন্থেটিক কী যায় — 'weekend'
+    $type_key = is_array($form_type) ? 'weekend' : $form_type;
+    return [
+      'status' => $status, 'search' => $search, 'slug' => $page_slug, 'type_key' => $type_key,
+      'is_summer' => in_array($type_key, [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true),
+      'local' => $local, 'rows' => $rows, 'pager' => $pager, 'out' => $out, 'shown' => $shown,
+      'list_url' => IQU_Pager::url($page_slug, ['search' => $search, 'status' => $status]),
+    ];
+  }
+
+  /** IQU_Pager::ajax() for a longer Enroll list: the table card for the page slug and filters in $_GET. */
+  public function list_region_from_request(): void
+  {
+    $slug = sanitize_key($_GET['page'] ?? '');
+    $types = self::list_types();
+    if (!isset($types[$slug])) wp_send_json_error('Unknown list.', 400);
+    $this->list_region($this->list_context($types[$slug], $slug));
+  }
+
   public function render_list_page($form_type, string $title): void
   {
     if (!current_user_can('manage_options'))
       wp_die('Permission denied.');
 
-    $status = sanitize_text_field(wp_unslash($_GET['status'] ?? ''));
-    $search = sanitize_text_field(wp_unslash($_GET['search'] ?? '')); // O'Brien, not O\'Brien
-    $page_slug = sanitize_key($_GET['page'] ?? '');
-
-    // "Needs review" (3.3.0) is a filter on review reasons, not a status.
-    $needs_review = ($status === 'needs_review');
-    $args = ['form_type' => $form_type, 'status' => $needs_review ? '' : $status, 'review' => $needs_review, 'search' => $search];
-    // The shared pager: counted with the same WHERE, then that page (LIMIT/OFFSET), default 10.
-    $total_rows = IQU_Database::count_registrations($args);
-    $pager = IQU_Pager::from($_GET, $total_rows);
-    $rows = IQU_Database::get_registrations($args + ['page' => $pager['page'], 'per_page' => $pager['per']]);
-    $list_url = IQU_Pager::url($page_slug, ['search' => $search, 'status' => $status]);
-
-    // একাধিক টাইপ হলে URL-এ একটাই সিন্থেটিক কী যায় — 'weekend'
-    $type_key = is_array($form_type) ? 'weekend' : $form_type;
+    $c = $this->list_context($form_type, sanitize_key($_GET['page'] ?? ''));
+    ['status' => $status, 'search' => $search, 'slug' => $page_slug, 'type_key' => $type_key, 'pager' => $pager] = $c;
 
     $export_url = admin_url('admin-ajax.php?action=iqu_export_csv&form_type=' . rawurlencode($type_key) . '&_wpnonce=' . wp_create_nonce('iqu_export_csv'));
-    $is_summer = in_array($type_key, [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true);
 
     $tab_map = [
       IQU_Database::FORM_FREE => 'iqu-list-free',
@@ -1251,7 +1324,7 @@ class IQU_Admin
     <form method="GET" class="iqu-filter-bar" role="search" data-iqu-live="iqu-list">
         <input type="hidden" name="page" value="<?php echo esc_attr($page_slug); ?>">
         <input type="search" name="search" value="<?php echo esc_attr($search); ?>"
-            placeholder="Search name, email, WhatsApp or IQU number…" aria-label="Search registrations">
+            placeholder="Search name, email, WhatsApp or IQU number…" aria-label="Search registrations" data-iqu-search="like" data-iqu-zero="none">
         <select name="status" aria-label="Status">
             <option value="">All statuses</option>
             <?php foreach (self::ALLOWED_STATUSES as $s): ?>
@@ -1265,14 +1338,26 @@ class IQU_Admin
         <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
     </form>
 
+    <?php $this->list_region($c); ?>
+</div>
+<?php
+  }
+
+  /** The Enroll list's table card (data-iqu-live-region="iqu-list"): printed by the page and by IQU_Pager::ajax(). */
+  private function list_region(array $c): void
+  {
+    ['status' => $status, 'search' => $search, 'slug' => $page_slug, 'is_summer' => $is_summer, 'local' => $local, 'rows' => $rows, 'pager' => $pager, 'list_url' => $list_url] = $c;
+    $clear = IQU_Pager::url($page_slug, ['status' => $status])(['per_page' => $pager['per']]);
+    $tid = $local ? 'iqu-list-tbl' : '';
+  ?>
     <!-- ── Table ─────────────────────────────────────── -->
-    <div class="iqu-card iqu-list-card" data-iqu-live-region="iqu-list">
+    <div class="iqu-card iqu-list-card"<?php echo IQU_Pager::region_attrs('iqu-list', $local); ?>>
     <div class="iqu-card-head iqu-list-head">
         <span class="iqu-card-head-title">Registrations</span>
-        <?php echo IQU_Pager::head($pager, $list_url, 'Registrations per page'); // escaped inside ?>
+        <?php echo IQU_Pager::head($pager, $list_url, 'Registrations per page', $tid); // escaped inside ?>
     </div>
     <div class="iqu-table-wrap">
-        <table class="iqu-tbl">
+        <table class="iqu-tbl"<?php echo $local ? ' id="iqu-list-tbl"' . IQU_Pager::local_attrs() : ''; ?>>
             <thead>
                 <tr>
                     <th>ID</th>
@@ -1295,18 +1380,43 @@ class IQU_Admin
                     <th>Actions</th>
                 </tr>
             </thead>
+            <?php if ($local):
+              // every registration of the list: what pager.js filters on (status; the search's fields, WhatsApp digits, number)
+              IQU_Pager::local_body($rows, 'id', fn(array $r) => [
+                'v-status' => array_merge([(string) $r['status']], (string) ($r['review_reason'] ?? '') !== '' ? ['needs_review'] : []),
+                's'  => [$r['first_name'], $r['last_name'], $r['first_name'] . ' ' . $r['last_name'], $r['guardian_name'], $r['email'], $r['whatsapp']],
+                'wa' => str_replace([' ', '-', '(', ')', '+'], '', (string) $r['whatsapp']),
+                'id' => (int) $r['id'],
+              ], $c, '<td colspan="' . ($is_summer ? 11 : 10) . '" class="iqu-empty-state">' . IQU_Pager::none_variants($search, $clear, 'No registrations found.') . '</td>',
+              fn(array $r, string $attrs) => $this->list_row($r, $c, $attrs));
+            else: ?>
             <tbody>
                 <?php if (empty($rows)): ?>
                 <tr>
                     <td colspan="<?php echo $is_summer ? 11 : 10; ?>" class="iqu-empty-state"><?php echo $search !== ''
-                        ? IQU_Pager::no_results($search, IQU_Pager::url($page_slug, ['status' => $status])(['per_page' => $pager['per']]))
+                        ? IQU_Pager::no_results($search, $clear)
                         : 'No registrations found.'; ?>
                     </td>
                 </tr>
                 <?php else:
-              foreach ($rows as $row):
-                $view = admin_url('admin.php?page=iqu-view-registration&id=' . (int) $row['id'] . '&from=' . urlencode($page_slug)); ?>
-                <tr data-id="<?php echo (int) $row['id']; ?>">
+              foreach ($rows as $row) $this->list_row($row, $c, '');
+            endif; ?>
+            </tbody>
+            <?php endif; ?>
+        </table>
+    </div>
+    <?php echo IQU_Pager::foot($pager, $list_url, $tid); // escaped inside ?>
+    </div>
+<?php
+  }
+
+  /** One registration of an Enroll list ($attrs: IQU_Pager::row_attrs on a local list). */
+  private function list_row(array $row, array $c, string $attrs): void
+  {
+    $is_summer = $c['is_summer'];
+    $view = admin_url('admin.php?page=iqu-view-registration&id=' . (int) $row['id'] . '&from=' . urlencode($c['slug']));
+  ?>
+                <tr data-id="<?php echo (int) $row['id']; ?>"<?php echo $attrs; ?>>
                     <td class="iqu-td-id">#<?php echo (int) $row['id']; ?></td>
                     <td class="iqu-td-name"><strong><a
                                 href="<?php echo esc_url($view); ?>"><?php echo esc_html($row['first_name'] . ' ' . $row['last_name']); ?></a></strong>
@@ -1381,14 +1491,6 @@ class IQU_Admin
                             data-id="<?php echo (int) $row['id']; ?>">Delete</button>
                     </td>
                 </tr>
-                <?php endforeach;
-            endif; ?>
-            </tbody>
-        </table>
-    </div>
-    <?php echo IQU_Pager::foot($pager, $list_url); // escaped inside ?>
-    </div>
-</div>
 <?php
   }
 

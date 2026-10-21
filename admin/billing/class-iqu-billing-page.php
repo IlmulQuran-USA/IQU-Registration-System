@@ -37,6 +37,8 @@ class IQU_Billing_Page
         add_action('admin_head', [__CLASS__, 'hide_tab_pages']); // after WordPress has checked access
         add_action('admin_post_' . self::A_BULK, [__CLASS__, 'handle_bulk']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_style']);
+        // more than IQU_Pager::LOCAL_MAX students: the table card alone, for live search and paging
+        IQU_Pager::remote('iqu-students', function () { self::students_region(self::students_context()); }, self::CAP);
     }
 
     /** Billing screens, plus the Enroll for Free list (Import CSV button). */
@@ -204,14 +206,53 @@ class IQU_Billing_Page
     // Student Billing tab
     // ------------------------------------------------------------
 
-    public static function render_students(): void
+    /** What the Student Billing search looks in (lower case): name, email, guardian, WhatsApp (also its digits), IQU number. */
+    private static function search_text(array $r): string
     {
-        if (!current_user_can(self::CAP)) wp_die('You do not have permission to view this page.', 403);
+        $wa = (string) ($r['reg']['whatsapp'] ?? '');
+        return mb_strtolower($r['reg']['first_name'] . ' ' . $r['reg']['last_name'] . ' ' . $r['reg']['email'] . ' ' . $r['reg']['guardian_name'] . ' ' . $wa . ' ' . preg_replace('/\D+/', '', $wa) . ' iqu-' . $r['reg']['id'] . ' #' . $r['reg']['id'], 'UTF-8');
+    }
 
+    /**
+     * The students for the request's status pill (show), search (q) and page. Up to IQU_Pager::LOCAL_MAX
+     * students: every one is sent and pager.js filters and pages them (local); more: one page.
+     */
+    private static function students_context(): array
+    {
         $rows   = self::rows();
         $filter = sanitize_key($_GET['show'] ?? 'all');
         if (!isset(self::GROUPS[$filter])) $filter = 'all';
         $q = trim(sanitize_text_field(wp_unslash($_GET['q'] ?? '')));
+
+        $shown = array_values(array_filter($rows, function ($r) use ($filter, $q) {
+            if ($filter !== 'all' && $r['group'] !== $filter) return false;
+            if ($q === '') return true;
+            // Case-insensitive in any language (mb_), partial: name, guardian, email, WhatsApp (also its digits), IQU number.
+            return mb_strpos(self::search_text($r), mb_strtolower($q, 'UTF-8'), 0, 'UTF-8') !== false;
+        }));
+
+        $local = IQU_Pager::local(count($rows));
+        $out = $on = [];
+        if ($local) {
+            $id = fn(array $r) => (int) $r['reg']['id'];
+            ['pager' => $pager, 'out' => $out, 'shown' => $on] = IQU_Pager::local_view(array_map($id, $rows), array_map($id, $shown), $_GET);
+        } else {
+            // The shared pager (IQU_Pager): this list is filtered in PHP, then one page of it is shown.
+            $pager = IQU_Pager::from($_GET, count($shown));
+            $shown = array_slice($shown, $pager['offset'], $pager['per']);
+        }
+        return ['rows' => $rows, 'filter' => $filter, 'q' => $q, 'local' => $local, 'shown_rows' => $shown, 'pager' => $pager, 'out' => $out, 'shown' => $on,
+            // The list with the current filter chip, search and page size (encoded: add_query_arg does not).
+            // "All" is the default: left out, so the same view has one address
+            'pager_url' => IQU_Pager::url(self::SLUG, ['show' => $filter === 'all' ? '' : $filter, 'q' => $q, 'per_page' => $pager['per']])];
+    }
+
+    public static function render_students(): void
+    {
+        if (!current_user_can(self::CAP)) wp_die('You do not have permission to view this page.', 403);
+
+        $c = self::students_context();
+        ['rows' => $rows, 'filter' => $filter, 'q' => $q, 'pager' => $pager, 'pager_url' => $pager_url] = $c;
 
         $counts = array_fill_keys(array_keys(self::GROUPS), 0);
         $monthly_active = 0.0;
@@ -221,22 +262,7 @@ class IQU_Billing_Page
             if ($r['group'] === 'active' && $r['acc']) $monthly_active += (float) $r['p']['net'];
         }
 
-        $shown = array_values(array_filter($rows, function ($r) use ($filter, $q) {
-            if ($filter !== 'all' && $r['group'] !== $filter) return false;
-            if ($q === '') return true;
-            // Case-insensitive in any language (mb_), partial: name, guardian, email, WhatsApp (also its digits), IQU number.
-            $wa  = (string) ($r['reg']['whatsapp'] ?? '');
-            $hay = mb_strtolower($r['reg']['first_name'] . ' ' . $r['reg']['last_name'] . ' ' . $r['reg']['email'] . ' ' . $r['reg']['guardian_name'] . ' ' . $wa . ' ' . preg_replace('/\D+/', '', $wa) . ' iqu-' . $r['reg']['id'] . ' #' . $r['reg']['id'], 'UTF-8');
-            return mb_strpos($hay, mb_strtolower($q, 'UTF-8'), 0, 'UTF-8') !== false;
-        }));
-
-        // The shared pager (IQU_Pager): this list is filtered in PHP, then one page of it is shown.
-        $total = count($shown);
-        $pager = IQU_Pager::from($_GET, $total);
         $per   = $pager['per'];
-        $shown = array_slice($shown, $pager['offset'], $per);
-        // The list with the current filter chip, search and page size (encoded: add_query_arg does not).
-        $pager_url = IQU_Pager::url(self::SLUG, ['show' => $filter, 'q' => $q, 'per_page' => $per]);
         $list  = fn(array $args = []) => $pager_url($args);
 
         $not_set_up_total = 0.0;
@@ -250,7 +276,7 @@ class IQU_Billing_Page
                 <div class="notice notice-warning inline" data-course-missing-notice><p>
                     <strong><?php echo $missing === 1 ? '1 student has no course.' : $missing . ' students have no course.'; ?></strong>
                     Billing cannot start for their families until a course is chosen, because the monthly fee depends on it.
-                    <a href="<?php echo esc_url($list(['show' => 'needs_course'])); ?>">Show them</a>, then use <em>Choose course</em> on each row.
+                    <a href="<?php echo esc_url($list(['show' => 'needs_course'])); ?>" data-iqu-set="show=needs_course" data-iqu-set-for="iqu-students">Show them</a>, then use <em>Choose course</em> on each row.
                 </p></div>
             <?php endif; ?>
 
@@ -281,9 +307,9 @@ class IQU_Billing_Page
             </div>
 
             <!-- ── Status filter ────────────────────────────── -->
-            <nav class="iqu-seg iqu-billing-filters" aria-label="Billing status">
-                <?php foreach (self::GROUPS as $key => $label): ?>
-                    <a href="<?php echo esc_url($list(['show' => $key])); ?>" class="iqu-seg-pill<?php echo $filter === $key ? ' is-active' : ''; ?>"<?php echo $filter === $key ? ' aria-current="page"' : ''; ?>><span class="iqu-seg-dot iqu-seg-dot--<?php echo esc_attr(self::GROUP_TONES[$key] ?? 'neutral'); ?>" aria-hidden="true"></span><?php echo esc_html($label); ?><span class="iqu-billing-count"><?php echo (int) $counts[$key]; ?></span></a>
+            <nav class="iqu-seg iqu-billing-filters" aria-label="Billing status" data-iqu-tabs="is-active">
+                <?php foreach (self::GROUPS as $key => $label): // with JavaScript a pill filters the list in place (data-iqu-set) ?>
+                    <a href="<?php echo esc_url($list(['show' => $key])); ?>" class="iqu-seg-pill<?php echo $filter === $key ? ' is-active' : ''; ?>"<?php echo $filter === $key ? ' aria-current="page"' : ''; ?> data-iqu-set="show=<?php echo $key === 'all' ? '' : esc_attr($key); ?>" data-iqu-set-for="iqu-students"><span class="iqu-seg-dot iqu-seg-dot--<?php echo esc_attr(self::GROUP_TONES[$key] ?? 'neutral'); ?>" aria-hidden="true"></span><?php echo esc_html($label); ?><span class="iqu-billing-count"><?php echo (int) $counts[$key]; ?></span></a>
                 <?php endforeach; ?>
             </nav>
 
@@ -294,7 +320,7 @@ class IQU_Billing_Page
                     <?php if ($filter !== 'all'): ?><input type="hidden" name="show" value="<?php echo esc_attr($filter); ?>"><?php endif; ?>
                     <?php if ($per !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $per; ?>"><?php endif; ?>
                     <label class="screen-reader-text" for="iqu-q">Search students</label>
-                    <input id="iqu-q" type="search" name="q" value="<?php echo esc_attr($q); ?>" placeholder="Name, email, WhatsApp or IQU number">
+                    <input id="iqu-q" type="search" name="q" value="<?php echo esc_attr($q); ?>" placeholder="Name, email, WhatsApp or IQU number" data-iqu-search="contains">
                     <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Search', 'iqu-btn iqu-btn--secondary'); // results update as you type ?>
                 </form>
                 <div class="iqu-btn-group iqu-billing-toolbar-actions">
@@ -304,39 +330,7 @@ class IQU_Billing_Page
                 </div>
             </div>
 
-            <!-- ── Table ─────────────────────────────────────── -->
-            <div class="iqu-card iqu-students-card" data-iqu-live-region="iqu-students">
-                <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" id="iqu-bulk-form">
-                    <input type="hidden" name="page" value="<?php echo esc_attr(self::BULK_SLUG); ?>">
-                    <div class="iqu-card-head iqu-billing-bulkbar">
-                        <div class="iqu-billing-bulkbar-left">
-                            <button type="submit" class="iqu-btn-primary" id="iqu-bulk-btn" disabled>Send payment links to selected</button>
-                            <span class="iqu-fld-hint" id="iqu-bulk-count">Tick students who are “Not set up”. “Select all” ticks only the students on this page. Brothers and sisters with the same email are billed together.</span>
-                        </div>
-                        <div class="iqu-billing-bulkbar-right">
-                            <?php echo IQU_Pager::head($pager, $pager_url, 'Students per page'); // escaped inside ?>
-                        </div>
-                    </div>
-
-                    <div class="iqu-table-wrap">
-                    <table class="iqu-tbl iqu-billing-tbl iqu-students-tbl">
-                        <caption class="screen-reader-text">Students on monthly tuition. Select a row to open the family page.</caption>
-                        <thead><tr>
-                            <td class="check-column"><label class="screen-reader-text" for="iqu-all">Select all on this page</label><input id="iqu-all" type="checkbox"></td>
-                            <th scope="col">Student and guardian</th><th scope="col">Course</th><th scope="col" class="is-num">Monthly</th><th scope="col">Billing</th><th scope="col">Actions</th>
-                        </tr></thead>
-                        <tbody>
-                        <?php if (!$shown): ?>
-                            <tr><td colspan="6" class="iqu-empty-state"><?php echo $q !== '' ? IQU_Pager::no_results($q, $list(['q' => null, 'per_page' => $per])) : 'No students here.'; ?></td></tr>
-                        <?php endif; ?>
-                        <?php foreach ($shown as $r): self::render_row($r); endforeach; ?>
-                        </tbody>
-                    </table>
-                    </div>
-                </form>
-
-                <?php echo IQU_Pager::foot($pager, $pager_url); // escaped inside ?>
-            </div>
+            <?php self::students_region($c); ?>
         </div>
         <script>
         (function () {
@@ -348,10 +342,19 @@ class IQU_Billing_Page
                 btn.disabled = n === 0;
                 btn.textContent = n ? 'Send payment links to ' + n + ' selected' : 'Send payment links to selected';
             }
+            // A row that leaves the page (another page, search or pill) is no longer selected, as when the page reloaded.
+            document.addEventListener('iqu:paged', function (e) {
+                if (!e.target.closest || !e.target.closest('#iqu-bulk-form')) return;
+                document.querySelectorAll('#iqu-bulk-form tr[hidden] input[name="ids[]"]:checked').forEach(function (b) { b.checked = false; });
+                var all = document.getElementById('iqu-all');
+                if (all) all.checked = false;
+                sync();
+            });
             document.addEventListener('change', function (e) {
                 var t = e.target;
                 if (t.id === 'iqu-all') {
-                    document.querySelectorAll('#iqu-bulk-form input[name="ids[]"]').forEach(function (b) { b.checked = t.checked; });
+                    // "Select all on this page": the rows shown, not the ones waiting on other pages
+                    document.querySelectorAll('#iqu-bulk-form tr:not([hidden]) input[name="ids[]"]').forEach(function (b) { b.checked = t.checked; });
                     sync();
                 } else if (t.name === 'ids[]' && t.form && t.form.id === 'iqu-bulk-form') sync();
             });
@@ -360,7 +363,57 @@ class IQU_Billing_Page
         <?php
     }
 
-    private static function render_row(array $r): void
+    /** The Students card (data-iqu-live-region="iqu-students"): printed by the page and by IQU_Pager::ajax(). */
+    private static function students_region(array $c): void
+    {
+        ['q' => $q, 'local' => $local, 'pager' => $pager, 'pager_url' => $pager_url] = $c;
+        $tid   = $local ? 'iqu-students-list' : '';
+        $clear = $pager_url(['q' => null, 'per_page' => $pager['per']]);
+        ?>
+            <!-- ── Table ─────────────────────────────────────── -->
+            <div class="iqu-card iqu-students-card"<?php echo IQU_Pager::region_attrs('iqu-students', $local); ?>>
+                <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" id="iqu-bulk-form">
+                    <input type="hidden" name="page" value="<?php echo esc_attr(self::BULK_SLUG); ?>">
+                    <div class="iqu-card-head iqu-billing-bulkbar">
+                        <div class="iqu-billing-bulkbar-left">
+                            <button type="submit" class="iqu-btn-primary" id="iqu-bulk-btn" disabled>Send payment links to selected</button>
+                            <span class="iqu-fld-hint" id="iqu-bulk-count">Tick students who are “Not set up”. “Select all” ticks only the students on this page. Brothers and sisters with the same email are billed together.</span>
+                        </div>
+                        <div class="iqu-billing-bulkbar-right">
+                            <?php echo IQU_Pager::head($pager, $pager_url, 'Students per page', $tid); // escaped inside ?>
+                        </div>
+                    </div>
+
+                    <div class="iqu-table-wrap">
+                    <table class="iqu-tbl iqu-billing-tbl iqu-students-tbl"<?php echo $local ? ' id="iqu-students-list"' . IQU_Pager::local_attrs() : ''; ?>>
+                        <caption class="screen-reader-text">Students on monthly tuition. Select a row to open the family page.</caption>
+                        <thead><tr>
+                            <td class="check-column"><label class="screen-reader-text" for="iqu-all">Select all on this page</label><input id="iqu-all" type="checkbox"></td>
+                            <th scope="col">Student and guardian</th><th scope="col">Course</th><th scope="col" class="is-num">Monthly</th><th scope="col">Billing</th><th scope="col">Actions</th>
+                        </tr></thead>
+                        <?php if ($local):
+                            // every student: what pager.js filters on (the status pill; the search's text)
+                            IQU_Pager::local_body($c['rows'], fn(array $r) => (int) $r['reg']['id'], fn(array $r) => ['v-show' => $r['group'], 's' => self::search_text($r)], $c,
+                                '<td colspan="6" class="iqu-empty-state">' . IQU_Pager::none_variants($q, $clear, 'No students here.') . '</td>',
+                                fn(array $r, string $attrs) => self::render_row($r, $attrs));
+                        else: ?>
+                        <tbody>
+                        <?php if (!$c['shown_rows']): ?>
+                            <tr><td colspan="6" class="iqu-empty-state"><?php echo $q !== '' ? IQU_Pager::no_results($q, $clear) : 'No students here.'; ?></td></tr>
+                        <?php endif; ?>
+                        <?php foreach ($c['shown_rows'] as $r): self::render_row($r); endforeach; ?>
+                        </tbody>
+                        <?php endif; ?>
+                    </table>
+                    </div>
+                </form>
+
+                <?php echo IQU_Pager::foot($pager, $pager_url, $tid); // escaped inside ?>
+            </div>
+        <?php
+    }
+
+    private static function render_row(array $r, string $attrs = ''): void
     {
         $reg = $r['reg']; $p = $r['p']; $acc = $r['acc']; $id = (int) $reg['id'];
         $send = admin_url('admin.php?page=' . IQU_Billing_Send::SEND_SLUG . '&ids=' . $id);
@@ -371,7 +424,7 @@ class IQU_Billing_Page
         $open = $acc ? self::family_url((int) $acc['id']) : admin_url('admin.php?page=iqu-view-registration&id=' . $id);
         $name = trim($reg['first_name'] . ' ' . $reg['last_name']);
         ?>
-        <tr data-href="<?php echo esc_url($open); ?>">
+        <tr data-href="<?php echo esc_url($open); ?>"<?php echo $attrs; ?>>
             <th scope="row" class="check-column">
                 <?php if ($r['group'] === 'not_set_up'): ?>
                     <label class="screen-reader-text" for="s<?php echo $id; ?>">Select</label>

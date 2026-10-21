@@ -23,6 +23,8 @@ class IQU_Waitlist_Admin
         // Priority 18: listed after Coupon List and before Billing (19) and Zeffy Payments (20).
         add_action('admin_menu', [__CLASS__, 'menu'], 18);
         add_action('admin_post_' . self::EXPORT, [__CLASS__, 'export']);
+        // more than IQU_Pager::LOCAL_MAX families: the table card alone, for live search and paging
+        IQU_Pager::remote('iqu-waitlist', function () { self::list_region(self::list_context()); }, self::CAP);
     }
 
     public static function menu(): void
@@ -115,16 +117,34 @@ class IQU_Waitlist_Admin
         exit;
     }
 
+    /**
+     * The list for the request's filters and page. Up to IQU_Pager::LOCAL_MAX families: every one is
+     * sent and pager.js filters and pages them (local); more: one page (LIMIT/OFFSET).
+     */
+    private static function list_context(): array
+    {
+        $f     = self::filters($_GET);
+        $query = array_filter(['country' => $f['country'], 'program' => $f['program'], 's' => $f['s'], 'from' => $f['from_date'], 'to' => $f['to_date']]);
+        $local = IQU_Pager::local(IQU_Waitlist::count());
+        $out = $shown = [];
+        if ($local) {
+            $rows  = IQU_Waitlist::rows();
+            $set   = $f['country'] !== '' || $f['program'] !== '' || $f['s'] !== '' || $f['from_date'] !== '' || $f['to_date'] !== '';
+            $match = $set ? array_column(IQU_Waitlist::rows($f['country'], $f['program'], 0, 0, $f['more']), 'id') : array_column($rows, 'id');
+            ['pager' => $pager, 'out' => $out, 'shown' => $shown] = IQU_Pager::local_view(array_column($rows, 'id'), $match, $_GET);
+        } else {
+            // The shared pager (IQU_Pager): counted with the same filters, then one page (LIMIT/OFFSET).
+            $pager = IQU_Pager::from($_GET, IQU_Waitlist::count($f['country'], $f['program'], $f['more']));
+            $rows  = IQU_Waitlist::rows($f['country'], $f['program'], $pager['per'], $pager['offset'], $f['more']);
+        }
+        return ['f' => $f, 'query' => $query, 'local' => $local, 'rows' => $rows, 'pager' => $pager, 'out' => $out, 'shown' => $shown];
+    }
+
     public static function render(): void
     {
         if (!current_user_can(self::CAP)) wp_die('You do not have permission to view this page.', 403);
-        $f        = self::filters($_GET);
-        $total    = IQU_Waitlist::count($f['country'], $f['program'], $f['more']);
-        // The shared pager (IQU_Pager): counted with the same filters, then one page (LIMIT/OFFSET).
-        $pager    = IQU_Pager::from($_GET, $total);
-        $rows     = IQU_Waitlist::rows($f['country'], $f['program'], $pager['per'], $pager['offset'], $f['more']);
-        $query    = array_filter(['country' => $f['country'], 'program' => $f['program'], 's' => $f['s'], 'from' => $f['from_date'], 'to' => $f['to_date']]);
-        $list_url = IQU_Pager::url(self::SLUG, $query);
+        $list_ctx = self::list_context();
+        ['f' => $f, 'query' => $query, 'pager' => $pager] = $list_ctx;
         // add_query_arg does not encode: a search with & or # would cut the link (and its nonce) short.
         $export   = wp_nonce_url(add_query_arg(['action' => self::EXPORT] + rawurlencode_deep($query), admin_url('admin-post.php')), self::EXPORT);
         $stats    = IQU_Waitlist::stats(self::utc((new DateTimeImmutable('now', wp_timezone()))->format('Y-m-01 00:00:00')));
@@ -168,7 +188,7 @@ class IQU_Waitlist_Admin
 
             <form method="GET" class="iqu-filter-bar" role="search" data-iqu-live="iqu-waitlist">
                 <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
-                <input type="search" name="s" value="<?php echo esc_attr($f['s']); ?>" placeholder="Search name or email…" aria-label="Search name or email">
+                <input type="search" name="s" value="<?php echo esc_attr($f['s']); ?>" placeholder="Search name or email…" aria-label="Search name or email" data-iqu-search="like" data-iqu-max="100">
                 <select name="country" aria-label="Country">
                     <option value="">All countries</option>
                     <?php foreach (IQU_Waitlist::countries() as $c): ?>
@@ -181,41 +201,83 @@ class IQU_Waitlist_Admin
                         <option value="<?php echo esc_attr($k); ?>" <?php selected($f['program'], $k); ?>><?php echo esc_html($label); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <label class="iqu-wl-date"><span>From</span><input type="date" name="from" value="<?php echo esc_attr($f['from_date']); ?>"></label>
-                <label class="iqu-wl-date"><span>To</span><input type="date" name="to" value="<?php echo esc_attr($f['to_date']); ?>"></label>
+                <label class="iqu-wl-date"><span>From</span><input type="date" name="from" value="<?php echo esc_attr($f['from_date']); ?>" data-iqu-op="ge" data-iqu-on="day"></label>
+                <label class="iqu-wl-date"><span>To</span><input type="date" name="to" value="<?php echo esc_attr($f['to_date']); ?>" data-iqu-op="le" data-iqu-on="day"></label>
                 <?php if ($pager['per'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $pager['per']; ?>"><?php endif; ?>
                 <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter'); // results update as you type ?>
-                <a class="iqu-wl-clear" href="<?php echo esc_url($plain); ?>" data-iqu-clear-all<?php echo $filtered ? '' : ' hidden'; ?>>Clear filters</a>
+                <a class="iqu-wl-clear" href="<?php echo esc_url($plain); ?>" data-iqu-clear-all data-iqu-reset="iqu-waitlist"<?php echo $filtered ? '' : ' hidden'; ?>>Clear filters</a>
                 <a href="<?php echo esc_url($export); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
             </form>
 
-            <div class="iqu-card iqu-list-card" data-iqu-live-region="iqu-waitlist">
+            <?php self::list_region($list_ctx); ?>
+        </div>
+        <?php
+    }
+
+    /** The families card (data-iqu-live-region="iqu-waitlist"): printed by the page and by IQU_Pager::ajax(). */
+    private static function list_region(array $c): void
+    {
+        ['f' => $f, 'query' => $query, 'local' => $local, 'rows' => $rows, 'pager' => $pager] = $c;
+        $list_url = IQU_Pager::url(self::SLUG, $query);
+        $filtered = $query !== [];
+        $plain    = admin_url('admin.php?page=' . self::SLUG);
+        $tid      = $local && $rows ? 'iqu-waitlist-tbl' : '';
+        $clear    = IQU_Pager::url(self::SLUG, array_diff_key($query, ['s' => 1]))(['per_page' => $pager['per']]);
+        $pick     = $f['s'] !== '' ? 'search' : ($filtered ? 'filter' : 'empty');
+        $empty    = (int) $pager['total'] === 0;
+        // a local list: each "nothing matches" text is here, pager.js shows the one that fits
+        $v = fn(string $k) => $local ? '<span data-iqu-none-' . $k . ($pick === $k ? '' : ' hidden') . '>' : '';
+        $e = $local ? '</span>' : '';
+        ?>
+            <div class="iqu-card iqu-list-card"<?php echo IQU_Pager::region_attrs('iqu-waitlist', $local); ?>>
                 <div class="iqu-card-head iqu-list-head">
                     <span class="iqu-card-head-title">Families</span>
-                    <?php echo IQU_Pager::head($pager, $list_url, 'Families per page'); // escaped inside ?>
+                    <?php echo IQU_Pager::head($pager, $list_url, 'Families per page', $tid); // escaped inside ?>
                 </div>
             <div class="iqu-table-wrap">
-                <?php if (!$rows): ?>
-                    <div class="iqu-empty-state iqu-wl-empty">
+                <?php if (!$rows || $local): ?>
+                    <div class="iqu-empty-state iqu-wl-empty"<?php echo $local ? ' data-iqu-none' . ($empty ? '' : ' hidden') : ''; ?>>
                         <span class="dashicons dashicons-groups iqu-wl-empty-icon" aria-hidden="true"></span>
-                        <?php if ($f['s'] !== ''): ?>
-                            <span class="iqu-wl-empty-line"><?php echo IQU_Pager::no_results($f['s'], IQU_Pager::url(self::SLUG, array_diff_key($query, ['s' => 1]))(['per_page' => $pager['per']])); // escaped inside ?></span>
-                        <?php elseif ($filtered): ?>
+                        <?php if ($local || $pick === 'search'): echo $v('search'); ?>
+                            <span class="iqu-wl-empty-line"><?php echo IQU_Pager::no_results($f['s'], $clear); // escaped inside ?></span>
+                        <?php echo $e; endif; if ($local || $pick === 'filter'): echo $v('filter'); ?>
                             <span class="iqu-wl-empty-line">No families match these filters.</span>
-                            <a href="<?php echo esc_url($plain); ?>">Show everyone</a>
-                        <?php else: ?>
+                            <a href="<?php echo esc_url($plain); ?>" data-iqu-reset="iqu-waitlist">Show everyone</a>
+                        <?php echo $e; endif; if ($local || $pick === 'empty'): echo $v('empty'); ?>
                             <span class="iqu-wl-empty-line">No one on the waitlist yet.</span>
                             When a family outside the US and Canada leaves their email on an enrollment form, they appear here.
-                        <?php endif; ?>
+                        <?php echo $e; endif; ?>
                     </div>
-                <?php else: ?>
-                <table class="iqu-tbl iqu-wl-tbl">
+                <?php endif; ?>
+                <?php if ($rows): ?>
+                <table class="iqu-tbl iqu-wl-tbl"<?php echo $local ? ' id="iqu-waitlist-tbl"' . IQU_Pager::local_attrs() . ' data-iqu-none-hide' . ($empty ? ' hidden' : '') : ''; ?>>
                     <caption class="screen-reader-text">Waitlist families</caption>
                     <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Country</th><th scope="col">Program</th><th scope="col">Source</th><th scope="col">Joined</th></tr></thead>
+                    <?php if ($local):
+                        // every family: what pager.js filters on (country, program, the day joined in the site's time zone; name and email)
+                        IQU_Pager::local_body($rows, 'id', fn(array $r) => [
+                            'v-country' => (string) $r['country'], 'v-program' => (string) $r['program'],
+                            'v-day' => wp_date('Y-m-d', (int) strtotime($r['created_at'] . ' UTC')),
+                            's' => [$r['email'], $r['name']],
+                        ], $c, '', fn(array $r, string $attrs) => self::list_row($r, $attrs));
+                    else: ?>
                     <tbody>
-                    <?php foreach ($rows as $r):
-                        $ts = (int) strtotime($r['created_at'] . ' UTC'); ?>
-                        <tr>
+                    <?php foreach ($rows as $r) self::list_row($r, ''); ?>
+                    </tbody>
+                    <?php endif; ?>
+                </table>
+                <?php endif; ?>
+            </div>
+                <?php echo IQU_Pager::foot($pager, $list_url, $tid); // escaped inside ?>
+            </div>
+        <?php
+    }
+
+    /** One family ($attrs: IQU_Pager::row_attrs on a local list). */
+    private static function list_row(array $r, string $attrs): void
+    {
+        $ts = (int) strtotime($r['created_at'] . ' UTC'); ?>
+                        <tr<?php echo $attrs; ?>>
                             <td class="iqu-td-name"><?php echo $r['name'] !== '' ? '<strong>' . esc_html($r['name']) . '</strong>' : '<span class="iqu-wl-muted">—</span>'; ?></td>
                             <td><a href="<?php echo esc_url('mailto:' . $r['email']); ?>"><?php echo esc_html($r['email']); ?></a></td>
                             <td><?php echo $r['country'] !== '' ? esc_html(self::country_name($r['country'])) . ' <span class="iqu-wl-muted">(' . esc_html($r['country']) . ')</span>' : '<span class="iqu-wl-muted">—</span>'; ?></td>
@@ -223,14 +285,6 @@ class IQU_Waitlist_Admin
                             <td><?php echo esc_html(self::source_label((string) $r['source'])); ?></td>
                             <td class="iqu-wl-when"><?php echo esc_html(wp_date('j M Y', $ts)); ?> <span class="iqu-wl-muted"><?php echo esc_html(wp_date('g:i a', $ts)); ?></span></td>
                         </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-                <?php endif; ?>
-            </div>
-                <?php echo IQU_Pager::foot($pager, $list_url); // escaped inside ?>
-            </div>
-        </div>
         <?php
     }
 }

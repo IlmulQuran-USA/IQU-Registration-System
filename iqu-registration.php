@@ -177,6 +177,7 @@ add_action('plugins_loaded', function () {
   new IQU_Notifier();
 
   if (is_admin()) {
+    IQU_Pager::init(); // a long list's table alone (live search), see admin/class-iqu-pager.php
     new IQU_Admin();
     new IQU_Zeffy_Admin();
     new IQU_Coupon_Admin();
