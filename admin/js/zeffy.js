@@ -605,7 +605,7 @@
       runAction("iqu_telegram_test", $(this), "Sending…");
     });
 
-    $(".iquz-toggle-detail").on("click", function () {
+    $(document).on("click", ".iquz-toggle-detail", function () { // delegated: the table can be replaced (live search)
       var $detail = $(this).closest("tr").next(".iquz-detail-row");
       var isHidden = $detail.prop("hidden");
 

@@ -149,17 +149,20 @@ class IQU_Billing_Payments_Screen
             </div>
 
             <!-- ── Upcoming charges ─────────────────────────── -->
-            <div class="iqu-card">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">Upcoming charges, next 30 days</span>
-                    <span class="iqu-card-head-badge"><?php echo esc_html(IQU_Pricing::format(array_sum(array_map(fn($a) => (float) $a['net_amount'], $upcoming)))); ?></span>
+            <div class="iqu-card iqu-list-card">
+                <div class="iqu-card-head iqu-list-head">
+                    <div class="iqu-list-head-title">
+                        <span class="iqu-card-head-title">Upcoming charges, next 30 days</span>
+                        <span class="iqu-card-head-badge"><?php echo esc_html(IQU_Pricing::format(array_sum(array_map(fn($a) => (float) $a['net_amount'], $upcoming)))); ?></span>
+                    </div>
+                    <?php if ($upcoming) echo IQU_Pager::client_head('iqu-t-upcoming', 'Charges per page'); ?>
                 </div>
                 <?php if (!$upcoming): ?>
                     <div class="iqu-empty-state">No charges in the next 30 days.</div>
                 <?php else: ?>
                     <?php self::toolbar('iqu-t-upcoming', 'iqu-billing-upcoming-' . $month . '.csv'); ?>
                     <div class="iqu-table-wrap iqu-dt-wrap">
-                    <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="iqu-t-upcoming">
+                    <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="iqu-t-upcoming"<?php echo IQU_Pager::client_attrs('up'); ?>>
                         <thead><tr><?php self::th('Date', 'date'); self::th('Family'); self::th('Amount', 'num'); self::th('Paying from'); ?></tr></thead>
                         <tbody>
                         <?php foreach ($upcoming as $a): ?>
@@ -172,24 +175,28 @@ class IQU_Billing_Payments_Screen
                         <?php endforeach; ?>
                         <?php self::no_match(4); ?>
                         </tbody>
-                        <tfoot><tr><td colspan="2">Total</td><td class="is-num"><?php echo esc_html(IQU_Pricing::format(array_sum(array_map(fn($a) => (float) $a['net_amount'], $upcoming)))); ?></td><td></td></tr></tfoot>
+                        <tfoot><tr><td colspan="2" data-iqu-total-label="Total">Total</td><td class="is-num" data-iqu-sum="2"><?php echo esc_html(IQU_Pricing::format(array_sum(array_map(fn($a) => (float) $a['net_amount'], $upcoming)))); ?></td><td></td></tr></tfoot>
                     </table>
                     </div>
+                    <?php echo IQU_Pager::client_foot('iqu-t-upcoming'); ?>
                 <?php endif; ?>
             </div>
 
             <!-- ── Payments in the month ────────────────────── -->
-            <div class="iqu-card">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title">Payments for <?php echo esc_html($mlabel); ?></span>
-                    <span class="iqu-card-head-badge"><?php echo (int) count($in_month); ?> <?php echo count($in_month) === 1 ? 'invoice' : 'invoices'; ?></span>
+            <div class="iqu-card iqu-list-card">
+                <div class="iqu-card-head iqu-list-head">
+                    <div class="iqu-list-head-title">
+                        <span class="iqu-card-head-title">Payments for <?php echo esc_html($mlabel); ?></span>
+                        <span class="iqu-card-head-badge"><?php echo (int) count($in_month); ?> <?php echo count($in_month) === 1 ? 'invoice' : 'invoices'; ?></span>
+                    </div>
+                    <?php if ($in_month) echo IQU_Pager::client_head('iqu-t-month', 'Payments per page'); ?>
                 </div>
                 <?php if (!$in_month): ?>
                     <div class="iqu-empty-state">No invoices for <?php echo esc_html($mlabel); ?>. After updating, run <strong>Settings → Backfill payment history</strong> once to load earlier months.</div>
                 <?php else: ?>
                     <?php self::toolbar('iqu-t-month', 'iqu-billing-payments-' . $month . '.csv'); ?>
                     <div class="iqu-table-wrap iqu-dt-wrap">
-                    <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="iqu-t-month">
+                    <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="iqu-t-month"<?php echo IQU_Pager::client_attrs('mo'); ?>>
                         <thead><tr>
                             <?php self::th('Date', 'date'); self::th('Family'); self::th('Month'); self::th('Amount', 'num'); self::th('Method'); self::th('Status'); ?>
                             <th>Receipt</th><th>Invoice</th><th data-csv-skip><span class="screen-reader-text">Stripe</span></th>
@@ -206,7 +213,7 @@ class IQU_Billing_Payments_Screen
                             [$blabel, $btone] = IQU_Billing_History::badge($r, $a);
                             $receipt = IQU_Billing_History::safe_url($r['hosted_invoice_url']);
                             $pdf     = IQU_Billing_History::safe_url($r['invoice_pdf']); ?>
-                            <tr>
+                            <tr data-iqu-collected="<?php echo esc_attr($r['status'] === 'paid' ? number_format((float) $r['amount_paid'], 2, '.', '') : '0'); ?>">
                                 <td class="iqu-td-date" data-sort="<?php echo esc_attr($when); ?>"><?php echo esc_html(self::day($when)); ?></td>
                                 <td><?php if ($a) self::family_cell($a); else echo '—'; ?></td>
                                 <td data-sort="<?php echo esc_attr((string) $r['period_month']); ?>"><?php echo esc_html(IQU_Billing_History::month_label((string) $r['period_month'])); ?></td>
@@ -223,9 +230,10 @@ class IQU_Billing_Payments_Screen
                         <?php endforeach; ?>
                         <?php self::no_match(9); ?>
                         </tbody>
-                        <tfoot><tr><td colspan="3">Collected</td><td class="is-num"><?php echo esc_html(IQU_Pricing::format($total)); ?></td><td colspan="5"></td></tr></tfoot>
+                        <tfoot><tr><td colspan="3" data-iqu-total-label="Collected">Collected</td><td class="is-num" data-iqu-sum-attr="data-iqu-collected"><?php echo esc_html(IQU_Pricing::format($total)); ?></td><td colspan="5"></td></tr></tfoot>
                     </table>
                     </div>
+                    <?php echo IQU_Pager::client_foot('iqu-t-month'); ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -248,14 +256,17 @@ class IQU_Billing_Payments_Screen
             return;
         }
         ?>
-            <div class="iqu-card iqu-attention">
-                <div class="iqu-card-head">
-                    <span class="iqu-card-head-title"><?php echo IQU_Icons::svg('alert-triangle', 16); ?>Needs attention</span>
-                    <span class="iqu-card-head-badge"><?php echo (int) count($problems); ?> <?php echo count($problems) === 1 ? 'family' : 'families'; ?></span>
+            <div class="iqu-card iqu-attention iqu-list-card">
+                <div class="iqu-card-head iqu-list-head">
+                    <div class="iqu-list-head-title">
+                        <span class="iqu-card-head-title"><?php echo IQU_Icons::svg('alert-triangle', 16); ?>Needs attention</span>
+                        <span class="iqu-card-head-badge"><?php echo (int) count($problems); ?> <?php echo count($problems) === 1 ? 'family' : 'families'; ?></span>
+                    </div>
+                    <?php echo IQU_Pager::client_head('iqu-t-attention', 'Families per page'); ?>
                 </div>
                     <?php self::toolbar('iqu-t-attention', 'iqu-billing-needs-attention-' . $month . '.csv'); ?>
                     <div class="iqu-table-wrap iqu-dt-wrap">
-                    <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="iqu-t-attention">
+                    <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="iqu-t-attention"<?php echo IQU_Pager::client_attrs('att'); ?>>
                         <thead><tr>
                             <?php self::th('Family'); self::th('Amount', 'num'); self::th('Month'); self::th('Attempts', 'num'); self::th('Reason'); self::th('Last try', 'date'); ?>
                             <th data-csv-skip><span class="screen-reader-text">Actions</span></th>
@@ -279,6 +290,7 @@ class IQU_Billing_Payments_Screen
                         </tbody>
                     </table>
                     </div>
+                    <?php echo IQU_Pager::client_foot('iqu-t-attention'); ?>
             </div>
         <?php
     }

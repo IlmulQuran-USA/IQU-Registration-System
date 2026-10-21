@@ -500,16 +500,19 @@ class IQU_Billing_Send
         $years = [];
         foreach ($history as $r) $years[substr((string) $r['period_month'], 0, 4) ?: '—'][] = $r;
         ?>
-        <div class="iqu-card">
-            <div class="iqu-card-head">
-                <span class="iqu-card-head-title">Payment history</span>
-                <span class="iqu-card-head-badge"><?php echo (int) count($history); ?> <?php echo count($history) === 1 ? 'invoice' : 'invoices'; ?></span>
+        <div class="iqu-card iqu-list-card">
+            <div class="iqu-card-head iqu-list-head">
+                <div class="iqu-list-head-title">
+                    <span class="iqu-card-head-title">Payment history</span>
+                    <span class="iqu-card-head-badge"><?php echo (int) count($history); ?> <?php echo count($history) === 1 ? 'invoice' : 'invoices'; ?></span>
+                </div>
+                <?php if ($history) echo IQU_Pager::client_head('iqu-t-history', 'Invoices per page'); ?>
             </div>
             <?php if (!$history): ?>
                 <div class="iqu-empty-state">No payments stored for this family yet. New payments appear here as Stripe reports them; to load earlier months, use <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-settings')); ?>">Settings → Backfill payment history</a> (or Sync from Stripe above).</div>
             <?php else: ?>
             <div class="iqu-table-wrap">
-            <table class="iqu-tbl iqu-dt iqu-billing-tbl">
+            <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="iqu-t-history"<?php echo IQU_Pager::client_attrs('hist'); ?>>
                 <thead><tr><th>Tuition month</th><th class="is-num">Amount due</th><th class="is-num">Amount paid</th><th>Status</th><th>Paid on</th><th>Method</th><th>Receipt</th><th>Attempts</th></tr></thead>
                 <tbody>
                 <?php foreach ($years as $year => $rows):
@@ -536,6 +539,7 @@ class IQU_Billing_Send
                 </tbody>
             </table>
             </div>
+            <?php echo IQU_Pager::client_foot('iqu-t-history'); ?>
             <?php endif; ?>
         </div>
         <?php
@@ -578,16 +582,19 @@ class IQU_Billing_Send
     {
         $events = IQU_Billing_History::events_for_account($account_id, 50);
         ?>
-        <div class="iqu-card">
-            <div class="iqu-card-head">
-                <span class="iqu-card-head-title">Activity</span>
-                <span class="iqu-card-head-badge">From Stripe, newest first</span>
+        <div class="iqu-card iqu-list-card">
+            <div class="iqu-card-head iqu-list-head">
+                <div class="iqu-list-head-title">
+                    <span class="iqu-card-head-title">Activity</span>
+                    <span class="iqu-card-head-badge">From Stripe, newest first</span>
+                </div>
+                <?php if ($events) echo IQU_Pager::client_head('iqu-t-activity', 'Events per page'); ?>
             </div>
             <?php if (!$events): ?>
                 <div class="iqu-empty-state">No Stripe activity yet. Card added, payments and failures appear here as they happen.</div>
             <?php else: ?>
             <div class="iqu-table-wrap">
-            <table class="iqu-tbl iqu-dt iqu-billing-tbl">
+            <table class="iqu-tbl iqu-dt iqu-billing-tbl" id="iqu-t-activity"<?php echo IQU_Pager::client_attrs('act'); ?>>
                 <thead><tr><th>When</th><th>What happened</th></tr></thead>
                 <tbody>
                 <?php foreach ($events as $e): ?>
@@ -596,6 +603,7 @@ class IQU_Billing_Send
                 </tbody>
             </table>
             </div>
+            <?php echo IQU_Pager::client_foot('iqu-t-activity'); ?>
             <?php endif; ?>
         </div>
         <?php

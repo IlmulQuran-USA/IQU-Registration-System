@@ -17,7 +17,7 @@ class IQU_Zeffy_Admin
 {
     public const PAGE_SLUG = 'iqu-zeffy-payments';
 
-    private const PER_PAGE_OPTIONS = [20, 50, 100];
+
 
     public function __construct()
     {
@@ -153,9 +153,12 @@ class IQU_Zeffy_Admin
         $args = $this->request_args();
 
         $stats     = IQU_Zeffy_DB::get_stats();
-        $rows      = IQU_Zeffy_DB::get_payments($args);
+        // The shared pager: counted with the same filters, then one page (LIMIT/OFFSET).
         $total     = IQU_Zeffy_DB::count_payments($args);
-        $pages     = (int) ceil($total / $args['per_page']);
+        $pager     = IQU_Pager::from($_GET, $total);
+        $args['per_page'] = $pager['per'];
+        $args['page']     = $pager['page'];
+        $rows      = IQU_Zeffy_DB::get_payments($args);
         $campaigns = IQU_Zeffy_DB::get_campaign_options();
 
         $configured = IQU_Zeffy_API::has_key();
@@ -180,7 +183,7 @@ class IQU_Zeffy_Admin
     <?php $this->render_insights($stats); ?>
     <?php $this->render_analytics(); ?>
     <?php $this->render_filters($args, $campaigns); ?>
-    <?php $this->render_table($rows, $args, $total, $pages); ?>
+    <?php $this->render_table($rows, $args, $total, $pager); ?>
     <?php endif; ?>
 
     <?php $this->render_settings($show_setup); ?>
@@ -194,8 +197,7 @@ class IQU_Zeffy_Admin
      */
     private function request_args(): array
     {
-        $raw_per_page = isset($_GET['per_page']) ? (int) $_GET['per_page'] : 20;
-        $per_page = in_array($raw_per_page, self::PER_PAGE_OPTIONS, true) ? $raw_per_page : 20;
+        $per_page = IQU_Pager::per($_GET);
 
         $date_from = sanitize_text_field($_GET['date_from'] ?? '');
         $date_to   = sanitize_text_field($_GET['date_to'] ?? '');
@@ -528,13 +530,7 @@ class IQU_Zeffy_Admin
     <input type="date" name="date_to" value="<?php echo esc_attr($args['date_to']); ?>" class="iquz-input"
         title="To date">
 
-    <select name="per_page" class="iquz-input" onchange="this.form.submit()">
-        <?php foreach (self::PER_PAGE_OPTIONS as $n): ?>
-        <option value="<?php echo (int) $n; ?>" <?php selected($args['per_page'], $n); ?>>
-            <?php echo (int) $n; ?> per page
-        </option>
-        <?php endforeach; ?>
-    </select>
+    <?php if ($args['per_page'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $args['per_page']; ?>"><?php endif; ?>
 
     <button type="submit" class="iquz-btn">Filter</button>
     <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_SLUG)); ?>" class="iquz-btn
@@ -548,10 +544,21 @@ class IQU_Zeffy_Admin
     // TABLE
     // ════════════════════════════════════════════════════
 
-    private function render_table(array $rows, array $args, int $total, int $pages): void
+    /** The donations list's filters (empty ones left out), for the pager's links. */
+    private function list_url(array $args): callable
     {
+        return IQU_Pager::url(self::PAGE_SLUG, array_intersect_key($args, array_flip(['search', 'status', 'campaign_id', 'recurring', 'date_from', 'date_to'])));
+    }
+
+    private function render_table(array $rows, array $args, int $total, array $pager): void
+    {
+        $url = $this->list_url($args);
     ?>
-<div class="iquz-table-wrap">
+<div class="iquz-table-wrap iqu-list-card">
+    <div class="iqu-card-head iqu-list-head">
+        <span class="iqu-card-head-title">Donations</span>
+        <?php echo IQU_Pager::head($pager, $url, 'Donations per page'); // escaped inside ?>
+    </div>
     <table class="iquz-tbl">
         <thead>
             <tr>
@@ -660,21 +667,7 @@ class IQU_Zeffy_Admin
         </tbody>
     </table>
 
-    <div class="iquz-tablefoot">
-        <span><?php echo number_format($total); ?> donation<?php echo $total === 1 ? '' : 's'; ?></span>
-        <?php if ($pages > 1): ?>
-        <div class="iquz-pagination">
-            <?php echo paginate_links([
-                            'base'     => add_query_arg('paged', '%#%'),
-                            'format'   => '',
-                            'current'  => $args['page'],
-                            'total'    => $pages,
-                            'end_size' => 1,
-                            'mid_size' => 2,
-                        ]); ?>
-        </div>
-        <?php endif; ?>
-    </div>
+    <?php echo IQU_Pager::foot($pager, $url); // escaped inside ?>
 </div>
 <?php
     }

@@ -312,7 +312,9 @@ class IQU_Admin
     // Shared Chart.js defaults (dark text, admin font, 12px) for every IQU chart; admin.js and billing.js depend on it.
     wp_enqueue_script('iqu-chart-defaults', IQU_PLUGIN_URL . 'admin/js/chart-defaults.js', ['chartjs'], IQU_VERSION, true);
 
-    wp_enqueue_script('iqu-admin-script', IQU_PLUGIN_URL . 'admin/js/admin.js', ['jquery', 'chartjs', 'iqu-chart-defaults'], IQU_VERSION, true);
+    // The shared pager (IQU_Pager) on every IQU table: browser paging and live search.
+    wp_enqueue_script('iqu-pager', IQU_PLUGIN_URL . 'admin/js/pager.js', [], IQU_VERSION, true);
+    wp_enqueue_script('iqu-admin-script', IQU_PLUGIN_URL . 'admin/js/admin.js', ['jquery', 'chartjs', 'iqu-chart-defaults', 'iqu-pager'], IQU_VERSION, true);
 
     // Chart data: only the dashboard draws these charts (the queries used to run on every IQU screen).
     $chart_data = $hook === 'toplevel_page_iqu-registrations' ? $this->build_chart_data() : [];
@@ -580,17 +582,19 @@ class IQU_Admin
       $lines[] = [(string) $r['period_month'], $due, $label, $tone];
     }
 
-    $out .= '<div class="iqu-mp"><table class="iqu-tbl iqu-mp-tbl"><caption class="screen-reader-text">Monthly payments, newest first</caption>'
+    $out .= '<div class="iqu-mp">'
+      . ($lines ? '<div class="iqu-mp-head">' . IQU_Pager::client_head('iqu-mp-tbl', 'Months per page') . '</div>' : '')
+      . '<table class="iqu-tbl iqu-mp-tbl" id="iqu-mp-tbl"' . IQU_Pager::client_attrs('mp') . '><caption class="screen-reader-text">Monthly payments, newest first</caption>'
       . '<thead><tr><th scope="col">Month</th><th scope="col" class="is-num">Amount</th><th scope="col">Status</th></tr></thead><tbody>';
     if (!$lines) {
-      $out .= '<tr><td colspan="3" class="iqu-mp-none">No payments yet.</td></tr>';
+      $out .= '<tr class="iqu-pager-skip"><td colspan="3" class="iqu-mp-none">No payments yet.</td></tr>';
     }
     foreach ($lines as [$ym, $amount, $label, $tone]) {
       $out .= '<tr><td>' . esc_html(IQU_Billing_History::month_label($ym)) . '</td>'
         . '<td class="is-num">' . esc_html(IQU_Pricing::format($amount)) . '</td>'
         . '<td><span class="iqu-chip iqu-mp-chip iqu-mp-chip--' . esc_attr($tone) . '">' . esc_html($label) . '</span></td></tr>';
     }
-    $out .= '</tbody></table>';
+    $out .= '</tbody></table>' . IQU_Pager::client_foot('iqu-mp-tbl');
 
     // Brothers and sisters billed together.
     $names = [];
@@ -956,17 +960,14 @@ class IQU_Admin
       'needs_review' => IQU_Database::count_registrations(['review' => true]),
     ];
 
-    $allowed_per_page = [10, 20, 30];
-    $raw_per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
-    $dash_perpage = in_array($raw_per_page, $allowed_per_page, true) ? $raw_per_page : 10;
-    $dash_perpage = max(1, $dash_perpage);
-    $dash_page    = max(1, absint($_GET['paged'] ?? 1));
-    $dash_total   = IQU_Database::count_registrations();
-    $dash_pages   = (int)ceil($dash_total / $dash_perpage);
+    // Recent Submissions: the shared pager (IQU_Pager), 10 / 20 / 30, default 10.
+    $dash_total = IQU_Database::count_registrations();
+    $dash_pager = IQU_Pager::from($_GET, $dash_total);
+    $dash_url   = IQU_Pager::url('iqu-registrations', []);
 
     $latest = IQU_Database::get_registrations([
-      'per_page' => $dash_perpage,
-      'page'     => $dash_page,
+      'per_page' => $dash_pager['per'],
+      'page'     => $dash_pager['page'],
     ]);
     $total = max(1, (int) $counts['total']);
 
@@ -1149,16 +1150,10 @@ class IQU_Admin
     </div>
 
     <!-- ── Recent Submissions ────────────────────────── -->
-    <div class="iqu-recent-bar">
-        <div class="iqu-dash-recent-title">Recent Submissions</div>
-        <div class="iqu-perpage-btns">
-            <?php foreach ([10, 20, 30] as $n): ?>
-            <a href="<?php echo esc_url(add_query_arg(['per_page' => $n, 'paged' => 1])); ?>"
-                class="iqu-perpage-btn <?php echo $dash_perpage === $n ? 'iqu-perpage-btn--active' : ''; ?>">
-                <?php echo $n; ?>
-            </a>
-            <?php endforeach; ?>
-        </div>
+    <div class="iqu-card iqu-list-card">
+    <div class="iqu-card-head iqu-list-head">
+        <span class="iqu-card-head-title iqu-dash-recent-title">Recent Submissions</span>
+        <?php echo IQU_Pager::head($dash_pager, $dash_url, 'Submissions per page'); // escaped inside ?>
     </div>
     <div class="iqu-table-wrap">
         <table class="iqu-tbl">
@@ -1210,22 +1205,8 @@ class IQU_Admin
             endif; ?>
             </tbody>
         </table>
-        <!-- iqu-table-wrap-এর ভেতরে, </table> এর পরে -->
-        <?php if ($dash_pages > 1): ?>
-        <div class="iqu-pagination">
-            <span>Page <?php echo $dash_page; ?> of <?php echo $dash_pages; ?></span>
-            <div>
-                <?php echo paginate_links([
-                'base'     => add_query_arg(['paged' => '%#%', 'per_page' => $dash_perpage]),
-                'format'   => '',
-                'current'  => $dash_page,
-                'total'    => $dash_pages,
-                'end_size' => 2,
-                'mid_size' => 3,
-              ]); ?>
-            </div>
-        </div>
-        <?php endif; ?>
+    </div>
+    <?php echo IQU_Pager::foot($dash_pager, $dash_url); // escaped inside ?>
     </div>
 </div>
 <?php
@@ -1245,19 +1226,16 @@ class IQU_Admin
 
     $status = sanitize_text_field(wp_unslash($_GET['status'] ?? ''));
     $search = sanitize_text_field(wp_unslash($_GET['search'] ?? '')); // O'Brien, not O\'Brien
-    $page = max(1, absint($_GET['paged'] ?? 1));
-    $allowed_per_page = [10, 20, 30];
-    $raw_per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
-    $perpage = in_array($raw_per_page, $allowed_per_page, true) ? $raw_per_page : 10;
-    $perpage = max(1, $perpage);
     $page_slug = sanitize_key($_GET['page'] ?? '');
 
     // "Needs review" (3.3.0) is a filter on review reasons, not a status.
     $needs_review = ($status === 'needs_review');
-    $args = ['form_type' => $form_type, 'status' => $needs_review ? '' : $status, 'review' => $needs_review, 'search' => $search, 'page' => $page, 'per_page' => $perpage];
-    $rows = IQU_Database::get_registrations($args);
+    $args = ['form_type' => $form_type, 'status' => $needs_review ? '' : $status, 'review' => $needs_review, 'search' => $search];
+    // The shared pager: counted with the same WHERE, then that page (LIMIT/OFFSET), default 10.
     $total_rows = IQU_Database::count_registrations($args);
-    $pages = (int) ceil($total_rows / $perpage);
+    $pager = IQU_Pager::from($_GET, $total_rows);
+    $rows = IQU_Database::get_registrations($args + ['page' => $pager['page'], 'per_page' => $pager['per']]);
+    $list_url = IQU_Pager::url($page_slug, ['search' => $search, 'status' => $status]);
 
     // একাধিক টাইপ হলে URL-এ একটাই সিন্থেটিক কী যায় — 'weekend'
     $type_key = is_array($form_type) ? 'weekend' : $form_type;
@@ -1290,18 +1268,17 @@ class IQU_Admin
             <?php endforeach; ?>
             <option value="needs_review" <?php selected($status, 'needs_review'); ?>>Needs review</option>
         </select>
-        <select name="per_page" onchange="this.form.submit()">
-            <?php foreach ([10, 20, 30] as $n): ?>
-            <option value="<?php echo $n; ?>" <?php selected($perpage, $n); ?>>
-                <?php echo $n; ?> per page
-            </option>
-            <?php endforeach; ?>
-        </select>
+        <?php if ($pager['per'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $pager['per']; ?>"><?php endif; ?>
         <button type="submit" class="button">Filter</button>
         <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
     </form>
 
     <!-- ── Table ─────────────────────────────────────── -->
+    <div class="iqu-card iqu-list-card">
+    <div class="iqu-card-head iqu-list-head">
+        <span class="iqu-card-head-title">Registrations</span>
+        <?php echo IQU_Pager::head($pager, $list_url, 'Registrations per page'); // escaped inside ?>
+    </div>
     <div class="iqu-table-wrap">
         <table class="iqu-tbl">
             <thead>
@@ -1414,22 +1391,8 @@ class IQU_Admin
             endif; ?>
             </tbody>
         </table>
-
-        <?php if ($pages > 1): ?>
-        <div class="iqu-pagination">
-            <span>Page <?php echo (int) $page; ?> of <?php echo (int) $pages; ?></span>
-            <div>
-                <?php echo paginate_links([
-                'base'     => add_query_arg(['paged' => '%#%', 'per_page' => $perpage]),
-                'format'   => '',
-                'current'  => $page,
-                'total'    => $pages,
-                'end_size' => 2,
-                'mid_size' => 3,
-              ]); ?>
-            </div>
-        </div>
-        <?php endif; ?>
+    </div>
+    <?php echo IQU_Pager::foot($pager, $list_url); // escaped inside ?>
     </div>
 </div>
 <?php

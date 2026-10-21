@@ -2227,6 +2227,7 @@ th[aria-sort="descending"] .iqu-sort::after {
 .iqu-billing .iqu-billing-bulkbar-right {
   display: flex;
   flex: 0 0 auto;
+  margin-left: auto; /* top right of the card, also when it wraps under the hint (the shared pager position) */
   flex-wrap: nowrap;
   align-items: center;
   gap: 10px;

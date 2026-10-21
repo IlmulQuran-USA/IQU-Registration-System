@@ -532,8 +532,9 @@ class IQU_Billing_Import
                                 <li><?php echo esc_html($c[0]); ?></li>
                             <?php endforeach; ?>
                         </ul>
+                        <div class="iqu-list-head iqu-columns-head"><span class="iqu-fld-hint">All columns</span><?php echo IQU_Pager::client_head('iqu-t-columns', 'Columns per page'); ?></div>
                         <div class="iqu-table-wrap">
-                        <table class="iqu-tbl iqu-billing-tbl">
+                        <table class="iqu-tbl iqu-billing-tbl" id="iqu-t-columns"<?php echo IQU_Pager::client_attrs('cols'); ?>>
                             <caption class="screen-reader-text">All columns</caption>
                             <thead><tr><th>Column</th><th>Required</th><th>What to enter</th><th>Example</th></tr></thead>
                             <tbody>
@@ -548,6 +549,7 @@ class IQU_Billing_Import
                             </tbody>
                         </table>
                         </div>
+                        <?php echo IQU_Pager::client_foot('iqu-t-columns'); ?>
                         <p class="iqu-fld-hint">The monthly fee is not a column on purpose. It is always worked out from Course and Days/Week using the pricing rules. Use Agreed Monthly Fee only for families who pay less.</p>
                     </details>
                 </div>
@@ -660,6 +662,7 @@ class IQU_Billing_Import
             <div class="iqu-card-head">
                 <span class="iqu-card-head-title" id="iqu-step3-title"><?php echo esc_html(($dry ? 'Validation results — ' : '3 · Check and import — ') . (string) $state['file']); ?></span>
                 <span class="iqu-card-head-badge"><?php echo count($rows); ?> rows</span>
+                <?php echo IQU_Pager::client_head('iqu-import-tbl', 'Rows per page'); ?>
             </div>
             <div class="iqu-billing-body">
                 <p class="iqu-import-summary" role="status" data-import-summary><strong><?php echo esc_html(self::summary_line($n)); ?></strong></p>
@@ -690,7 +693,7 @@ class IQU_Billing_Import
                 </div>
             </div>
             <div class="iqu-table-wrap iqu-import-wrap">
-            <table class="iqu-tbl iqu-billing-tbl iqu-import-tbl" id="iqu-import-tbl">
+            <table class="iqu-tbl iqu-billing-tbl iqu-import-tbl" id="iqu-import-tbl"<?php echo IQU_Pager::client_attrs('imp'); ?>>
                 <caption class="screen-reader-text">Rows in the file and what <?php echo $dry ? 'would happen' : 'will happen'; ?> to each. Use "Details" for the other columns.</caption>
                 <thead><tr>
                     <th scope="col">Row</th><th scope="col">Family email</th><th scope="col">Parent</th><th scope="col">Student</th><th scope="col" class="is-num">Age</th>
@@ -744,6 +747,7 @@ class IQU_Billing_Import
                 </tbody>
             </table>
             </div>
+            <?php echo IQU_Pager::client_foot('iqu-import-tbl'); ?>
 
             <div class="iqu-sticky-bar">
                 <p class="iqu-sticky-bar-note">

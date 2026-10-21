@@ -16,7 +16,6 @@ class IQU_Waitlist_Admin
     public const SLUG    = 'iqu-waitlist';
     private const CAP    = 'manage_options';
     private const EXPORT = 'iqu_waitlist_export';
-    private const PER    = 50;
     private const PROGRAM_LABELS = ['free' => 'Enroll for Free', 'summer' => 'Summer', 'weekend' => 'Weekend'];
 
     public static function init(): void
@@ -120,14 +119,15 @@ class IQU_Waitlist_Admin
     {
         if (!current_user_can(self::CAP)) wp_die('You do not have permission to view this page.', 403);
         $f        = self::filters($_GET);
-        $page     = max(1, absint($_GET['paged'] ?? 1));
         $total    = IQU_Waitlist::count($f['country'], $f['program'], $f['more']);
-        $rows     = IQU_Waitlist::rows($f['country'], $f['program'], self::PER, ($page - 1) * self::PER, $f['more']);
+        // The shared pager (IQU_Pager): counted with the same filters, then one page (LIMIT/OFFSET).
+        $pager    = IQU_Pager::from($_GET, $total);
+        $rows     = IQU_Waitlist::rows($f['country'], $f['program'], $pager['per'], $pager['offset'], $f['more']);
         $query    = array_filter(['country' => $f['country'], 'program' => $f['program'], 's' => $f['s'], 'from' => $f['from_date'], 'to' => $f['to_date']]);
+        $list_url = IQU_Pager::url(self::SLUG, $query);
         // add_query_arg does not encode: a search with & or # would cut the link (and its nonce) short.
         $export   = wp_nonce_url(add_query_arg(['action' => self::EXPORT] + rawurlencode_deep($query), admin_url('admin-post.php')), self::EXPORT);
         $stats    = IQU_Waitlist::stats(self::utc((new DateTimeImmutable('now', wp_timezone()))->format('Y-m-01 00:00:00')));
-        $pages    = (int) ceil($total / self::PER);
         $filtered = $query !== [];
         $plain    = admin_url('admin.php?page=' . self::SLUG);
         // "Pakistan 12 · Bangladesh 9" — every part escaped here.
@@ -183,6 +183,7 @@ class IQU_Waitlist_Admin
                 </select>
                 <label class="iqu-wl-date"><span>From</span><input type="date" name="from" value="<?php echo esc_attr($f['from_date']); ?>"></label>
                 <label class="iqu-wl-date"><span>To</span><input type="date" name="to" value="<?php echo esc_attr($f['to_date']); ?>"></label>
+                <?php if ($pager['per'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $pager['per']; ?>"><?php endif; ?>
                 <button type="submit" class="button">Filter</button>
                 <?php if ($filtered): ?>
                     <a class="iqu-wl-clear" href="<?php echo esc_url($plain); ?>">Clear filters</a>
@@ -190,6 +191,11 @@ class IQU_Waitlist_Admin
                 <a href="<?php echo esc_url($export); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
             </form>
 
+            <div class="iqu-card iqu-list-card">
+                <div class="iqu-card-head iqu-list-head">
+                    <span class="iqu-card-head-title">Families</span>
+                    <?php echo IQU_Pager::head($pager, $list_url, 'Families per page'); // escaped inside ?>
+                </div>
             <div class="iqu-table-wrap">
                 <?php if (!$rows): ?>
                     <div class="iqu-empty-state iqu-wl-empty">
@@ -221,14 +227,8 @@ class IQU_Waitlist_Admin
                     </tbody>
                 </table>
                 <?php endif; ?>
-                <div class="iqu-pagination">
-                    <span><?php echo (int) $total; ?> <?php echo $total === 1 ? 'family' : 'families'; ?><?php if ($pages > 1): ?> · Page <?php echo (int) $page; ?> of <?php echo (int) $pages; ?><?php endif; ?></span>
-                    <?php if ($pages > 1): ?>
-                    <div><?php echo wp_kses_post(paginate_links([
-                        'base' => add_query_arg('paged', '%#%'), 'format' => '', 'current' => $page, 'total' => $pages,
-                    ])); ?></div>
-                    <?php endif; ?>
-                </div>
+            </div>
+                <?php echo IQU_Pager::foot($pager, $list_url); // escaped inside ?>
             </div>
         </div>
         <?php

@@ -58,8 +58,21 @@
     return tb ? Array.prototype.filter.call(tb.rows, function (r) { return !r.classList.contains("iqu-dt-none") && !r.classList.contains("iqu-dt-subtotal"); }) : [];
   }
 
+  /** A row the filter leaves out (data-iqu-out). Rows on other pages are hidden too, but still match. */
+  function isOut(r) { return r.hasAttribute("data-iqu-out"); }
+
+  /** Show the rows that match (a paged table: the current page of them, via IQUPager). */
+  function applyRows(table, firstPage) {
+    if (table.hasAttribute("data-iqu-pager") && root.IQUPager) {
+      if (firstPage) root.IQUPager.refilter(table); else root.IQUPager.update(table);
+    } else {
+      rowsOf(table).forEach(function (r) { r.hidden = isOut(r); });
+    }
+  }
+  B.applyRows = applyRows;
+
   function updateCount(table) {
-    var shown = rowsOf(table).filter(function (r) { return !r.hidden; }).length;
+    var shown = rowsOf(table).filter(function (r) { return !isOut(r); }).length;
     var none = table.querySelector("tr.iqu-dt-none");
     if (none) none.classList.toggle("is-visible", shown === 0 && rowsOf(table).length > 0);
     document.querySelectorAll('[data-count-for="' + table.id + '"]').forEach(function (el) {
@@ -92,30 +105,43 @@
         rows.forEach(function (r) { tb.appendChild(r); });
         var none = tb.querySelector("tr.iqu-dt-none");
         if (none) tb.appendChild(none);
+        applyRows(table, false); // a paged table shows the first rows of the new order on this page
       });
     });
   }
 
+  /**
+   * Filter box: case-insensitive, partial matches, any language. A paged table goes back to page 1
+   * and keeps the text in the URL (KEY_q), so Back and a shared link show the same rows.
+   */
   function initFilter(input) {
     var table = document.getElementById(input.getAttribute("data-filter-for"));
     if (!table) return;
-    input.addEventListener("input", function () {
+    var key = table.getAttribute("data-iqu-pager");
+    var filter = function (firstPage) {
       var q = input.value.trim().toLowerCase();
       rowsOf(table).forEach(function (r) {
-        r.hidden = q !== "" && r.textContent.toLowerCase().indexOf(q) === -1;
+        r.toggleAttribute("data-iqu-out", q !== "" && r.textContent.toLowerCase().indexOf(q) === -1);
       });
+      applyRows(table, firstPage);
       updateCount(table);
+    };
+    input.addEventListener("input", function () {
+      filter(true);
+      if (key && root.IQUPager) { var ch = {}; ch[key + "_q"] = input.value.trim(); root.IQUPager.setQuery(ch); }
     });
-    updateCount(table);
+    var saved = key ? new URLSearchParams(root.location.search).get(key + "_q") : null;
+    if (saved) { input.value = saved; filter(false); }
+    else updateCount(table);
   }
 
-  /** CSV of the visible rows: header row (columns without data-csv-skip) + shown body rows. */
+  /** CSV of the rows that match the filter (every page): header row (columns without data-csv-skip) + rows. */
   B.tableRows = function (table) {
     var heads = Array.prototype.slice.call(headRow(table).cells);
     var keep = heads.map(function (th) { return !th.hasAttribute("data-csv-skip"); });
     var out = [heads.filter(function (th, i) { return keep[i]; }).map(function (th) { return th.textContent.trim(); })];
     rowsOf(table).forEach(function (r) {
-      if (r.hidden) return;
+      if (isOut(r)) return;
       var line = [];
       Array.prototype.forEach.call(r.cells, function (td, i) {
         if (!keep[i]) return;
@@ -451,6 +477,7 @@
     });
   };
   B.importDetails = function (table) {
+    table.addEventListener("iqu:paged", function () { B.syncImportDetails(table); });
     table.addEventListener("click", function (e) {
       var btn = e.target.closest ? e.target.closest("[data-detail-toggle]") : null;
       if (!btn) return;
@@ -463,20 +490,21 @@
   B.onlyProblems = function (box) {
     var table = document.getElementById(box.getAttribute("data-only-problems"));
     if (!table) return;
-    function apply() {
+    function apply(firstPage) {
       var any = false;
       table.querySelectorAll("tbody tr").forEach(function (tr) {
         if (tr.classList.contains("iqu-import-none") || tr.classList.contains("iqu-import-detail")) return;
         var problem = tr.hasAttribute("data-problem");
         if (problem) any = true;
-        tr.hidden = box.checked && !problem;
+        tr.toggleAttribute("data-iqu-out", box.checked && !problem);
       });
+      applyRows(table, firstPage === true);
       B.syncImportDetails(table);
       var none = table.querySelector(".iqu-import-none");
       if (none) none.hidden = !(box.checked && !any);
     }
-    box.addEventListener("change", apply);
-    apply();
+    box.addEventListener("change", function () { apply(true); });
+    apply(false); // on load: keep the page from the URL
   };
 
   /**

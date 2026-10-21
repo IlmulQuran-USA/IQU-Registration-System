@@ -285,12 +285,13 @@ class IQU_Billing_Reports
 
             <?php self::month_cards($ym); ?>
 
-            <div class="iqu-card">
-                <div class="iqu-card-head">
+            <div class="iqu-card iqu-list-card">
+                <div class="iqu-card-head iqu-list-head">
                     <div class="iqu-card-head-text">
                         <span class="iqu-card-head-title"><?php echo esc_html(self::DATASETS[$key] . ' — ' . IQU_Billing_History::month_label($ym)); ?></span>
                         <span class="iqu-card-head-sub"><?php echo esc_html(self::SUBTITLES[$key]); ?></span>
                     </div>
+                    <?php if ($ds['rows']) echo IQU_Pager::client_head($tid, 'Rows per page'); ?>
                 </div>
                 <div class="iqu-billing-body"><p class="iqu-fld-hint"><?php echo esc_html($ds['note']); ?></p></div>
 
@@ -309,7 +310,7 @@ class IQU_Billing_Reports
                     $freeze = (int) $screen['freeze'];
                     $fz = fn(int $i) => $i < $freeze ? ' iqu-col-frozen' . ($i === $freeze - 1 ? ' iqu-col-frozen--last' : '') : '';
                     ?>
-                    <table class="iqu-tbl iqu-dt iqu-billing-tbl iqu-rep-tbl" id="<?php echo esc_attr($tid); ?>" data-freeze="<?php echo $freeze; ?>">
+                    <table class="iqu-tbl iqu-dt iqu-billing-tbl iqu-rep-tbl" id="<?php echo esc_attr($tid); ?>" data-freeze="<?php echo $freeze; ?>"<?php echo IQU_Pager::client_attrs('rep'); ?>>
                         <thead>
                         <?php if ($groups): ?>
                         <tr class="iqu-dt-groups">
@@ -355,17 +356,19 @@ class IQU_Billing_Reports
                         </tbody>
                         <?php if ($money_cols): ?>
                         <tfoot><tr>
-                            <?php $first = true; foreach ($cols as $c => [$label, $type]): ?>
+                            <?php // totals over every row that matches the filter (all pages): pager.js recomputes them as you filter
+                            $first = true; $ci = 0; foreach ($cols as $c => [$label, $type]): ?>
                                 <?php if ($type === 'money'): ?>
-                                    <td class="is-num"><?php echo esc_html(IQU_Pricing::format(array_sum(array_map(fn($r) => (float) ($r[$c] ?? 0), $ds['rows'])))); ?></td>
+                                    <td class="is-num" data-iqu-sum="<?php echo (int) $ci; ?>"><?php echo esc_html(IQU_Pricing::format(array_sum(array_map(fn($r) => (float) ($r[$c] ?? 0), $ds['rows'])))); ?></td>
                                 <?php else: ?>
-                                    <td<?php echo $first ? ' class="iqu-col-frozen iqu-col-frozen--last"' : ''; ?>><?php echo $first ? esc_html('Total (' . count($ds['rows']) . ')') : ''; ?></td>
-                                <?php endif; $first = false; ?>
+                                    <td<?php echo $first ? ' class="iqu-col-frozen iqu-col-frozen--last" data-iqu-total-label="Total" data-iqu-count' : ''; ?>><?php echo $first ? esc_html('Total (' . count($ds['rows']) . ')') : ''; ?></td>
+                                <?php endif; $first = false; $ci++; ?>
                             <?php endforeach; ?>
                         </tr></tfoot>
                         <?php endif; ?>
                     </table>
                     </div>
+                    <?php echo IQU_Pager::client_foot($tid); ?>
                 <?php endif; ?>
             </div>
         </div>

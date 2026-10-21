@@ -108,6 +108,7 @@ require_once IQU_PLUGIN_DIR . 'public/class-iqu-form.php';
 require_once IQU_PLUGIN_DIR . 'public/class-iqu-summer-form.php';
 require_once IQU_PLUGIN_DIR . 'public/class-iqu-weekend-form.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-icons.php';
+require_once IQU_PLUGIN_DIR . 'admin/class-iqu-pager.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-admin.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-zeffy-admin.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-coupon-admin.php';

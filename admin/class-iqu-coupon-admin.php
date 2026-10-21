@@ -342,20 +342,15 @@ class IQU_Coupon_Admin
         $search      = sanitize_text_field(wp_unslash($_GET['search'] ?? '')); // O'Brien, not O\'Brien
         $paged       = max(1, absint($_GET['paged'] ?? 1));
 
-        $allowed_per_page = [10, 20, 50];
-        $raw_per_page     = isset($_GET['per_page']) ? (int) $_GET['per_page'] : 20;
-        $per_page         = in_array($raw_per_page, $allowed_per_page, true) ? $raw_per_page : 20;
-
-        $data  = IQU_Coupon_DB::get_coupons([
-            'state'       => $state,
-            'course_type' => $course_type,
-            'search'      => $search,
-            'per_page'    => $per_page,
-            'paged'       => $paged,
-        ]);
+        // The shared pager (IQU_Pager): 10 / 20 / 30, default 10; a page past the end shows the last one.
+        $per_page = IQU_Pager::per($_GET);
+        $query    = ['state' => $state, 'course_type' => $course_type, 'search' => $search, 'per_page' => $per_page];
+        $data     = IQU_Coupon_DB::get_coupons($query + ['paged' => $paged]);
+        $pager    = IQU_Pager::from($_GET, (int) $data['total']);
+        if ($pager['page'] !== $paged) $data = IQU_Coupon_DB::get_coupons($query + ['paged' => $pager['page']]);
         $rows  = $data['items'];
         $total = $data['total'];
-        $pages = (int) ceil($total / $per_page);
+        $list_url = IQU_Pager::url(self::PAGE_LIST, ['status' => $state, 'search' => $search, 'course_type' => $course_type]);
         $stats     = IQU_Coupon_DB::get_stats();
         $discounts = IQU_Coupon_DB::get_discount_summary();
 
@@ -427,7 +422,7 @@ class IQU_Coupon_Admin
     <?php
         $tab_url = fn(string $s) => add_query_arg(array_filter([
             'page' => self::PAGE_LIST, 'status' => $s, 'search' => rawurlencode($search), 'course_type' => rawurlencode($course_type), // add_query_arg does not encode
-            'per_page' => $per_page !== 20 ? $per_page : null,
+            'per_page' => $per_page !== IQU_Pager::DEFAULT ? $per_page : null,
         ], fn($v) => $v !== null && $v !== ''), admin_url('admin.php'));
         $tabs = ['' => ['All', (int) $stats['total']]];
         foreach (IQU_Coupon::STATE_LABELS as $k => $label) $tabs[$k] = [$label, (int) $stats[$k]];
@@ -454,13 +449,7 @@ class IQU_Coupon_Admin
             </option>
             <?php endforeach; ?>
         </select>
-        <select name="per_page" onchange="this.form.submit()">
-            <?php foreach ($allowed_per_page as $n): ?>
-            <option value="<?php echo (int) $n; ?>" <?php selected($per_page, $n); ?>>
-                <?php echo (int) $n; ?> per page
-            </option>
-            <?php endforeach; ?>
-        </select>
+        <?php if ($per_page !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $per_page; ?>"><?php endif; ?>
         <button type="submit" class="button">Filter</button>
         <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
         <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_CREATE)); ?>"
@@ -468,10 +457,10 @@ class IQU_Coupon_Admin
     </form>
 
     <!-- ── Table ────────────────────────────────────── -->
-    <div class="iqu-card">
-        <div class="iqu-card-head">
+    <div class="iqu-card iqu-list-card">
+        <div class="iqu-card-head iqu-list-head">
             <span class="iqu-card-head-title">All Coupons</span>
-            <span class="iqu-card-head-badge"><?php echo (int) $total; ?> total</span>
+            <?php echo IQU_Pager::head($pager, $list_url, 'Coupons per page'); // escaped inside ?>
         </div>
         <div class="iqu-table-wrap">
             <table class="iqu-tbl iqu-coupon-tbl">
@@ -589,28 +578,8 @@ class IQU_Coupon_Admin
                 </tbody>
             </table>
         </div>
+        <?php echo IQU_Pager::foot($pager, $list_url); // escaped inside ?>
     </div>
-
-    <!-- ── Pagination ───────────────────────────────── -->
-    <?php if ($pages > 1): ?>
-    <div class="iqu-pagination">
-        <span><?php echo (int) $total; ?> items</span>
-        <div>
-            <?php
-            echo paginate_links([
-                'base'      => add_query_arg('paged', '%#%'),
-                'format'    => '',
-                'current'   => $paged,
-                'total'     => $pages,
-                'prev_text' => '‹',
-                'next_text' => '›',
-                'end_size'  => 2,
-                'mid_size'  => 3,
-            ]);
-            ?>
-        </div>
-    </div>
-    <?php endif; ?>
 </div>
 <?php
 

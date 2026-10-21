@@ -1486,6 +1486,76 @@
   color: #fff;
 }
 
+/* ── Shared pager (IQU_Pager + admin/js/pager.js): the Student Billing pattern on every table.
+   "Showing 1–10 of 40" immediately left of 10 / 20 / 30 at the top right of the table card; one
+   group that never splits and moves to its own line when the card is narrow. Page numbers under
+   the table (.iqu-pagination). ── */
+.iqu-list-head {
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+.iqu-list-head-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+}
+.iqu-pager-head {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin-left: auto;
+}
+.iqu-pager-head:empty {
+  display: none;
+}
+.iqu-pager-head > .iqu-card-head-badge {
+  flex: none;
+  white-space: nowrap;
+}
+.iqu-pager-head > .iqu-perpage-btns {
+  flex: none;
+}
+button.iqu-perpage-btn,
+.iqu-pagination button.page-numbers {
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.iqu-pagination[hidden] {
+  display: none;
+}
+.iqu-list-card > .iqu-table-wrap {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.iqu-mp-head,
+.iqu-columns-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+.iqu-mp-head {
+  justify-content: flex-end;
+}
+@media (max-width: 600px) {
+  .iqu-pager-head {
+    margin-left: 0;
+  }
+  .iqu-perpage-btn {
+    min-width: 40px;
+    padding: 5px 10px;
+  }
+}
+
 /* Chart row — 3 columns */
 .iqu-chart-row {
   display: grid;

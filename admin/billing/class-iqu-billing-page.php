@@ -26,7 +26,6 @@ class IQU_Billing_Page
     private const A_BULK       = 'iqu_billing_bulk_send';
     private const TX           = 'iqu_billing_bulk_';
     /** Rows per page, as on the dashboard: 10 / 20 / 30, default 10. */
-    private const PER_PAGE_SIZES = [10, 20, 30];
     private const BULK_MAX     = 25;
 
     /** Programs billed monthly. Summer is a one-time fee paid at enrollment. */
@@ -47,7 +46,7 @@ class IQU_Billing_Page
         wp_enqueue_style('iqu-billing-style', IQU_PLUGIN_URL . 'admin/css/billing.css', ['iqu-admin-style'], IQU_VERSION);
         if (strpos($hook, 'iqu-billing') === false) return;
         // Tables, CSV of what is shown, charts. Chart.js ("chartjs") is registered by IQU_Admin on every IQU screen.
-        wp_enqueue_script('iqu-billing-js', IQU_PLUGIN_URL . 'admin/js/billing.js', ['chartjs', 'iqu-chart-defaults'], IQU_VERSION, true);
+        wp_enqueue_script('iqu-billing-js', IQU_PLUGIN_URL . 'admin/js/billing.js', ['chartjs', 'iqu-chart-defaults', 'iqu-pager'], IQU_VERSION, true);
     }
 
     /** Hand chart definitions to admin/js/billing.js (call while rendering a billing screen). */
@@ -229,17 +228,14 @@ class IQU_Billing_Page
             return strpos($hay, strtolower($q)) !== false;
         }));
 
-        $per   = absint($_GET['per_page'] ?? 10);
-        if (!in_array($per, self::PER_PAGE_SIZES, true)) $per = 10;
+        // The shared pager (IQU_Pager): this list is filtered in PHP, then one page of it is shown.
         $total = count($shown);
-        $pages = max(1, (int) ceil($total / $per));
-        $page  = min($pages, max(1, absint($_GET['paged'] ?? 1)));
-        $shown = array_slice($shown, ($page - 1) * $per, $per);
-        $from  = $total ? ($page - 1) * $per + 1 : 0;
-        $to    = min($total, $page * $per);
-        // The list with the current filter chip, search and page size (page links add "paged").
-        // (add_query_arg does not encode: a search with & # = would break the links or add parameters.)
-        $list  = fn(array $args = []) => add_query_arg($args + ['page' => self::SLUG, 'show' => $filter, 'q' => $q !== '' ? rawurlencode($q) : null, 'per_page' => $per], admin_url('admin.php'));
+        $pager = IQU_Pager::from($_GET, $total);
+        $per   = $pager['per'];
+        $shown = array_slice($shown, $pager['offset'], $per);
+        // The list with the current filter chip, search and page size (encoded: add_query_arg does not).
+        $pager_url = IQU_Pager::url(self::SLUG, ['show' => $filter, 'q' => $q, 'per_page' => $per]);
+        $list  = fn(array $args = []) => $pager_url($args);
 
         $not_set_up_total = 0.0;
         foreach ($rows as $r) if ($r['group'] === 'not_set_up') $not_set_up_total += (float) $r['p']['net'];
@@ -316,12 +312,7 @@ class IQU_Billing_Page
                             <span class="iqu-fld-hint" id="iqu-bulk-count">Tick students who are “Not set up”. “Select all” ticks only the students on this page. Brothers and sisters with the same email are billed together.</span>
                         </div>
                         <div class="iqu-billing-bulkbar-right">
-                            <span class="iqu-card-head-badge" aria-live="polite"><?php echo $total ? esc_html('Showing ' . $from . '–' . $to . ' of ' . $total) : 'Showing 0 of 0'; ?></span>
-                            <div class="iqu-perpage-btns" role="group" aria-label="Students per page">
-                                <?php foreach (self::PER_PAGE_SIZES as $n): ?>
-                                    <a href="<?php echo esc_url($list(['per_page' => $n])); ?>" class="iqu-perpage-btn <?php echo $per === $n ? 'iqu-perpage-btn--active' : ''; ?>"<?php echo $per === $n ? ' aria-current="true"' : ''; ?>><?php echo (int) $n; ?></a>
-                                <?php endforeach; ?>
-                            </div>
+                            <?php echo IQU_Pager::head($pager, $pager_url, 'Students per page'); // escaped inside ?>
                         </div>
                     </div>
 
@@ -342,21 +333,7 @@ class IQU_Billing_Page
                     </div>
                 </form>
 
-                <?php if ($pages > 1): ?>
-                    <div class="iqu-pagination">
-                        <span>Page <?php echo (int) $page; ?> of <?php echo (int) $pages; ?></span>
-                        <div>
-                        <?php echo wp_kses_post(paginate_links([
-                            'base'     => $list(['paged' => '%#%']),
-                            'format'   => '',
-                            'current'  => $page,
-                            'total'    => $pages,
-                            'end_size' => 2,
-                            'mid_size' => 3,
-                        ])); ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
+                <?php echo IQU_Pager::foot($pager, $pager_url); // escaped inside ?>
             </div>
         </div>
         <script>
@@ -587,14 +564,14 @@ class IQU_Billing_Page
         $done = get_transient(self::TX . get_current_user_id());
         if ($done) {
             delete_transient(self::TX . get_current_user_id());
-            echo '<div class="iqu-card"><div class="iqu-card-head"><span class="iqu-card-head-title">Result</span></div>'
-                . '<div class="iqu-table-wrap"><table class="iqu-tbl iqu-billing-tbl"><thead><tr><th>Family</th><th>Result</th><th></th></tr></thead><tbody>';
+            echo '<div class="iqu-card iqu-list-card"><div class="iqu-card-head iqu-list-head"><span class="iqu-card-head-title">Result</span>' . IQU_Pager::client_head('iqu-t-bulk-result', 'Families per page') . '</div>'
+                . '<div class="iqu-table-wrap"><table class="iqu-tbl iqu-billing-tbl" id="iqu-t-bulk-result"' . IQU_Pager::client_attrs('res') . '><thead><tr><th>Family</th><th>Result</th><th></th></tr></thead><tbody>';
             foreach ($done as $d) {
                 echo '<tr><td>' . esc_html($d['who']) . '</td><td class="iqu-billing-wrap">' . esc_html($d['text']) . '</td><td class="iqu-td-actions">';
                 if (!empty($d['account'])) echo '<a class="iqu-action-btn iqu-action-btn--view" href="' . esc_url(admin_url('admin.php?page=' . IQU_Billing_Send::MSG_SLUG . '&account=' . (int) $d['account'])) . '">Message</a>';
                 echo '</td></tr>';
             }
-            echo '</tbody></table></div><div class="iqu-cpn-actions"><a class="iqu-btn-ghost" href="' . esc_url(admin_url('admin.php?page=' . self::SLUG)) . '">Back to Student Billing</a></div></div></div>';
+            echo '</tbody></table></div>' . IQU_Pager::client_foot('iqu-t-bulk-result') . '<div class="iqu-cpn-actions"><a class="iqu-btn-ghost" href="' . esc_url(admin_url('admin.php?page=' . self::SLUG)) . '">Back to Student Billing</a></div></div></div>';
             return;
         }
 
