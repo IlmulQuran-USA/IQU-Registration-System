@@ -466,12 +466,20 @@ class IQU_Admin
     'iqu-zeffy-payments'  => 'Zeffy',
   ];
 
+  /**
+   * The IQU mark in the admin top bars: the site's own icon (Settings → General → Site Icon), never a
+   * hard-coded file URL (the old one on the live site stopped serving an image). No site icon: "IQU".
+   */
+  public static function logo_html(): string
+  {
+    $icon = get_site_icon_url(96);
+    if ($icon !== '') return '<img src="' . esc_url($icon) . '" alt="IQU Logo" width="44" height="39" style="display:block" />';
+    return '<span class="iqu-logo-text" role="img" aria-label="IQU Logo">IQU</span>';
+  }
+
   private static function render_logo(): void
   {
-?>
-<img src="https://ilmulquranus.org/wp-content/uploads/2025/08/Favicon.png" alt="IQU Logo" width="44" height="39"
-    style="display:block" />
-<?php
+    echo self::logo_html();
   }
 
   private function render_top_bar(string $title, string $subtitle, string $active_page = ''): void

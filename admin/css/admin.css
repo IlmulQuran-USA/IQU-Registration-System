@@ -105,6 +105,12 @@
   height: 36px;
   object-fit: contain;
 }
+.iqu-logo-mark .iqu-logo-text {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
 .iqu-page-title {
   font-size: 17px;
   font-weight: 600;
