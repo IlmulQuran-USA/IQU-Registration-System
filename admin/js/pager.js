@@ -463,6 +463,22 @@
     });
   }
 
+  /**
+   * "Export CSV" (a[data-iqu-export="NAME,NAME…"]) exports what the list shows now: its filter parameters
+   * follow the form; the rest of its link (action, nonce) stays.
+   */
+  function syncExport(form) {
+    var now = P.formUrl(form).searchParams;
+    form.querySelectorAll("a[data-iqu-export]").forEach(function (a) {
+      var u = new URL(a.href, root.location.href);
+      a.getAttribute("data-iqu-export").split(",").forEach(function (k) {
+        u.searchParams.delete(k);
+        if (now.get(k)) u.searchParams.set(k, now.get(k));
+      });
+      a.href = u.toString();
+    });
+  }
+
   function resetForm(form) {
     Array.prototype.forEach.call(form.elements, function (f) {
       if (!f.name || f.name === "page" || f.name === "per_page") return;
@@ -500,6 +516,7 @@
       announce(form, count);
       syncClearAll(form);
       syncTabLinks(form);
+      syncExport(form);
     }
 
     var box = ws(form);
@@ -580,6 +597,7 @@
         announce(form, n);
         syncClearAll(form);
         syncTabLinks(form);
+        syncExport(form);
       }
       P.scan(node);
       document.dispatchEvent(new CustomEvent("iqu:region", { detail: { region: node, id: id } }));

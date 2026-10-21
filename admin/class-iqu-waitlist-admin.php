@@ -206,7 +206,7 @@ class IQU_Waitlist_Admin
                 <?php if ($pager['per'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $pager['per']; ?>"><?php endif; ?>
                 <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter'); // results update as you type ?>
                 <a class="iqu-wl-clear" href="<?php echo esc_url($plain); ?>" data-iqu-clear-all data-iqu-reset="iqu-waitlist"<?php echo $filtered ? '' : ' hidden'; ?>>Clear filters</a>
-                <a href="<?php echo esc_url($export); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
+                <a href="<?php echo esc_url($export); ?>" class="iqu-export-btn" data-iqu-export="country,program,s,from,to"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
             </form>
 
             <?php self::list_region($list_ctx); ?>

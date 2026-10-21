@@ -533,7 +533,7 @@ class IQU_Zeffy_Admin
     <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter', 'iquz-btn'); // results update as you type ?>
     <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_SLUG)); ?>" class="iquz-btn
         iquz-btn--ghost" data-iqu-reset="iqu-zeffy">Reset</a>
-    <a href="<?php echo esc_url($export); ?>" class="iquz-btn iquz-btn--export">⬇ Export CSV</a>
+    <a href="<?php echo esc_url($export); ?>" class="iquz-btn iquz-btn--export" data-iqu-export="search,status,campaign_id,recurring,date_from,date_to">⬇ Export CSV</a>
 </form>
 <?php
     }
