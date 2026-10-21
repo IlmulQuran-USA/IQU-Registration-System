@@ -13,8 +13,8 @@ if (!defined('ABSPATH')) exit;
  * - manage_options only; nonce on submit.
  * - Every field is sanitised and validated on the server.
  * - The fee is computed by IQU_Pricing. An agreed fee is billed as agreed
- *   (a lower one is stored as a discount; a higher one gets a warning), and
- *   ticking "agreed fee" without an amount is an error, never $0.
+ *   (a lower one is stored as a discount; a higher one from a CSV row gets a
+ *   warning), and ticking "agreed fee" without an amount is an error, never $0.
  * - Exact duplicates (same student name + email) are refused.
  * - Writes through IQU_Database::insert_registration() with a fixed set of
  *   columns. No notification emails or Telegram messages are triggered.
@@ -333,7 +333,7 @@ class IQU_Billing_Add_Student
                 // Billed exactly as agreed, lower or higher than the standard fee (a higher one
                 // is no reduction; IQU_Billing_Pricing bills agreed_fee as the monthly price).
                 $discount = max(0.0, round($gross - $agreed, 2));
-                if ($agreed > $gross) {
+                if ($from_csv && $agreed > $gross) { // a CSV cell may be garbled; on the form the admin typed it
                     $warnings[] = 'Agreed fee ' . IQU_Pricing::format($agreed) . ' is higher than the standard fee ' . IQU_Pricing::format($gross) . ' — check the amount.';
                 }
             }

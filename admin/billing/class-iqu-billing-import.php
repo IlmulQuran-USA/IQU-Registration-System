@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) exit;
  *   validation and pricing as the single form — and is checked again at confirm.
  * - Fees are always computed by IQU_Pricing; an "Agreed Monthly Fee" cell must be
  *   one amount ("30", "$30.50", "1,250") — anything else is an error, never its
- *   digits joined together — and one above the standard fee gets a warning.
+ *   digits joined together — and a row whose fee is above the standard fee gets a warning.
  * - Cells are cleaned of spreadsheet formula characters.
  */
 class IQU_Billing_Import
@@ -332,7 +332,7 @@ class IQU_Billing_Import
         // "30 (was 45)", "5-10") is an error — its digits are never joined into a fee. A leading minus is
         // kept so "-5" is rejected as negative instead of read as 5.
         $fee_cell = trim((string) ($r['agreed_fee'] ?? ''));
-        $fee_bad  = $fee_cell !== '' && !preg_match('/^-?\s*\$?\s*(\d{1,3}(,\d{3})+|\d+)(\.\d{1,2})?\s*(usd)?$/i', $fee_cell);
+        $fee_bad  = $fee_cell !== '' && !preg_match('/^(-\s*\$?|\$\s*-?)?\s*(\d{1,3}(,\d{3})+|\d+)(\.\d{1,2})?\s*(usd)?$/i', $fee_cell); // "-$5" and "$-5.00" too
         $fee_raw  = $fee_bad ? '' : preg_replace('/[^0-9.\-]/', '', $fee_cell);
         $zak     = strtolower((string) ($r['zakat'] ?? ''));
 
