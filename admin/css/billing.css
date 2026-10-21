@@ -12,7 +12,9 @@
 
 /* ── Top bar logo ───────────────────────────────────────────── */
 .iqu-billing .iqu-billing-logo {
-  background: var(--iqu-navy); /* the mark itself: IQU_Admin::logo_html() (the site icon) */
+  background: var(--iqu-navy)
+    url("https://ilmulquranus.org/wp-content/uploads/2025/08/Favicon.png")
+    center / 36px auto no-repeat;
 }
 
 /* ── Layout ─────────────────────────────────────────────────── */
