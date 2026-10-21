@@ -659,7 +659,7 @@ class IQU_Billing_Import
         ];
         ?>
         <section class="iqu-card iqu-import-preview<?php echo $dry ? ' is-dry-run' : ''; ?>" aria-labelledby="iqu-step3-title">
-            <div class="iqu-card-head">
+            <div class="iqu-card-head iqu-list-head">
                 <span class="iqu-card-head-title" id="iqu-step3-title"><?php echo esc_html(($dry ? 'Validation results — ' : '3 · Check and import — ') . (string) $state['file']); ?></span>
                 <span class="iqu-card-head-badge"><?php echo count($rows); ?> rows</span>
                 <?php echo IQU_Pager::client_head('iqu-import-tbl', 'Rows per page'); ?>

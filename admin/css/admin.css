@@ -1529,6 +1529,11 @@ button.iqu-perpage-btn,
 .iqu-pagination[hidden] {
   display: none;
 }
+.iqu-perpage-btn:focus-visible,
+.iqu-pagination .page-numbers:focus-visible {
+  outline: var(--iqu-focus-outline);
+  outline-offset: 2px;
+}
 /* Live search: "Searching…" / "12 results" beside the search box (screen readers hear it too) */
 .iqu-live-status {
   flex: 0 0 auto;
