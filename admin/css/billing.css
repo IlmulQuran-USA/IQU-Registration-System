@@ -2532,6 +2532,13 @@ th[aria-sort="descending"] .iqu-sort::after {
   line-height: 1.4;
   color: var(--iqu-text2);
 }
+p.iqu-card-head-sub {
+  margin: 0;
+}
+/* Reports: the report's second line (which rows, for the month) sits right under the first, in the head */
+.iqu-card-head-text > .iqu-card-head-note {
+  margin-top: 5px; /* + the 2px column gap = 7px between the two lines */
+}
 .iqu-billing .iqu-chart-card--compact .iqu-card-head-sub {
   font-size: var(--iqu-text-xs);
 }

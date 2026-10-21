@@ -289,11 +289,11 @@ class IQU_Billing_Reports
                 <div class="iqu-card-head iqu-list-head">
                     <div class="iqu-card-head-text">
                         <span class="iqu-card-head-title"><?php echo esc_html(self::DATASETS[$key] . ' — ' . IQU_Billing_History::month_label($ym)); ?></span>
-                        <span class="iqu-card-head-sub"><?php echo esc_html(self::SUBTITLES[$key]); ?></span>
+                        <p class="iqu-card-head-sub"><?php echo esc_html(self::SUBTITLES[$key]); ?></p>
+                        <p class="iqu-card-head-sub iqu-card-head-note"><?php echo esc_html($ds['note']); // which rows, for this month ?></p>
                     </div>
                     <?php if ($ds['rows']) echo IQU_Pager::client_head($tid, 'Rows per page'); ?>
                 </div>
-                <div class="iqu-billing-body"><p class="iqu-fld-hint"><?php echo esc_html($ds['note']); ?></p></div>
 
                 <?php if (!$ds['rows']): ?>
                     <div class="iqu-empty-state">Nothing for this report and month.<?php echo $key === 'payments' || $key === 'reconciliation' ? ' If earlier months are missing, run Settings → Backfill payment history once.' : ''; ?></div>
