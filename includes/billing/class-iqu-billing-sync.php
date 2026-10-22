@@ -63,13 +63,21 @@ class IQU_Billing_Sync
         }
 
         $status = self::status_from($sub);
+        $label  = self::method_label($sub['default_payment_method'] ?? null);
+        // A US bank account still waiting for its microdeposits (they take 1–2 business days, then the family
+        // confirms them): not set up yet, so no "card added", no enrollment and no charge until it is verified.
+        $bank = self::bank_waiting($acc, $sub);
+        if ($bank !== null) {
+            $status = 'bank_verification';
+            if ($label === '') $label = $bank;
+        }
         // An account under review (amount mismatch, two subscriptions) stays in review until an admin clears it.
         if ((string) ($acc['review_reason'] ?? '') !== '') $status = 'review';
         $upd = [
             'stripe_subscription_id' => (string) $sub['id'],
             'status'                 => $status,
             'next_charge_at'         => self::next_charge($sub),
-            'payment_method_label'   => self::method_label($sub['default_payment_method'] ?? null),
+            'payment_method_label'   => $label,
         ];
         IQU_Billing_DB::update_account((int) $acc['id'], $upd);
 
@@ -105,6 +113,46 @@ class IQU_Billing_Sync
             default:
                 return 'link_sent'; // incomplete: payment page not finished
         }
+    }
+
+    /**
+     * The bank account's label ('' when unknown) while the family's US bank account waits for microdeposit
+     * verification; null otherwise. No payment due yet (free month, a later first charge): the subscription's
+     * pending SetupIntent, or the customer's latest ones (Checkout's own). A payment due now: the subscription is incomplete and its PaymentIntent waits.
+     * A read that fails (e.g. a key without SetupIntents: Read) only skips this check; it never stops the sync.
+     */
+    private static function bank_waiting(array $acc, array $sub): ?string
+    {
+        if (!in_array((string) ($sub['status'] ?? ''), ['trialing', 'active', 'incomplete'], true)) return null;
+        $intents = [];
+        $si = $sub['pending_setup_intent'] ?? null;
+        if (is_array($si)) $si = (string) ($si['id'] ?? '');
+        if (is_string($si) && preg_match('/^seti_[A-Za-z0-9]+$/', $si)) {
+            $r = IQU_Stripe::get('/setup_intents/' . $si, ['expand' => ['payment_method']]);
+            if ($r['ok']) $intents[] = (array) $r['data'];
+        } elseif ((string) $sub['status'] !== 'incomplete') {
+            // Checkout's own SetupIntent (no payment due yet): only while the subscription has no card, or its
+            // default is that same bank account — an old, unfinished bank attempt never hides a working card.
+            $dpm = $sub['default_payment_method'] ?? null;
+            $dpm_id = is_array($dpm) ? (string) ($dpm['id'] ?? '') : (string) $dpm;
+            if ($dpm_id === '' || (is_array($dpm) && ($dpm['type'] ?? '') === 'us_bank_account')) {
+                $r = IQU_Stripe::get('/setup_intents', ['customer' => $acc['stripe_customer_id'], 'limit' => 3, 'expand' => ['data.payment_method']]);
+                if ($r['ok']) foreach ((array) ($r['data']['data'] ?? []) as $i) {
+                    $pm_id = is_array($i['payment_method'] ?? null) ? (string) ($i['payment_method']['id'] ?? '') : (string) ($i['payment_method'] ?? '');
+                    if ($dpm_id === '' || $pm_id === $dpm_id) $intents[] = (array) $i;
+                }
+            }
+        }
+        if ((string) $sub['status'] === 'incomplete') {
+            $r = IQU_Stripe::get('/payment_intents', ['customer' => $acc['stripe_customer_id'], 'limit' => 3, 'expand' => ['data.payment_method']]);
+            if ($r['ok']) foreach ((array) ($r['data']['data'] ?? []) as $pi) $intents[] = (array) $pi;
+        }
+        foreach ($intents as $i) {
+            if ((string) ($i['status'] ?? '') === 'requires_action' && (string) ($i['next_action']['type'] ?? '') === 'verify_with_microdeposits') {
+                return self::method_label(is_array($i['payment_method'] ?? null) ? $i['payment_method'] : null);
+            }
+        }
+        return null;
     }
 
     /** Next charge time (UTC, MySQL format) or null. */

@@ -70,7 +70,7 @@ class IQU_Billing_Summary
             'month_to_date' => IQU_Billing_DB::paid_between($month_start, $now + 60),
             'failed_today'  => $failed_today,
             'problems'      => $n(['past_due', 'unpaid', 'paused']),
-            'no_card'       => $n(['not_sent', 'link_sent']),
+            'no_card'       => $n(['not_sent', 'link_sent', 'bank_verification']),
             'no_card_stale' => $stale,
             'trial_ending'  => $trial_ending,
             'on_billing'    => $n($billing),

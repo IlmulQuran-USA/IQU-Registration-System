@@ -166,8 +166,8 @@ class IQU_Billing_Reports
         foreach (IQU_Billing_History::rows_for_months($ym, $ym) as $r) {
             $id = (int) $r['account_id'];
             $fam[$id] = $fam[$id] ?? ['expected' => 0.0, 'paid' => 0.0, 'statuses' => [], 'tones' => []];
-            // Void and fully refunded invoices are not owed (as Outstanding on the Payments page and in month_summary).
-            if (!in_array($r['status'], ['void', 'refunded'], true)) $fam[$id]['expected'] += (float) $r['amount_due'];
+            // Void, fully refunded and disputed invoices are not owed (as Outstanding on the Payments page and in month_summary).
+            if (!in_array($r['status'], ['void', 'refunded', 'disputed'], true)) $fam[$id]['expected'] += (float) $r['amount_due'];
             if ($r['status'] === 'paid') $fam[$id]['paid'] += (float) $r['amount_paid'];
             [$label, $tone] = IQU_Billing_History::badge($r, $accounts[$id] ?? null);
             $fam[$id]['statuses'][] = $label;

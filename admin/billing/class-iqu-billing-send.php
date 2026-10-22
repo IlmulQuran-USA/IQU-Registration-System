@@ -67,6 +67,7 @@ class IQU_Billing_Send
             'paused'               => 'Paused',
             'canceled'             => 'Canceled',
             'review'               => 'Review: amount mismatch',
+            'bank_verification'    => 'Waiting for bank verification',
         ];
         return $labels[$status] ?? ucfirst(str_replace('_', ' ', $status));
     }
@@ -559,6 +560,13 @@ class IQU_Billing_Send
             'invoice.payment_failed'          => 'Payment failed',
             'invoice.payment_action_required' => 'The bank asked the family to confirm a payment',
             'charge.refunded'                 => 'Refund issued',
+            // US bank account (3.4.10)
+            'checkout.session.async_payment_succeeded' => 'Bank account verified',
+            'checkout.session.async_payment_failed'    => 'Bank account could not be verified',
+            'setup_intent.succeeded'                   => 'Bank or card confirmed',
+            'setup_intent.setup_failed'                => 'Bank account could not be verified',
+            'payment_intent.processing'                => 'Bank payment processing (3–5 business days)',
+            'charge.dispute.created'                   => 'Payment disputed or returned by the bank',
         ];
         $text = $map[$e['type']] ?? (string) $e['type'];
         if ($e['type'] === 'invoice.payment_failed') {

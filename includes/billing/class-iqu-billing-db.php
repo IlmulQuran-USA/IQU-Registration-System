@@ -58,6 +58,7 @@ class IQU_Billing_DB
         'not_sent', 'link_sent', 'free_month', 'waiting_first_charge',
         'active', 'past_due', 'unpaid', 'paused', 'canceled',
         'review', // 1.4.0: set up through an old Checkout page at a different amount; an admin checks it
+        'bank_verification', // 3.4.10: US bank account added, waiting for microdeposit verification
     ];
 
     // ------------------------------------------------------------
@@ -645,6 +646,15 @@ class IQU_Billing_DB
             'INSERT IGNORE INTO ' . self::payments_table() . ' (stripe_invoice_id, account_id, mode, amount, paid_at, created_at) VALUES (%s, %d, %s, %f, %s, %s)',
             $invoice_id, $account_id, IQU_Stripe::expected_mode(), $amount, gmdate('Y-m-d H:i:s', $paid_at), current_time('mysql', true)
         ));
+    }
+
+    /** One payment history row (current mode) by its Stripe invoice id, or null. */
+    public static function get_payment_by_invoice(string $invoice_id): ?array
+    {
+        global $wpdb;
+        if (!preg_match('/^in_[A-Za-z0-9]+$/', $invoice_id)) return null;
+        $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::payments_table() . ' WHERE stripe_invoice_id = %s AND mode = %s', $invoice_id, IQU_Stripe::expected_mode()), ARRAY_A);
+        return $row ?: null;
     }
 
     /** @return array{count:int, total:float} payments in the current mode between two UTC times. */

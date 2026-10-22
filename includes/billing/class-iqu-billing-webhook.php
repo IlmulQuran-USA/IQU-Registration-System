@@ -34,6 +34,13 @@ class IQU_Billing_Webhook
         'invoice.payment_failed',
         'invoice.payment_action_required',
         'charge.refunded',
+        // US bank account (ACH), 3.4.10: microdeposit verification, payments that take days, bank returns
+        'checkout.session.async_payment_succeeded',
+        'checkout.session.async_payment_failed',
+        'setup_intent.succeeded',
+        'setup_intent.setup_failed',
+        'payment_intent.processing',
+        'charge.dispute.created',
     ];
 
     public static function init(): void
@@ -139,7 +146,8 @@ class IQU_Billing_Webhook
                         return ['amount_mismatch', $id, 'charged ' . $check['charged'] . ' expected ' . $check['expected']];
                     }
                 }
-                IQU_Billing_DB::update_account($id, ['checkout_session_id' => '', 'link_outdated' => 0]);
+                IQU_Billing_DB::update_account($id, ['checkout_session_id' => '', 'link_outdated' => 0]
+                    + ((string) $before['last_payment_status'] === 'bank_failed' && $sync['new'] !== 'bank_verification' && (string) $acc['payment_method_label'] !== '' ? ['last_payment_status' => '', 'last_failure_reason' => ''] : []));
                 $had_method = in_array($sync['old'], ['free_month', 'waiting_first_charge', 'active', 'past_due', 'unpaid', 'paused'], true);
                 // The page this account was waiting for has completed (it is cleared just above, so a repeat is not "first").
                 $this_page  = (string) ($before['checkout_session_id'] ?? '') !== '' && (string) $before['checkout_session_id'] === (string) ($obj['id'] ?? '');
@@ -165,7 +173,8 @@ class IQU_Billing_Webhook
                 $amount = $inv ? ((int) ($inv['amount_paid'] ?? 0)) / 100 : 0;
                 if ($amount > 0) {
                     if (!IQU_Billing_History::refresh_invoice((string) $inv['id'], $acc)) throw new RuntimeException('history write failed');
-                    $first = ((string) $before['last_payment_status']) === '';
+                    // First payment: nothing settled before (a bank payment shows "processing" first).
+                    $first = ((string) $before['last_payment_status']) === '' || (((string) $before['last_payment_status']) === 'processing' && empty($before['last_payment_at']));
                     IQU_Billing_DB::update_account($id, [
                         'last_payment_status' => 'paid',
                         'last_payment_at'     => gmdate('Y-m-d H:i:s', (int) ($inv['status_transitions']['paid_at'] ?? time())),
@@ -207,6 +216,54 @@ class IQU_Billing_Webhook
                     IQU_Billing_History::refresh_account($acc);
                 }
                 break;
+
+            case 'checkout.session.async_payment_succeeded':
+            case 'setup_intent.succeeded':
+                // A US bank account verified (microdeposits confirmed): the sync above shows the new status;
+                // the activation below (welcome, enrollment) runs once it is set up.
+                if ((string) $acc['last_payment_status'] === 'bank_failed') IQU_Billing_DB::update_account($id, ['last_payment_status' => '', 'last_failure_reason' => '']);
+                break;
+
+            case 'checkout.session.async_payment_failed':
+            case 'setup_intent.setup_failed':
+                // The bank account could not be verified (microdeposits not sent, not confirmed within 10 days, or
+                // too many tries). Nothing was charged; the family adds a bank account or card again.
+                if ($sync['new'] === 'bank_verification') break; // another setup is still waiting
+                if ((string) $acc['last_payment_status'] === 'bank_failed') break; // already handled (both events arrive)
+                IQU_Billing_DB::update_account($id, ['last_payment_status' => 'bank_failed', 'last_failure_reason' => 'The bank account could not be verified.']);
+                IQU_Billing_Notify::bank_not_verified(IQU_Billing_DB::get_account($id) ?: $acc);
+                break;
+
+            case 'payment_intent.processing':
+                // A bank payment started: it is paid (invoice.paid) or fails (invoice.payment_failed) in 3–5 business days.
+                $inv_id = IQU_Billing_History::invoice_id_for_payment_intent((string) ($obj['id'] ?? ''));
+                if ($inv_id === '') break; // not a tuition invoice
+                if (!IQU_Billing_History::refresh_invoice($inv_id, $acc)) throw new RuntimeException('history write failed');
+                $row = IQU_Billing_DB::get_payment_by_invoice($inv_id);
+                // Stripe does not promise the order of events: a late notice for a payment already settled changes nothing.
+                if ($row && $row['status'] === 'processing') IQU_Billing_DB::update_account($id, ['last_payment_status' => 'processing', 'last_failure_reason' => '']);
+                break;
+
+            case 'charge.dispute.created':
+                // A disputed payment — for a bank payment, the bank returned it after it was paid. The money goes back:
+                // history shows "Disputed", Reports count it like a refund, and the team is told.
+                $inv_id = IQU_Billing_History::invoice_id_for_payment_intent(is_array($obj['payment_intent'] ?? null) ? (string) ($obj['payment_intent']['id'] ?? '') : (string) ($obj['payment_intent'] ?? ''));
+                if ($inv_id !== '') IQU_Billing_History::refresh_invoice($inv_id, $acc);
+                IQU_Billing_Notify::payment_disputed(IQU_Billing_DB::get_account($id) ?: $acc, ((int) ($obj['amount'] ?? 0)) / 100, (string) ($obj['reason'] ?? ''), $inv_id !== '' ? IQU_Billing_DB::get_payment_by_invoice($inv_id) : null);
+                break;
+        }
+
+        // A US bank account was waiting for verification (or could not be verified) and now a bank account or card is
+        // set up: what a card does at checkout happens now — "Payment method added" to the team and, for a website
+        // enrollment, the welcome and "enrolled". A failed verification leaves the subscription without a method: no activation.
+        $waited  = $sync['old'] === 'bank_verification' || (string) $before['last_payment_status'] === 'bank_failed';
+        $failure = in_array($event['type'], ['checkout.session.async_payment_failed', 'setup_intent.setup_failed'], true);
+        $set_up  = in_array($event['type'], ['checkout.session.async_payment_succeeded', 'setup_intent.succeeded'], true) || (string) $acc['payment_method_label'] !== '';
+        if ($event['type'] !== 'checkout.session.completed' && $waited && !$failure && $set_up && in_array($sync['new'], ['free_month', 'waiting_first_charge', 'active'], true)) {
+            if ((string) $before['last_payment_status'] === 'bank_failed') IQU_Billing_DB::update_account($id, ['last_payment_status' => '', 'last_failure_reason' => '']);
+            $acc = IQU_Billing_DB::get_account($id) ?: $acc;
+            IQU_Billing_Notify::method_added($acc);
+            if (class_exists('IQU_Enrollment')) IQU_Enrollment::on_checkout_completed($acc);
         }
 
         // Payment history: store the invoice as Stripe has it now. Never throws. (invoice.paid did it above.)
@@ -230,6 +287,16 @@ class IQU_Billing_Webhook
     {
         $type = (string) ($obj['object'] ?? '');
         $acc  = null;
+
+        // A dispute names only its charge (a bank payment's id starts with py_): the customer is read from Stripe.
+        if ($type === 'dispute') {
+            $ch = is_array($obj['charge'] ?? null) ? (string) ($obj['charge']['id'] ?? '') : (string) ($obj['charge'] ?? '');
+            if (!preg_match('/^(ch|py)_[A-Za-z0-9]+$/', $ch)) return null;
+            $r = IQU_Stripe::get('/charges/' . $ch);
+            if (!$r['ok']) throw new RuntimeException('charge read failed'); // Stripe retries
+            $cus = (string) ($r['data']['customer'] ?? '');
+            return $cus !== '' ? IQU_Billing_DB::get_account_by_customer($cus) : null;
+        }
 
         $id = (int) ($obj['metadata']['iqu_account_id'] ?? 0);
         if (!$id && $type === 'checkout.session') $id = (int) ($obj['client_reference_id'] ?? 0);

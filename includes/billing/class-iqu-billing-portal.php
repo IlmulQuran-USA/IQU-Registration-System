@@ -254,12 +254,12 @@ class IQU_Billing_Portal
 
         // Enroll for Free, back from Stripe (enrolled=1): welcome once the webhook has confirmed,
         // otherwise "confirming" with a plain meta refresh (no JavaScript; CSP unchanged).
-        [$enroll_box, $head] = (isset($_GET['enrolled']) && $_GET['enrolled'] === '1' && class_exists('IQU_Enrollment'))
+        [$enroll_box, $head] = (isset($_GET['enrolled']) && $_GET['enrolled'] === '1' && class_exists('IQU_Enrollment') && $status !== 'bank_verification')
             ? self::enrollment_box($students, $token)
             : ['', ''];
 
         $h = $enroll_box;
-        if (isset($_GET['setup']) && $_GET['setup'] === 'done' && !$is_setup && $enroll_box === '') {
+        if (isset($_GET['setup']) && $_GET['setup'] === 'done' && !$is_setup && $enroll_box === '' && $status !== 'bank_verification') {
             $h .= '<div class="box good"><strong>All set.</strong> Tuition will now be taken automatically, and you will get a receipt by email each time.</div>';
         }
         if ($error) $h .= '<div class="box bad">' . esc_html($error) . '</div>';
@@ -273,6 +273,8 @@ class IQU_Billing_Portal
             $h .= self::hero_problem($acc, $url, $tok);
         } elseif ($status === 'canceled') {
             $h .= self::hero_stopped($kids);
+        } elseif ($status === 'bank_verification') {
+            $h .= self::hero_bank_waiting($acc, $url, $tok);
         } else {
             $h .= self::hero_active($acc, $url, $tok);
         }
@@ -320,6 +322,7 @@ class IQU_Billing_Portal
         'paused'               => ['On hold — please contact us', 'bad'],
         'canceled'             => ['Stopped', 'muted'],
         'review'               => ['Set up — we are checking the details', 'muted'],
+        'bank_verification'    => ['Waiting for bank verification', 'muted'],
     ];
 
     private static function pill(string $status): string
@@ -354,16 +357,35 @@ class IQU_Billing_Portal
     /** Active, free month or waiting for the first charge: the next payment, big. */
     private static function hero_active(array $acc, string $url, string $tok): string
     {
+        $last = (string) ($acc['last_payment_status'] ?? '');
         return '<section class="card hero">'
+            . ($last === 'bank_failed' ? '<div class="box bad" role="alert"><strong>We could not verify your bank account, so it was not added.</strong> Nothing was charged. Please add a bank account or card again.</div>' : '')
             . '<div class="hero-top"><h2 class="label">Next payment</h2>' . self::pill((string) $acc['status']) . '</div>'
             . '<p class="big">' . esc_html(IQU_Pricing::format((float) $acc['net_amount'])) . '</p>'
             . '<p class="big-sub">' . esc_html(self::nice_date($acc['next_charge_at'])) . '</p>'
             . '<dl class="facts">'
             . '<div><dt>Paying from</dt><dd>' . esc_html($acc['payment_method_label'] ?: '—') . '</dd></div>'
+            . ($last === 'processing' ? '<div><dt>Last payment</dt><dd>Payment processing (bank, 3–5 business days)</dd></div>' : '')
             . '<div><dt>Receipts go to</dt><dd>' . esc_html(self::mask_email((string) $acc['contact_email'])) . '</dd></div>'
             . '</dl>'
             . '<form rel="noreferrer" method="post" action="' . $url . '"><input type="hidden" name="do" value="portal"><input type="hidden" name="t" value="' . $tok . '">'
             . '<button type="submit" class="btn wide">Change bank or card</button></form>'
+            . '</section>';
+    }
+
+    /** US bank account added, waiting for Stripe's microdeposit verification: nothing is charged until then. */
+    private static function hero_bank_waiting(array $acc, string $url, string $tok): string
+    {
+        return '<section class="card hero">'
+            . '<div class="hero-top"><h2 class="label">Your bank account</h2>' . self::pill('bank_verification') . '</div>'
+            . '<p class="lead">Stripe is sending a small deposit to your bank account to check it. It arrives in 1–2 business days.</p>'
+            . '<p class="small">Then follow the link in Stripe\'s email to confirm the deposit. Nothing is charged until your bank account is verified.</p>'
+            . '<dl class="facts">'
+            . '<div><dt>Bank account</dt><dd>' . esc_html($acc['payment_method_label'] ?: '—') . '</dd></div>'
+            . '<div><dt>Receipts go to</dt><dd>' . esc_html(self::mask_email((string) $acc['contact_email'])) . '</dd></div>'
+            . '</dl>'
+            . '<form rel="noreferrer" method="post" action="' . $url . '"><input type="hidden" name="do" value="portal"><input type="hidden" name="t" value="' . $tok . '">'
+            . '<button type="submit" class="btn wide ghost">Change bank or card</button></form>'
             . '</section>';
     }
 
@@ -435,7 +457,7 @@ class IQU_Billing_Portal
             $h .= '<h3 class="year">' . esc_html($year) . '</h3><ul class="hist">';
             foreach ($rows as $i) {
                 [$label, $tone] = IQU_Billing_History::badge($i, $acc);
-                $paid = in_array($i['status'], ['paid', 'refunded'], true);
+                $paid = in_array($i['status'], ['paid', 'refunded', 'disputed'], true);
                 $amt  = $paid ? (float) $i['amount_paid'] : (float) $i['amount_due'];
                 if ($paid && (float) $i['amount_due'] > 0) {
                     $when = $i['paid_at'] ? 'Paid ' . wp_date('j M', (int) strtotime($i['paid_at'] . ' UTC')) : 'Paid'; // the family's calendar day, not UTC

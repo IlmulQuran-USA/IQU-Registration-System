@@ -568,6 +568,8 @@ class IQU_Admin
       } else {
         [$label, $tone] = [
           'refunded'      => ['Refunded', 'neutral'],
+          'processing'    => ['Processing (bank)', 'gold'],
+          'disputed'      => ['Disputed', 'red'],
           'failed'        => ['Failed', 'red'],
           'open'          => ['Due', 'gold'],
           'uncollectible' => ['Unpaid', 'red'],

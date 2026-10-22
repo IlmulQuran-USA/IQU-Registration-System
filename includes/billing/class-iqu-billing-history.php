@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) exit;
  */
 class IQU_Billing_History
 {
-    public const STATUSES = ['paid', 'failed', 'open', 'void', 'uncollectible', 'refunded'];
+    public const STATUSES = ['paid', 'failed', 'open', 'void', 'uncollectible', 'refunded', 'processing', 'disputed'];
 
     /** Card brands Stripe reports, as shown in method labels. */
     private const CARD_BRANDS = ['Visa', 'Mastercard', 'Amex', 'American express', 'Discover', 'Diners', 'Jcb', 'Unionpay', 'Cartes_bancaires', 'Eftpos', 'Interac'];
@@ -101,8 +101,13 @@ class IQU_Billing_History
     /** The invoice a charge paid, found through its payment intent ('' when none). */
     public static function invoice_id_for_charge(array $charge): string
     {
+        return self::invoice_id_for_payment_intent(self::id_of($charge['payment_intent'] ?? ''));
+    }
+
+    /** The invoice a payment intent pays ('' when none: e.g. a Summer one-time payment). */
+    public static function invoice_id_for_payment_intent(string $pi): string
+    {
         try {
-            $pi = self::id_of($charge['payment_intent'] ?? '');
             if (!preg_match('/^pi_[A-Za-z0-9]+$/', $pi)) return '';
             $r = IQU_Stripe::get('/invoice_payments', [
                 'payment' => ['type' => 'payment_intent', 'payment_intent' => $pi],
@@ -136,19 +141,27 @@ class IQU_Billing_History
 
         $latest   = $charges[0] ?? null;
         $refunded = 0;
+        $disputed = false;
         foreach ($charges as $c) {
-            if (($c['status'] ?? '') === 'succeeded') $refunded += (int) ($c['amount_refunded'] ?? 0);
+            if (($c['status'] ?? '') !== 'succeeded') continue;
+            $refunded += (int) ($c['amount_refunded'] ?? 0);
+            // A dispute (for a bank payment: the bank returned it, e.g. "unauthorized") takes the money back:
+            // counted like a refund of what was not refunded already.
+            if (!empty($c['disputed'])) {
+                $disputed  = true;
+                $refunded += max(0, (int) ($c['amount'] ?? 0) - (int) ($c['amount_refunded'] ?? 0));
+            }
         }
         $refunded = round($refunded / 100, 2);
 
         switch ($stripe_status) {
             case 'paid':
-                $status = ($paid > 0 && $refunded >= $paid) ? 'refunded' : 'paid';
+                $status = $disputed ? 'disputed' : (($paid > 0 && $refunded >= $paid) ? 'refunded' : 'paid');
                 break;
             case 'open':
-                // A bank payment still processing is open, not failed.
+                // A bank payment still processing (3–5 business days) is neither paid nor failed.
                 $pending = $latest && ($latest['status'] ?? '') === 'pending';
-                $status  = ($attempts > 0 && !$pending) ? 'failed' : 'open';
+                $status  = $pending ? 'processing' : ($attempts > 0 ? 'failed' : 'open');
                 break;
             default:
                 $status = $stripe_status;
@@ -157,7 +170,7 @@ class IQU_Billing_History
         $line  = (array) (self::tuition_line($invoice)['period'] ?? []);
         $start = (int) ($line['start'] ?? $invoice['period_start'] ?? 0);
         $end   = (int) ($line['end'] ?? $invoice['period_end'] ?? 0);
-        $paid_ts = in_array($status, ['paid', 'refunded'], true) ? (int) ($invoice['status_transitions']['paid_at'] ?? 0) : 0;
+        $paid_ts = in_array($status, ['paid', 'refunded', 'disputed'], true) ? (int) ($invoice['status_transitions']['paid_at'] ?? 0) : 0;
 
         $failure = '';
         if ($status === 'failed' && $latest && ($latest['status'] ?? '') === 'failed') {
@@ -171,14 +184,14 @@ class IQU_Billing_History
                 if ($method !== '') break;
             }
         }
-        if ($method === '' && in_array($status, ['paid', 'refunded'], true) && $paid > 0) {
+        if ($method === '' && in_array($status, ['paid', 'refunded', 'disputed'], true) && $paid > 0) {
             $method = (string) ($acc['payment_method_label'] ?? '');
         }
 
         return [
             'stripe_invoice_id'  => $id,
             'account_id'         => (int) $acc['id'],
-            'amount'             => in_array($status, ['paid', 'refunded'], true) ? $paid : 0.0,
+            'amount'             => in_array($status, ['paid', 'refunded', 'disputed'], true) ? $paid : 0.0,
             'paid_at'            => $paid_ts ? gmdate('Y-m-d H:i:s', $paid_ts) : null,
             'status'             => $status,
             'period_month'       => $start ? self::month_of($start) : '',
@@ -273,6 +286,8 @@ class IQU_Billing_History
         switch ((string) $r['status']) {
             case 'paid':          return (float) $r['amount_due'] <= 0 ? [($acc !== null && ($acc['student_type'] ?? '') !== 'new') ? 'Nothing due' : 'Free month', 'neutral'] : ['Paid', 'green'];
             case 'refunded':      return ['Refunded', 'neutral'];
+            case 'processing':    return ['Processing (bank)', 'gold'];
+            case 'disputed':      return ['Disputed', 'red'];
             case 'failed':        return ['Failed', 'red'];
             case 'uncollectible': return ['Unpaid', 'red'];
             case 'open':          return ['Open', 'gold'];
@@ -353,8 +368,9 @@ class IQU_Billing_History
     /**
      * Numbers for one tuition month.
      *   billed      = amount due of the month's invoices, without void ones
-     *   collected   = amount paid of the month's paid invoices
-     *   outstanding = billed − collected, for failed / open / uncollectible invoices
+     *   collected   = amount paid of the month's paid invoices (a bank payment still processing is not collected yet)
+     *   outstanding = billed − collected, for failed / open / uncollectible invoices and bank payments still processing
+     *                 (billed, not paid yet — never counted as failed); a disputed payment counts like a refund
      *   expected    = billed + monthly amount of families due in that month without an invoice yet
      */
     public static function month_summary(string $ym, array $rows, array $accounts): array
@@ -373,9 +389,9 @@ class IQU_Billing_History
             if ($r['status'] === 'paid') {
                 $s['collected'] += (float) $r['amount_paid'];
                 if ($due > 0) $s['paid_count']++;
-            } elseif (in_array($r['status'], ['failed', 'open', 'uncollectible'], true)) {
+            } elseif (in_array($r['status'], ['failed', 'open', 'uncollectible', 'processing'], true)) {
                 $s['outstanding'] += max(0.0, $due - (float) $r['amount_paid']);
-                if ($r['status'] !== 'open' && $due > 0) $s['failed_count']++;
+                if (!in_array($r['status'], ['open', 'processing'], true) && $due > 0) $s['failed_count']++;
             }
         }
         $s['expected'] = $s['billed'];

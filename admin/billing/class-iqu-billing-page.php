@@ -180,7 +180,7 @@ class IQU_Billing_Page
 
     private static function group_for_status(string $status): string
     {
-        if (in_array($status, ['not_sent', 'link_sent'], true)) return 'link_sent';
+        if (in_array($status, ['not_sent', 'link_sent', 'bank_verification'], true)) return 'link_sent';
         if (in_array($status, ['free_month', 'waiting_first_charge', 'active'], true)) return 'active';
         if (in_array($status, ['past_due', 'unpaid', 'paused', 'review'], true)) return 'failed';
         return 'not_billed';

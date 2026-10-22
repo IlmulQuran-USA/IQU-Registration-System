@@ -191,6 +191,29 @@ class IQU_Billing_Notify
         ]);
     }
 
+    /** The family's US bank account could not be verified (microdeposits): nothing was charged. */
+    public static function bank_not_verified(array $acc): void
+    {
+        self::send("\u{26A0}\u{FE0F} Bank account not verified", [
+            'Monthly: <b>' . self::e(IQU_Pricing::format((float) $acc['net_amount'])) . '</b>',
+            'Reason: ' . self::e($acc['last_failure_reason'] ?: 'The bank account could not be verified.'),
+        ], $acc, [], [
+            'Nothing was charged. The family page asks them to add a bank account or card again.',
+        ]);
+    }
+
+    /** A payment was disputed — for a bank payment, returned by the bank after it was paid. */
+    public static function payment_disputed(array $acc, float $amount, string $reason, ?array $row = null): void
+    {
+        $top = ['Amount: <b>' . self::e(IQU_Pricing::format($amount)) . '</b>'
+            . ($row && !empty($row['period_month']) ? ' · ' . self::e(IQU_Billing_History::month_label((string) $row['period_month'])) : '')];
+        if ($row && !empty($row['method_label'])) $top[] = 'Method: ' . self::e((string) $row['method_label']);
+        if ($reason !== '') $top[] = 'Reason: ' . self::e(str_replace('_', ' ', $reason));
+        self::send("\u{1F534} Payment disputed or returned by the bank", $top, $acc, $row ? ['id' => (string) $row['stripe_invoice_id']] : [], [
+            'The money goes back to the family. Please contact them, and respond in Stripe → Disputes if needed.',
+        ]);
+    }
+
     public static function needs_contact(array $acc, string $status): void
     {
         $label = $status === 'canceled' ? 'Subscription canceled' : 'Automatic attempts finished';

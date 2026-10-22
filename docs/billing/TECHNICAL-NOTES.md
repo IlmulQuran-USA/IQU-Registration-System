@@ -87,6 +87,25 @@ Code pins Stripe-Version 2025-09-30.clover for its own API calls.
 - Admin pages and the family page read this table only; Stripe is called by the webhook,
   Sync, Sync all and Backfill.
 
+### US bank accounts (ACH Direct Debit, 3.4.10)
+
+- Monthly Checkout keeps dynamic payment methods (no `payment_method_types`): Stripe shows card and
+  US bank account when both are ON in Settings → Payment methods, and Stripe decides their order.
+  `payment_method_options[us_bank_account]`: verification_method automatic (Financial Connections,
+  microdeposits when the bank is not listed), permissions payment_method only.
+- The Customer portal ("Change bank or card") and Stripe's invoice page ("Pay … now") take their
+  methods from the Dashboard (Customer portal settings / Payment methods). Summer: card + Link only.
+- New billing status `bank_verification` (VARCHAR column, no schema change): the bank account waits
+  for microdeposits. No "Payment method added", welcome or "Enrolled" until it is verified.
+- New payment history statuses `processing` (bank payment on its way, 3–5 business days: not collected,
+  in Outstanding, never counted as failed) and `disputed` (returned by the bank after it was paid:
+  counted like a full refund).
+- The webhook listens to 6 more events (16 in all). Add them to every webhook destination (test and live):
+  checkout.session.async_payment_succeeded, checkout.session.async_payment_failed,
+  setup_intent.succeeded, setup_intent.setup_failed, payment_intent.processing, charge.dispute.created.
+- The restricted key needs one more permission: **SetupIntents: Read** (microdeposit check). Without it
+  the sync still works; a bank account waiting for microdeposits then shows as set up too early.
+
 ## Decisions
 
 - Sibling discount: NO. Siblings pay the full fee each, but are charged together in one monthly payment.
@@ -110,8 +129,9 @@ Public details in Stripe (name, support email, website, statement descriptor ILM
    - Charges: Read
    - PaymentIntents: Read (Summer payment details)
    - PaymentMethods: Read (card / bank label, card country)
+   - SetupIntents: Read (3.4.10: a US bank account waiting for microdeposits)
    Everything else: None. Try the same set as a TEST restricted key first (Test connection + one enrollment).
-4. Live webhook destination with the same 9 events; new whsec in wp-config.
+4. Live webhook destination with the same 16 events (see "US bank accounts" above); new whsec in wp-config.
 5. Set site mode to live (iqu_billing_mode option) only after the security review.
 6. Delete test data: registration IQU-159 "Test Family", billing account 1, the test Stripe customer/subscription.
 7. /my-billing is already excluded from W3 Total Cache (done in the live config).

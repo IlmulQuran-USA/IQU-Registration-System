@@ -25,7 +25,7 @@ class IQU_Billing_Payments_Screen
         'Waiting first charge' => [['waiting_first_charge'], 'purple'],
         'Payment problem'      => [['past_due', 'unpaid', 'paused'], 'red'],
         'Not set up'           => [['not_sent'], 'text2'],
-        'Link sent'            => [['link_sent'], 'gold'],
+        'Link sent'            => [['link_sent', 'bank_verification'], 'gold'],
         'Stopped'              => [['canceled'], 'navy'],
     ];
 
@@ -206,7 +206,7 @@ class IQU_Billing_Payments_Screen
                         $total = 0.0;
                         foreach ($in_month as $r):
                             $a    = $by_id[(int) $r['account_id']] ?? null;
-                            $paid = in_array($r['status'], ['paid', 'refunded'], true);
+                            $paid = in_array($r['status'], ['paid', 'refunded', 'disputed'], true);
                             $amt  = $paid ? (float) $r['amount_paid'] : (float) $r['amount_due'];
                             if ($r['status'] === 'paid') $total += (float) $r['amount_paid'];
                             $when = (string) ($r['paid_at'] ?: ($r['period_start'] ?: $r['created_at']));
@@ -417,11 +417,11 @@ class IQU_Billing_Payments_Screen
         return array_values($out);
     }
 
-    /** Newest failed / open / uncollectible invoice of one family. */
+    /** Newest failed / open / uncollectible / disputed invoice of one family (a bank payment still processing is not a problem). */
     private static function latest_problem(int $account_id): ?array
     {
         foreach (IQU_Billing_History::for_account($account_id) as $r) {
-            if (in_array($r['status'], ['failed', 'uncollectible', 'open'], true)) return $r;
+            if (in_array($r['status'], ['failed', 'uncollectible', 'open', 'disputed'], true)) return $r;
         }
         return null;
     }
