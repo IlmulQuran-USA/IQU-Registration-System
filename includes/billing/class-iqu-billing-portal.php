@@ -105,9 +105,10 @@ class IQU_Billing_Portal
 
     private static function handle_post(): void
     {
-        // Same-origin check. Browsers send Origin on POST; a mismatch is refused.
+        // Same-origin check. Browsers send Origin on POST; a mismatch is refused. An Origin is scheme://host[:port]
+        // only, never a path, so it is compared with the site's origin (a site in a folder has a path in home_url()).
         $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
-        if ($origin !== '' && strtolower(rtrim($origin, '/')) !== strtolower(rtrim(home_url(), '/'))) {
+        if ($origin !== '' && strtolower(rtrim($origin, '/')) !== strtolower(self::site_origin())) {
             status_header(403);
             self::page('Not allowed', '<p>This request was refused.</p>');
         }
@@ -142,6 +143,15 @@ class IQU_Billing_Portal
         }
 
         self::render_account($acc, $token);
+    }
+
+    /** The site's origin as a browser sends it: scheme://host, plus :port when it is not the scheme's default. */
+    private static function site_origin(): string
+    {
+        $p = wp_parse_url(home_url());
+        $scheme = strtolower((string) ($p['scheme'] ?? 'https'));
+        $port = isset($p['port']) && !(($scheme === 'https' && (int) $p['port'] === 443) || ($scheme === 'http' && (int) $p['port'] === 80)) ? ':' . (int) $p['port'] : '';
+        return $scheme . '://' . strtolower((string) ($p['host'] ?? '')) . $port;
     }
 
     private static function to_stripe(string $url, string $host): void
