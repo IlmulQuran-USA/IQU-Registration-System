@@ -318,7 +318,7 @@ class IQU_Summer_Pay
         if (!defined('DONOTCACHEPAGE')) define('DONOTCACHEPAGE', true);
         nocache_headers();
         header('X-Robots-Tag: noindex, nofollow');
-        header('Referrer-Policy: no-referrer');
+        header('Referrer-Policy: same-origin');
 
         $id  = absint($_GET['r'] ?? 0);
         $sig = is_string($_GET['s'] ?? null) ? (string) $_GET['s'] : '';

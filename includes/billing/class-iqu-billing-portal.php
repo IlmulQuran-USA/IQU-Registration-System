@@ -14,8 +14,9 @@ if (!defined('ABSPATH')) exit;
  * - Invalid tokens and "find my link" requests are rate limited per IP;
  *   link requests are also limited per email. The page never says whether
  *   an email is on file.
- * - Headers: no-store (never cached), noindex, no-referrer (the token is not
- *   leaked to other sites), DENY framing, nosniff, strict CSP.
+ * - Headers: no-store (never cached), noindex, Referrer-Policy same-origin (the
+ *   address with the token never goes to another site; our own form posts keep
+ *   their real Origin for the check below), DENY framing, nosniff, strict CSP.
  * - W3 Total Cache is told not to cache (DONOTCACHEPAGE).
  * - Actions are POST only, same-origin checked, and only redirect to
  *   checkout.stripe.com or billing.stripe.com.
@@ -64,7 +65,7 @@ class IQU_Billing_Portal
         nocache_headers();
         header('Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0');
         header('X-Robots-Tag: noindex, nofollow, noarchive');
-        header('Referrer-Policy: no-referrer');
+        header('Referrer-Policy: same-origin');
         header('X-Frame-Options: DENY');
         header('X-Content-Type-Options: nosniff');
         header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; form-action 'self' https://checkout.stripe.com https://billing.stripe.com; frame-ancestors 'none'; base-uri 'none'");
@@ -565,7 +566,7 @@ class IQU_Billing_Portal
         status_header(http_response_code() ?: 200);
         header('Content-Type: text/html; charset=utf-8');
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            . '<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">' . $head . '<title>' . esc_html($title) . ' — Ilm-ul-Quran USA</title>'
+            . '<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="same-origin">' . $head . '<title>' . esc_html($title) . ' — Ilm-ul-Quran USA</title>'
             . ($icon ? '<link rel="icon" href="' . esc_url($icon) . '">' : '')
             . '<style>' . self::css() . '</style></head><body>'
             . '<header class="site-head"><div class="wrap head">' . $logo
