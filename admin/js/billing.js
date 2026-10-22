@@ -67,6 +67,7 @@
       if (firstPage) root.IQUPager.refilter(table); else root.IQUPager.update(table);
     } else {
       rowsOf(table).forEach(function (r) { r.hidden = isOut(r); });
+      if (root.IQUPager && root.IQUPager.stripe) root.IQUPager.stripe(table); // stripes follow the rows shown
     }
   }
   B.applyRows = applyRows;

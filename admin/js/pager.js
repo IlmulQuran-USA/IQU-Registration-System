@@ -227,6 +227,23 @@
     st.stash.appendChild(rest);
   }
 
+  /**
+   * Zebra stripes on the rows shown. :nth-child(even) counts hidden rows too, so a filter or a hidden year total
+   * would bunch or flip the stripes: every second row shown gets tr.iqu-zebra-alt, and data-iqu-zebra on the table
+   * tells its CSS to stripe those (admin/css/billing.css .iqu-dt). With nothing hidden: the same rows as before.
+   */
+  P.stripe = function (table) {
+    var tb = table.tBodies[0];
+    if (!tb) return;
+    table.setAttribute("data-iqu-zebra", "");
+    var k = 0;
+    Array.prototype.forEach.call(tb.rows, function (r) {
+      var shown = !r.hidden && !(/(^|\s)iqu-dt-none(\s|$)/.test(r.className) && !/(^|\s)is-visible(\s|$)/.test(r.className));
+      r.classList.toggle("iqu-zebra-alt", shown && k % 2 === 1);
+      if (shown) k++;
+    });
+  };
+
   /** Show the current page of the matching rows and redraw the chip, buttons, numbers and totals. */
   P.update = function (table) {
     if (!table || !table.id) return;
@@ -249,6 +266,7 @@
           group = [];
         } else if (!SKIP.test(r.className)) group.push(r);
       });
+      P.stripe(table);
     }
     renderHead(table, st, total, total ? start + 1 : 0, Math.min(total, end));
     renderFoot(table, st, pages);

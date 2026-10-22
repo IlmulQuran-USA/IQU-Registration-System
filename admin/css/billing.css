@@ -756,7 +756,11 @@
   z-index: 1;
 }
 
-.iqu-dt tbody tr:nth-child(even) td {
+/* Stripes: every second row. A table whose rows pager.js / billing.js hide (filter, pages) marks every second
+   row shown (tr.iqu-zebra-alt, data-iqu-zebra on the table), so hidden rows do not count; :where() adds no
+   weight, so hover still wins. */
+.iqu-dt:where(:not([data-iqu-zebra])) tbody tr:nth-child(even) td,
+.iqu-dt tbody tr.iqu-zebra-alt td {
   background: var(--iqu-bg2);
   background: color-mix(in srgb, var(--iqu-bg2) 55%, var(--iqu-bg1));
 }
@@ -2668,7 +2672,8 @@ p.iqu-card-head-sub {
   z-index: 2;
   background: var(--iqu-bg1);
 }
-.iqu-billing .iqu-rep-tbl tbody tr:nth-child(even) > .iqu-col-frozen {
+.iqu-billing .iqu-rep-tbl:where(:not([data-iqu-zebra])) tbody tr:nth-child(even) > .iqu-col-frozen,
+.iqu-billing .iqu-rep-tbl tbody tr.iqu-zebra-alt > .iqu-col-frozen {
   background: color-mix(in srgb, var(--iqu-bg2) 55%, var(--iqu-bg1));
 }
 .iqu-billing .iqu-rep-tbl tbody tr:hover > .iqu-col-frozen {

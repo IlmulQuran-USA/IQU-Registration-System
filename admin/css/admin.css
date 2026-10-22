@@ -2559,7 +2559,8 @@ button.iqu-perpage-btn,
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.iqu-mp-tbl tbody tr:nth-child(even) td {
+.iqu-mp-tbl:where(:not([data-iqu-zebra])) tbody tr:nth-child(even) td,
+.iqu-mp-tbl tbody tr.iqu-zebra-alt td { /* the rows shown (pager.js), see billing.css .iqu-dt */
   background: color-mix(in srgb, var(--iqu-bg2) 55%, var(--iqu-bg1));
 }
 .iqu-mp-none {
