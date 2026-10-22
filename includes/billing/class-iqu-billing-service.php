@@ -551,7 +551,10 @@ class IQU_Billing_Service
             'client_reference_id'    => (string) $acc['id'],
             'line_items'             => $items,
             'subscription_data'      => $sub,
-            'payment_method_options' => ['us_bank_account' => ['verification_method' => 'automatic']],
+            // US bank account (ACH): instant verification through Financial Connections, microdeposits when the
+            // family's bank is not listed (Stripe's "automatic"). Which methods show, and in what order, Stripe
+            // decides (dynamic payment methods: Dashboard → Settings → Payment methods).
+            'payment_method_options' => ['us_bank_account' => ['verification_method' => 'automatic', 'financial_connections' => ['permissions' => ['payment_method']]]],
             'locale'                 => 'en',
             'success_url'            => empty($opts['success_args'])
                 ? add_query_arg('setup', 'done', $link)
