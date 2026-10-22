@@ -296,6 +296,20 @@ class IQU_Billing_History
         return [ucfirst((string) $r['status']), 'neutral'];
     }
 
+    /**
+     * A stored method label as families and the team read it: a bank account is "Bank •••• 6789" whatever the
+     * label holds ("US bank •••• 6789", "Chase •••• 6789"); a card stays "Visa •••• 4242", or "Card · Visa •••• 4242"
+     * with $kind. Display only: stored labels (Telegram, CSV) keep the bank's name.
+     */
+    public static function method_display(string $label, bool $kind = false): string
+    {
+        $label = trim($label);
+        if ($label === '') return '';
+        $group = self::method_group($label);
+        if ($group === 'US bank') return preg_match('/••••\s*(\d{4})$/u', $label, $m) ? 'Bank •••• ' . $m[1] : 'Bank';
+        return ($kind && !in_array($group, ['Link', 'Other'], true)) ? 'Card · ' . $label : $label;
+    }
+
     /** Group a method label for the Payments chart: card brand, "US bank", "Link" or "Other". */
     public static function method_group(string $label): string
     {

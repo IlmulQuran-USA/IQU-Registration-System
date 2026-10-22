@@ -443,7 +443,7 @@ class IQU_Billing_Send
                     </div>
                     <div class="iqu-detail-item">
                         <div class="iqu-detail-lbl">Paying from</div>
-                        <div class="iqu-detail-val"><?php echo esc_html($acc['payment_method_label'] ?: 'No bank or card yet'); ?></div>
+                        <div class="iqu-detail-val"><?php echo esc_html(IQU_Billing_History::method_display((string) $acc['payment_method_label'], true) ?: 'No bank or card yet'); ?></div>
                     </div>
                     <div class="iqu-detail-item">
                         <div class="iqu-detail-lbl">Link sent</div>
@@ -530,7 +530,7 @@ class IQU_Billing_Send
                             <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) $r['amount_paid'])); ?><?php if ((float) $r['amount_refunded'] > 0): ?><br><span class="iqu-billing-sub">Refunded <?php echo esc_html(IQU_Pricing::format((float) $r['amount_refunded'])); ?></span><?php endif; ?></td>
                             <td><span class="iqu-chip iqu-chip--<?php echo esc_attr($btone); ?>"><?php echo esc_html($blabel); ?></span></td>
                             <td class="iqu-td-date"><?php echo $r['paid_at'] ? esc_html(self::nice_time((string) $r['paid_at'])) : '—'; ?></td>
-                            <td><?php echo esc_html($r['method_label'] ?: '—'); ?></td>
+                            <td><?php echo esc_html(IQU_Billing_History::method_display((string) $r['method_label'], true) ?: '—'); ?></td>
                             <td><?php if ($receipt): ?><a href="<?php echo esc_url($receipt); ?>" target="_blank" rel="noopener noreferrer">Receipt</a><?php endif; ?><?php if ($receipt && $pdf): ?> · <?php endif; ?><?php if ($pdf): ?><a href="<?php echo esc_url($pdf); ?>" target="_blank" rel="noopener noreferrer">Invoice PDF</a><?php endif; ?><?php echo (!$receipt && !$pdf) ? '—' : ''; ?></td>
                             <td class="iqu-billing-wrap"><?php echo (int) $r['attempt_count']; ?><?php if ($r['failure_reason'] !== ''): ?><br><span class="iqu-billing-sub"><?php echo esc_html($r['failure_reason']); ?></span><?php endif; ?></td>
                         </tr>
@@ -759,6 +759,7 @@ class IQU_Billing_Send
                 : "Starting this month, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer.";
             $p[] = "Monthly tuition: {$amount}\n" . ($free ? "First month: free\n" : '') . "First payment: {$first}" . ($month !== '' ? " ({$month} tuition)" : '');
             $p[] = "Please add a US bank account or card once, using your family's private link:\n{$link}";
+            $p[] = 'You can pay from your US bank account (recommended) or with a card.';
             $p[] = "Nothing is charged before {$first}." . ($zelle !== '' ? "\nFrom " . self::nice_date($zelle) . ', tuition can no longer be sent by Zelle.' : '');
             $p[] = 'If paying online is difficult, or the fee is a burden right now, please let us know. No child\'s place is ever affected by cost.';
         } elseif ($kind === 'account') {
@@ -827,7 +828,7 @@ class IQU_Billing_Send
             $table = array_merge($rows, IQU_Billing_Email::tuition_rows($acc), $free ? [['First month', 'Free']] : [], [
                 ['First payment', $first . ($ts ? ' (' . gmdate('F', $ts) . ' tuition)' : '')],
                 ['After that', $ts ? $amount . ' on the ' . IQU_Billing_Email::ordinal((int) gmdate('j', $ts)) . ' of each month' . ((int) gmdate('j', $ts) >= 29 ? ' (the last day in shorter months)' : '') : ''],
-                ['Pay with', 'US bank account (ACH) or card — your choice'],
+                ['Pay with', 'US bank account (recommended) or card'],
             ]);
             return ["Action needed: set up {$kids}'s monthly tuition — Ilm-ul-Quran USA", $base + [
                 'title'     => 'Monthly tuition set-up',

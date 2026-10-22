@@ -349,6 +349,7 @@ class IQU_Billing_Portal
             . '<li><span class="step-n" aria-hidden="true">3</span><div><strong>Receipts arrive by email</strong>'
             . '<span class="small muted">Every payment, to ' . esc_html(self::mask_email((string) $acc['contact_email'])) . '.</span></div></li>'
             . '</ol>'
+            . '<p class="small">Pay by bank account (recommended — lower fees) or by card.</p>'
             . '<form rel="noreferrer" method="post" action="' . $url . '"><input type="hidden" name="do" value="checkout"><input type="hidden" name="t" value="' . $tok . '">'
             . '<button type="submit" class="btn wide">Add bank account or card</button></form>'
             . '</section>';
@@ -364,7 +365,7 @@ class IQU_Billing_Portal
             . '<p class="big">' . esc_html(IQU_Pricing::format((float) $acc['net_amount'])) . '</p>'
             . '<p class="big-sub">' . esc_html(self::nice_date($acc['next_charge_at'])) . '</p>'
             . '<dl class="facts">'
-            . '<div><dt>Paying from</dt><dd>' . esc_html($acc['payment_method_label'] ?: '—') . '</dd></div>'
+            . '<div><dt>Paying from</dt><dd>' . esc_html(IQU_Billing_History::method_display((string) $acc['payment_method_label']) ?: '—') . '</dd></div>'
             . ($last === 'processing' ? '<div><dt>Last payment</dt><dd>Payment processing (bank, 3–5 business days)</dd></div>' : '')
             . '<div><dt>Receipts go to</dt><dd>' . esc_html(self::mask_email((string) $acc['contact_email'])) . '</dd></div>'
             . '</dl>'
@@ -381,7 +382,7 @@ class IQU_Billing_Portal
             . '<p class="lead">Stripe is sending a small deposit to your bank account to check it. It arrives in 1–2 business days.</p>'
             . '<p class="small">Then follow the link in Stripe\'s email to confirm the deposit. Nothing is charged until your bank account is verified.</p>'
             . '<dl class="facts">'
-            . '<div><dt>Bank account</dt><dd>' . esc_html($acc['payment_method_label'] ?: '—') . '</dd></div>'
+            . '<div><dt>Bank account</dt><dd>' . esc_html(IQU_Billing_History::method_display((string) $acc['payment_method_label']) ?: '—') . '</dd></div>'
             . '<div><dt>Receipts go to</dt><dd>' . esc_html(self::mask_email((string) $acc['contact_email'])) . '</dd></div>'
             . '</dl>'
             . '<form rel="noreferrer" method="post" action="' . $url . '"><input type="hidden" name="do" value="portal"><input type="hidden" name="t" value="' . $tok . '">'
