@@ -68,7 +68,7 @@ class IQU_Coupon_Admin
     /** টপ বার — IQU_Admin::top_bar() এর একই ট্যাব সারি। */
     private function render_top_bar(string $title, string $active_page): void
     {
-        IQU_Admin::top_bar($title, 'Ilm-ul-Quran USA — Admin Panel', $active_page);
+        IQU_Admin::top_bar($title, 'Ilm-Ul-Quran USA — Admin Panel', $active_page);
     }
 
     /** URL প্যারামিটার থেকে নোটিশ */

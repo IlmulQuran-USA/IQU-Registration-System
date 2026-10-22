@@ -755,7 +755,7 @@ class IQU_Billing_Send
             $zelle = (string) get_option(self::OPT_ZELLE, '');
             $free  = IQU_Billing_Service::has_free_first_month($acc);
             $p[] = $free
-                ? "Welcome to Ilm-ul-Quran USA! The first month of classes is free. After that, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer."
+                ? "Welcome to Ilm-Ul-Quran USA! The first month of classes is free. After that, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer."
                 : "Starting this month, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer.";
             $p[] = "Monthly tuition: {$amount}\n" . ($free ? "First month: free\n" : '') . "First payment: {$first}" . ($month !== '' ? " ({$month} tuition)" : '');
             $p[] = "Please add a US bank account or card once, using your family's private link:\n{$link}";
@@ -782,7 +782,7 @@ class IQU_Billing_Send
 
         $help = IQU_Contact::text_block();
         if ($help !== '') $p[] = $help;
-        $p[] = "Jazakum Allahu khayran,\nIlm-ul-Quran USA";
+        $p[] = "Jazakum Allahu khayran,\nIlm-Ul-Quran USA";
         return implode("\n\n", $p);
     }
 
@@ -830,14 +830,14 @@ class IQU_Billing_Send
                 ['After that', $ts ? $amount . ' on the ' . IQU_Billing_Email::ordinal((int) gmdate('j', $ts)) . ' of each month' . ((int) gmdate('j', $ts) >= 29 ? ' (the last day in shorter months)' : '') : ''],
                 ['Pay with', 'US bank account (recommended) or card'],
             ]);
-            return ["Action needed: set up {$kids}'s monthly tuition — Ilm-ul-Quran USA", $base + [
+            return ["Action needed: set up {$kids}'s monthly tuition — Ilm-Ul-Quran USA", $base + [
                 'title'     => 'Monthly tuition set-up',
                 'preheader' => "Add a US bank account or card once. Nothing is charged before {$first}.",
                 'help'      => $burden,
                 'blocks'    => [
                     ['p', 'We hope you and your family are well.'],
                     ['p', $free
-                        ? "Welcome to Ilm-ul-Quran USA! The first month of classes is free. After that, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer."
+                        ? "Welcome to Ilm-Ul-Quran USA! The first month of classes is free. After that, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer."
                         : "Starting this month, tuition for {$kids} will be collected automatically each month — no reminders and no transfers."],
                     ['table', $table],
                     ['steps', 'What you need to do', [
@@ -858,7 +858,7 @@ class IQU_Billing_Send
 
         if ($kind === 'problem') {
             $past_due = $acc['status'] === 'past_due';
-            return ["Action needed: {$kids}'s tuition payment did not go through — Ilm-ul-Quran USA", $base + [
+            return ["Action needed: {$kids}'s tuition payment did not go through — Ilm-Ul-Quran USA", $base + [
                 'title'     => 'Tuition payment did not go through',
                 'preheader' => "The tuition payment of {$amount} for {$kids} did not go through.",
                 'help'      => 'If paying is difficult right now, or the fee is a burden, please reply and we will sort it out together. No child\'s place is ever affected by cost.',
@@ -884,7 +884,7 @@ class IQU_Billing_Send
         }
 
         if ($kind === 'stopped') {
-            return ["Monthly tuition for {$kids} has stopped — Ilm-ul-Quran USA", $base + [
+            return ["Monthly tuition for {$kids} has stopped — Ilm-Ul-Quran USA", $base + [
                 'title'     => 'Monthly tuition stopped',
                 'preheader' => "Monthly tuition billing for {$kids} has stopped. Nothing more will be charged.",
                 'help'      => 'If you would like to restart classes, or if this was a mistake, please contact us.',
@@ -901,7 +901,7 @@ class IQU_Billing_Send
 
         // account: the billing page
         $next = !empty($acc['next_charge_at']) && $acc['status'] !== 'canceled' ? self::nice_utc((string) $acc['next_charge_at']) : '';
-        return ["Your family's billing page — Ilm-ul-Quran USA", $base + [
+        return ["Your family's billing page — Ilm-Ul-Quran USA", $base + [
             'title'     => 'Your billing page',
             'preheader' => "Your family's private billing page for {$kids}.",
             'help'      => $burden,

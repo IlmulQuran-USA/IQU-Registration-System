@@ -45,11 +45,11 @@ class IQU_Mailer
     $ft = (string) ($data['form_type'] ?? '');
 
     if ($ft === IQU_Database::FORM_FREE) {
-      $subject = 'Registration Confirmed — Ilm-ul-Quran USA';
+      $subject = 'Registration Confirmed — Ilm-Ul-Quran USA';
     } elseif (in_array($ft, IQU_Database::weekend_types(), true)) {
-      $subject = 'Weekend Ilm Program Enrollment Confirmed — Ilm-ul-Quran USA';
+      $subject = 'Weekend Ilm Program Enrollment Confirmed — Ilm-Ul-Quran USA';
     } else {
-      $subject = 'Summer Program Enrollment Confirmed — Ilm-ul-Quran USA';
+      $subject = 'Summer Program Enrollment Confirmed — Ilm-Ul-Quran USA';
     }
 
     $body = self::student_email_body($data);
@@ -158,7 +158,7 @@ class IQU_Mailer
     <!-- Footer -->
     <div style="background:#1E4D6B;padding:16px 24px;text-align:center">
         <p style="color:rgba(255,255,255,.7);margin:0;font-size:12px;letter-spacing:.3px">
-            © <?php echo (int) date('Y'); ?> Ilm-ul-Quran USA · Subsidized by Al-Hasanah Foundation (501(c)(3))
+            © <?php echo (int) date('Y'); ?> Ilm-Ul-Quran USA · Subsidized by Al-Hasanah Foundation (501(c)(3))
         </p>
     </div>
 </div>
@@ -234,7 +234,7 @@ class IQU_Mailer
     <!-- Hero -->
     <div style="text-align:center">
         <div style="background:#f0f7fa;padding:24px 24px 16px;border-bottom:3px solid #1E4D6B">
-            <img src="<?php echo esc_attr(IQU_EMAIL_LOGO_SRC); ?>" alt="Ilm-ul-Quran USA logo"
+            <img src="<?php echo esc_attr(IQU_EMAIL_LOGO_SRC); ?>" alt="Ilm-Ul-Quran USA logo"
                 style="max-width:180px;width:100%;height:auto;display:inline-block;border:0">
         </div>
         <div style="background:linear-gradient(135deg,#1E4D6B 0%,#2874a6 100%);padding:16px 24px">
@@ -374,7 +374,7 @@ class IQU_Mailer
     <!-- Footer -->
     <div style="background:#1E4D6B;padding:16px 24px;text-align:center">
         <p style="color:rgba(255,255,255,.7);margin:0;font-size:11px;letter-spacing:.3px; font-weight:700">
-            © <?php echo (int) date('Y'); ?> Ilm-ul-Quran USA · Subsidized by Al-Hasanah Foundation (501(c)(3))
+            © <?php echo (int) date('Y'); ?> Ilm-Ul-Quran USA · Subsidized by Al-Hasanah Foundation (501(c)(3))
         </p>
     </div>
 </div>
@@ -449,7 +449,7 @@ class IQU_Mailer
     ob_start();
   ?>
 <div style="padding:24px 24px 16px;text-align:center;background:#f0f7fa;border-bottom:3px solid #1E4D6B">
-    <img src="<?php echo esc_attr($src); ?>" alt="Ilm-ul-Quran USA logo"
+    <img src="<?php echo esc_attr($src); ?>" alt="Ilm-Ul-Quran USA logo"
         style="max-width:180px;width:100%;height:auto;display:inline-block;border:0;outline:none;text-decoration:none">
 </div>
 <?php

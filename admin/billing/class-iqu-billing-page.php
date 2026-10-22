@@ -92,7 +92,7 @@ class IQU_Billing_Page
         $tabs = self::TABS;
         echo '<div class="iqu-top-bar"><div class="iqu-top-bar-left">'
             . '<div class="iqu-logo-mark iqu-billing-logo" role="img" aria-label="IQU Logo"></div>'
-            . '<div><div class="iqu-page-title">Billing</div><div class="iqu-page-sub">Ilm-ul-Quran USA — Monthly tuition</div></div>'
+            . '<div><div class="iqu-page-title">Billing</div><div class="iqu-page-sub">Ilm-Ul-Quran USA — Monthly tuition</div></div>'
             . '</div><div class="iqu-top-bar-right"><nav class="iqu-tabs" aria-label="Billing">';
         foreach ($tabs as $key => [$label, $slug]) {
             printf(

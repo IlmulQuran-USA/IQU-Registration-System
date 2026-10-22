@@ -107,7 +107,7 @@ class IQU_Enrollment
             if (!empty($post['iqu_existing_q'])) {
                 return ['error' => [
                     'message' => 'Please fix the errors below.',
-                    'errors'  => ['is_existing_student' => 'Please tell us whether your child is already an Ilm-ul-Quran student.'],
+                    'errors'  => ['is_existing_student' => 'Please tell us whether your child is already an Ilm-Ul-Quran student.'],
                     'code'    => 'validation_failed',
                 ]];
             }
@@ -315,14 +315,14 @@ class IQU_Enrollment
         $table = array_merge(IQU_Billing_Email::student_rows($acc), IQU_Billing_Email::tuition_rows($acc),
             [['First payment', $first !== '' ? $first . ($free ? ' (after the free first month)' : '') : ''], ['Paying with', (string) ($acc['payment_method_label'] ?? '')]]);
 
-        IQU_Billing_Email::send($to, 'Welcome to Ilm-ul-Quran USA — enrollment complete', [
+        IQU_Billing_Email::send($to, 'Welcome to Ilm-Ul-Quran USA — enrollment complete', [
             'title'     => 'Enrollment complete',
             'preheader' => "{$kids}'s enrollment is complete." . ($free ? ' The first month is free.' : ''),
             'greeting'  => 'Assalamu alaikum' . ($guardian !== '' ? ' ' . explode(' ', $guardian)[0] : '') . ',',
             'private'   => true,
             'help'      => 'If the fee ever becomes a burden, please talk to us — no child\'s place is ever affected by cost.',
             'blocks'    => [
-                ['p', "JazakAllahu khayran! {$kids}'s enrollment at Ilm-ul-Quran USA is complete, and your payment method is saved securely with Stripe."],
+                ['p', "JazakAllahu khayran! {$kids}'s enrollment at Ilm-Ul-Quran USA is complete, and your payment method is saved securely with Stripe."],
                 ['table', $table],
                 ['button', 'Open my billing page', IQU_Billing_Service::link_for($acc)],
                 ['list', 'Good to know', [
@@ -403,7 +403,7 @@ class IQU_Enrollment
             'private'   => true,
             'help'      => 'If you have a question, or the fee is a burden for your family, please talk to us — no child\'s place is ever affected by cost.',
             'blocks'    => [
-                ['p', "You started enrolling {$kid} at Ilm-ul-Quran USA. There is one step left."],
+                ['p', "You started enrolling {$kid} at Ilm-Ul-Quran USA. There is one step left."],
                 ['steps', 'What you need to do', [
                     'Press "Finish enrollment" below.',
                     'Add a card or US bank account on Stripe\'s secure page (about 2 minutes).',

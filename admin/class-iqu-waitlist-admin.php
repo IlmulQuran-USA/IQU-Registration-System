@@ -159,7 +159,7 @@ class IQU_Waitlist_Admin
         ?>
         <div class="wrap iqu-admin-wrap iqu-waitlist">
             <h1 class="screen-reader-text">Waitlist</h1>
-            <?php IQU_Admin::top_bar('Waitlist', 'Ilm-ul-Quran USA — Admin Panel', self::SLUG); ?>
+            <?php IQU_Admin::top_bar('Waitlist', 'Ilm-Ul-Quran USA — Admin Panel', self::SLUG); ?>
             <p class="iqu-wl-intro">Families outside the United States and Canada who asked to be told when classes open in their country. Only the email, the optional name, a 2-letter country code, the program and where they joined from are kept.</p>
 
             <div class="iqu-metrics iqu-metrics--four">

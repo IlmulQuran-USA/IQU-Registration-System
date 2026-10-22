@@ -531,7 +531,7 @@ class IQU_Billing_Service
 
         $link = self::link_for($acc);
         $sub  = [
-            'description' => 'Ilm-ul-Quran USA monthly tuition',
+            'description' => 'Ilm-Ul-Quran USA monthly tuition',
             'metadata'    => ['iqu_account_id' => (string) $acc['id'], 'iqu_mode' => (string) $acc['mode']],
         ];
 

@@ -36,9 +36,9 @@ class IQU_Billing_Email
         '/privacy-policy/'        => 'Privacy Policy',
     ];
 
-    private const FOUNDATION = 'Ilm-ul-Quran USA is operated by AL HASANAH FOUNDATION, a 501(c)(3) nonprofit organization, Richardson, Texas.';
+    private const FOUNDATION = 'Ilm-Ul-Quran USA is operated by AL HASANAH FOUNDATION, a 501(c)(3) nonprofit organization, Richardson, Texas.';
     private const PRIVATE_LINE = 'This link is private to your family. Please do not forward this email.';
-    private const SIGN_OFF = ['Jazakum Allahu khayran,', 'The Ilm-ul-Quran USA team'];
+    private const SIGN_OFF = ['Jazakum Allahu khayran,', 'The Ilm-Ul-Quran USA team'];
 
     // Theme palette (the website's colours).
     private const BLUE  = '#1E4D6B';
@@ -62,7 +62,7 @@ class IQU_Billing_Email
         $title = trim((string) ($a['title'] ?? ''));
 
         $html  = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            . '<title>' . esc_html($title !== '' ? $title : 'Ilm-ul-Quran USA') . '</title>'
+            . '<title>' . esc_html($title !== '' ? $title : 'Ilm-Ul-Quran USA') . '</title>'
             // Phones: less side padding (clients without <style> support keep the 30px).
             . '<style>@media (max-width:480px){.iqu-px{padding-left:18px!important;padding-right:18px!important}}</style></head>'
             . '<body style="margin:0;padding:0;background:' . self::PAGE . '">';
@@ -72,7 +72,7 @@ class IQU_Billing_Email
         $html .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid ' . self::LINE . ';border-radius:12px;overflow:hidden">';
         // Header: white, logo, thin deep-blue rule.
         $html .= '<tr><td class="iqu-px" style="padding:22px 30px 18px;background:#ffffff;border-bottom:2px solid ' . self::BLUE . '">'
-            . '<img src="' . esc_url(content_url(self::LOGO)) . '" width="200" alt="Ilm-ul-Quran USA" style="display:block;border:0;height:auto;max-width:200px">'
+            . '<img src="' . esc_url(content_url(self::LOGO)) . '" width="200" alt="Ilm-Ul-Quran USA" style="display:block;border:0;height:auto;max-width:200px">'
             . '</td></tr>';
         $html .= '<tr><td class="iqu-px" style="padding:28px 30px 8px;overflow-wrap:anywhere;word-break:break-word">';
 

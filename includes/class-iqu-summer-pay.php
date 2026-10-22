@@ -368,7 +368,7 @@ class IQU_Summer_Pay
         header('X-Frame-Options: DENY');
         header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; base-uri 'none'");
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            . '<meta name="robots" content="noindex,nofollow"><title>' . esc_html($title) . ' — Ilm-ul-Quran USA</title>'
+            . '<meta name="robots" content="noindex,nofollow"><title>' . esc_html($title) . ' — Ilm-Ul-Quran USA</title>'
             . '<style>body{margin:0;background:#F1F1F4;color:#15303F;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}'
             . 'main{max-width:560px;margin:40px auto;padding:0 16px}.card{background:#fff;border:1px solid #E5E7EB;border-top:4px solid #1E4D6B;border-radius:16px;padding:24px}'
             . 'h1{font-size:24px;margin:0 0 12px}.btn{display:block;margin-top:18px;min-height:52px;line-height:52px;text-align:center;border-radius:12px;background:#1E4D6B;color:#fff;font-weight:600;text-decoration:none}'

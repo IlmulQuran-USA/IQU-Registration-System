@@ -161,7 +161,7 @@ class IQU_Summer_Form
             </h2>
 
             <!-- Eyebrow / Subtitle — 10px, 700, uppercase -->
-            <p class="sc-subtitle">Organized by Ilm-ul-Quran USA</p>
+            <p class="sc-subtitle">Organized by Ilm-Ul-Quran USA</p>
 
             <!-- Stats row — numbers 22px 700, labels 10px 700 -->
             <div class="sc-stats">
@@ -266,7 +266,7 @@ class IQU_Summer_Form
                             Welcome to the registration form for the
                             <strong>Summer Ilm Camp Online-2026</strong> — a free online program
                             designed to make your child's summer spiritually enriching and educational. Organized by
-                            <strong>Ilm-ul-Quran USA</strong> and Subsidized by <strong>Al-Hasanah Foundation</strong>
+                            <strong>Ilm-Ul-Quran USA</strong> and Subsidized by <strong>Al-Hasanah Foundation</strong>
                             (a 501(c)(3) nonprofit), this program is open to children aged <strong>5 to 15</strong>.
                         </p>
 
@@ -556,7 +556,7 @@ class IQU_Summer_Form
 
                             <label class="iqu-radio-label iqu-radio-card">
                                 <input type="radio" name="admission_fee" value="complimentary">
-                                Existing Student of Ilm-ul-Quran USA —
+                                Existing Student of Ilm-Ul-Quran USA —
                                 <em>Complimentary</em>
                             </label>
 

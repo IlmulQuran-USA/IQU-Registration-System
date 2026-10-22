@@ -196,9 +196,9 @@ class IQU_Billing_Portal
         if (IQU_Stripe::expected_mode() === 'test' && !self::test_email_allowed($acc['contact_email'])) return;
 
         // Shared formal email layout (IQU_Billing_Email).
-        IQU_Billing_Email::send($acc['contact_email'], 'Your billing page — Ilm-ul-Quran USA', [
+        IQU_Billing_Email::send($acc['contact_email'], 'Your billing page — Ilm-Ul-Quran USA', [
             'title'     => 'Your private billing page',
-            'preheader' => 'Here is your private billing page for Ilm-ul-Quran USA.',
+            'preheader' => 'Here is your private billing page for Ilm-Ul-Quran USA.',
             'greeting'  => 'Assalamu alaikum,',
             'private'   => true,
             'blocks'    => [
@@ -297,7 +297,7 @@ class IQU_Billing_Portal
     {
         $state = IQU_Enrollment::portal_state(array_column($students, 'reg'));
         if ($state === 'complete') {
-            return ['<div class="box good" role="status"><strong>Welcome to Ilm-ul-Quran USA — enrollment complete.</strong> JazakAllahu Khairan! The first month is free. We will contact you on WhatsApp within 24–48 hours to arrange the class schedule, in-sha\'-Allah.</div>', ''];
+            return ['<div class="box good" role="status"><strong>Welcome to Ilm-Ul-Quran USA — enrollment complete.</strong> JazakAllahu Khairan! The first month is free. We will contact you on WhatsApp within 24–48 hours to arrange the class schedule, in-sha\'-Allah.</div>', ''];
         }
         if ($state !== 'confirming') return ['', ''];
 
@@ -340,7 +340,7 @@ class IQU_Billing_Portal
 
         return '<section class="card hero" aria-labelledby="hero-title"><h2 id="hero-title" class="label">Three steps, once</h2><ol class="steps">'
             . '<li><span class="step-n" aria-hidden="true">1</span><div><strong>Add a bank account or card</strong>'
-            . '<span class="small muted">This opens Stripe\'s secure page. Ilm-ul-Quran USA never sees or stores your bank or card details.</span></div></li>'
+            . '<span class="small muted">This opens Stripe\'s secure page. Ilm-Ul-Quran USA never sees or stores your bank or card details.</span></div></li>'
             . '<li><span class="step-n" aria-hidden="true">2</span><div>'
             . ($soon
                 ? '<strong>Your first payment is taken when you finish setting up.</strong><span class="small muted">After that, the same date every month.</span>'
@@ -581,9 +581,9 @@ class IQU_Billing_Portal
         if ($logo_id) {
             // Same logo as the website header, 221px wide like the navbar.
             $src = wp_get_attachment_image_url($logo_id, 'full');
-            if ($src) $logo = '<img class="logo" src="' . esc_url($src) . '" alt="Ilm-ul-Quran USA" width="221">';
+            if ($src) $logo = '<img class="logo" src="' . esc_url($src) . '" alt="Ilm-Ul-Quran USA" width="221">';
         }
-        if ($logo === '') $logo = '<span class="brand">Ilm-ul-Quran USA</span>';
+        if ($logo === '') $logo = '<span class="brand">Ilm-Ul-Quran USA</span>';
 
         // "Need help?" in the footer: the contact lines from the constants (none hard-coded).
         $help = [];
@@ -599,7 +599,7 @@ class IQU_Billing_Portal
         status_header(http_response_code() ?: 200);
         header('Content-Type: text/html; charset=utf-8');
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            . '<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="same-origin">' . $head . '<title>' . esc_html($title) . ' — Ilm-ul-Quran USA</title>'
+            . '<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="same-origin">' . $head . '<title>' . esc_html($title) . ' — Ilm-Ul-Quran USA</title>'
             . ($icon ? '<link rel="icon" href="' . esc_url($icon) . '">' : '')
             . '<style>' . self::css() . '</style></head><body>'
             . '<header class="site-head"><div class="wrap head">' . $logo
@@ -607,7 +607,7 @@ class IQU_Billing_Portal
             . '<main class="wrap">' . $body . '</main>'
             . '<footer class="site-foot"><div class="wrap">'
             . ($help ? '<div class="foot-help"><strong>Need help?</strong>' . implode('', $help) . '</div>' : '')
-            . '<p>Ilm-ul-Quran USA is operated by AL HASANAH FOUNDATION, a 501(c)(3) nonprofit organization, Richardson, Texas. Payments are processed securely by Stripe.</p>'
+            . '<p>Ilm-Ul-Quran USA is operated by AL HASANAH FOUNDATION, a 501(c)(3) nonprofit organization, Richardson, Texas. Payments are processed securely by Stripe.</p>'
             . '<p class="foot-links"><a href="' . esc_url(home_url('/tuition-refund-policy/')) . '">Tuition &amp; Refund Policy</a>'
             . '<a href="' . esc_url(home_url('/terms-and-conditions/')) . '">Terms and Conditions</a>'
             . '<a href="' . esc_url(home_url('/privacy-policy/')) . '">Privacy Policy</a></p>'

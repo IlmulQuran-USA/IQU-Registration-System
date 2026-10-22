@@ -287,7 +287,7 @@ class IQU_Coupon
                 'I sincerely confirm that, due to genuine financial hardship, '
                     . 'I believe I am eligible to receive Zakat assistance. I gratefully accept a full (100%%) '
                     . 'scholarship covering %s of monthly tuition from the Zakat fund of '
-                    . 'Ilm-ul-Quran USA. I affirm that, to the best of my knowledge, the information I have provided is truthful '
+                    . 'Ilm-Ul-Quran USA. I affirm that, to the best of my knowledge, the information I have provided is truthful '
                     . 'and complete.',
                 IQU_Pricing::format($discount_amount)
             );
@@ -296,7 +296,7 @@ class IQU_Coupon
         return sprintf(
             'I sincerely confirm that, due to genuine financial hardship, '
                 . 'I believe I am eligible to receive Zakat assistance. I gratefully accept a %d%% scholarship '
-                . '(%s per month) from the Zakat fund of Ilm-ul-Quran USA. '
+                . '(%s per month) from the Zakat fund of Ilm-Ul-Quran USA. '
                 . 'I affirm that, to the best of my knowledge, the information I have provided is truthful and complete.',
             $percent,
             IQU_Pricing::format($discount_amount)

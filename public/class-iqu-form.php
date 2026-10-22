@@ -397,7 +397,7 @@ class IQU_Form
                         📩 Message us on the
                         <a href="<?php echo esc_url(IQU_MESSENGER_URL); ?>" target="_blank" rel="noopener noreferrer"
                             class="iqu-zakat-link">
-                            Ilm-ul-Quran USA Facebook page
+                            Ilm-Ul-Quran USA Facebook page
                         </a>
                         and briefly share your situation. Our team will review your request and, if approved,
                         provide a <strong>coupon code</strong> for the enrollment form.
@@ -717,7 +717,7 @@ class IQU_Form
                     <!-- Referral -->
                     <div class="iqu-question">
                         <label for="referral">
-                            How did you hear about Ilm-ul-Quran USA?
+                            How did you hear about Ilm-Ul-Quran USA?
                             <span class="req">*</span>
                         </label>
 
@@ -737,7 +737,7 @@ class IQU_Form
                 <!-- ── Existing student? (only with the Stripe payment step) ── -->
                 <fieldset class="iqu-question iqu-existing-question">
                     <input type="hidden" name="iqu_existing_q" value="1">
-                    <legend>Are you already an Ilm-ul-Quran student? <span class="req">*</span></legend>
+                    <legend>Are you already an Ilm-Ul-Quran student? <span class="req">*</span></legend>
                     <div class="iqu-existing-options">
                         <label class="iqu-radio-card"><input type="radio" name="is_existing_student" value="yes" required> Yes</label>
                         <label class="iqu-radio-card"><input type="radio" name="is_existing_student" value="no" required> No</label>
@@ -813,7 +813,7 @@ class IQU_Form
                         <p class="iqu-help">
                             Optional. If you cannot afford the tuition, message us on
                             <a href="<?php echo esc_url(IQU_MESSENGER_URL); ?>" target="_blank"
-                                rel="noopener noreferrer">Ilm-ul-Quran USA</a>
+                                rel="noopener noreferrer">Ilm-Ul-Quran USA</a>
                             to request one.
                         </p>
 

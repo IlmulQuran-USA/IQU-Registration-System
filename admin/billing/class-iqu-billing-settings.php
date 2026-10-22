@@ -77,7 +77,7 @@ class IQU_Billing_Settings
         } elseif (!in_array($sender, ['stripe', 'iqu'], true)) {
             $notice = ['type' => 'error', 'text' => 'Choose who sends payment receipts. Nothing was saved.'];
         } elseif ($sender === 'iqu' && empty($_POST['receipt_confirm'])) {
-            $notice = ['type' => 'error', 'text' => 'Not saved. Before Ilm-ul-Quran USA sends the receipts, turn off "Successful payments" in Stripe → Settings → Customer emails, then tick the box to confirm. Otherwise families would get two receipts.'];
+            $notice = ['type' => 'error', 'text' => 'Not saved. Before Ilm-Ul-Quran USA sends the receipts, turn off "Successful payments" in Stripe → Settings → Customer emails, then tick the box to confirm. Otherwise families would get two receipts.'];
         } else {
             $parts = [];
             if ($date === '') {
@@ -91,7 +91,7 @@ class IQU_Billing_Settings
                 update_option(IQU_Billing_Receipt::OPT_SENDER, $sender, false);
                 update_option(IQU_Billing_Receipt::OPT_CHANGED, ['user' => get_current_user_id(), 'at' => time(), 'value' => $sender], false);
                 $parts[] = $sender === 'iqu'
-                    ? 'Payment receipts are now sent by Ilm-ul-Quran USA.'
+                    ? 'Payment receipts are now sent by Ilm-Ul-Quran USA.'
                     : 'Payment receipts are now sent by Stripe. Make sure "Successful payments" is on in Stripe.';
             }
             $notice = ['type' => 'success', 'text' => implode(' ', $parts)];
@@ -282,7 +282,7 @@ class IQU_Billing_Settings
             <div class="iqu-card">
                 <div class="iqu-card-head">
                     <span class="iqu-card-head-title">Messages to families</span>
-                    <span class="iqu-chip iqu-chip--<?php echo $receipts === 'iqu' ? 'green' : 'neutral'; ?>">Receipts: <?php echo $receipts === 'iqu' ? 'Ilm-ul-Quran USA' : 'Stripe'; ?></span>
+                    <span class="iqu-chip iqu-chip--<?php echo $receipts === 'iqu' ? 'green' : 'neutral'; ?>">Receipts: <?php echo $receipts === 'iqu' ? 'Ilm-Ul-Quran USA' : 'Stripe'; ?></span>
                 </div>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-cpn-form">
                     <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SAVE); ?>">
@@ -301,7 +301,7 @@ class IQU_Billing_Settings
                             </label>
                             <label class="iqu-enroll-choice">
                                 <input type="radio" name="receipt_sender" value="iqu" <?php checked($receipts, 'iqu'); ?>>
-                                <strong>Ilm-ul-Quran USA</strong> — our own receipt with the student, month and next payment
+                                <strong>Ilm-Ul-Quran USA</strong> — our own receipt with the student, month and next payment
                             </label>
                             <div class="iqu-receipt-note iqu-receipt-note--iqu" data-receipt-for="iqu">
                                 <label class="iqu-receipt-confirm">

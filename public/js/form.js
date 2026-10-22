@@ -464,7 +464,7 @@
           showFieldError(
             $form,
             "is_existing_student",
-            "Please tell us whether your child is already an Ilm-ul-Quran student.",
+            "Please tell us whether your child is already an Ilm-Ul-Quran student.",
           );
           scrollToFirstError($form);
           return;
@@ -1689,7 +1689,7 @@
           showFieldError(
             $form,
             "student_status",
-            "Please tell us whether your child already studies with Ilm-ul-Quran USA.",
+            "Please tell us whether your child already studies with Ilm-Ul-Quran USA.",
           );
           scrollToFirstError($form);
           return;

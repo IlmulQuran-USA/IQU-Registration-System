@@ -110,7 +110,7 @@ Code pins Stripe-Version 2025-09-30.clover for its own API calls.
 
 - Sibling discount: NO. Siblings pay the full fee each, but are charged together in one monthly payment.
 - Zelle end date: the team sets it later in Billing > Settings.
-- Stripe public business name Ilm-ul-Quran USA, legal name stays AL HASANAH FOUNDATION.
+- Stripe public business name Ilm-Ul-Quran USA, legal name stays AL HASANAH FOUNDATION.
 
 ## Waiting on others
 

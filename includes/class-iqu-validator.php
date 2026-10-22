@@ -364,7 +364,7 @@ class IQU_Validator
         $status = strtolower(sanitize_text_field($post['student_status'] ?? ''));
         if (!in_array($status, self::ALLOWED_WEEKEND_STATUS, true)) {
             $this->errors['student_status'] =
-                'Please tell us whether your child already studies with Ilm-ul-Quran USA.';
+                'Please tell us whether your child already studies with Ilm-Ul-Quran USA.';
             $status = '';
         }
         $is_new = ($status === 'new');
@@ -389,7 +389,7 @@ class IQU_Validator
         // ── রেফারেল ──
         $ref = strtolower(sanitize_text_field($post['referral'] ?? ''));
         if (!in_array($ref, self::ALLOWED_REFERRALS, true)) {
-            $this->errors['referral'] = 'Please select how you heard about Ilm-ul-Quran USA.';
+            $this->errors['referral'] = 'Please select how you heard about Ilm-Ul-Quran USA.';
         }
         $this->clean['referral']       = $ref;
         $this->clean['referral_other'] = '';

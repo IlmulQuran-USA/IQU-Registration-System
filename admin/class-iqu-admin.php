@@ -285,8 +285,8 @@ class IQU_Admin
       30
     );
     add_submenu_page('iqu-registrations', 'Dashboard', 'Dashboard', 'manage_options', 'iqu-registrations', [$this, 'render_dashboard']);
-    add_submenu_page('iqu-registrations', 'Ilm-ul-Quran USA — Enroll for Free Registration', 'Enroll for Free', 'manage_options', 'iqu-list-free', function () {
-      $this->render_list_page(IQU_Database::FORM_FREE, 'Ilm-ul-Quran USA — Enroll for Free Registration');
+    add_submenu_page('iqu-registrations', 'Ilm-Ul-Quran USA — Enroll for Free Registration', 'Enroll for Free', 'manage_options', 'iqu-list-free', function () {
+      $this->render_list_page(IQU_Database::FORM_FREE, 'Ilm-Ul-Quran USA — Enroll for Free Registration');
     });
     add_submenu_page('iqu-registrations', 'Summer Program — Level 1', 'Summer Program L1', 'manage_options', 'iqu-list-summer-l1', function () {
       $this->render_list_page(IQU_Database::FORM_SUMMER_LEVEL1, 'Summer Program — Level 1 (Ages 5–10)');
@@ -966,7 +966,7 @@ class IQU_Admin
   ?>
 <div class="wrap iqu-admin-wrap">
 
-    <?php $this->render_top_bar('IQU Registrations', 'Ilm-ul-Quran USA — Admin Panel', 'iqu-registrations'); ?>
+    <?php $this->render_top_bar('IQU Registrations', 'Ilm-Ul-Quran USA — Admin Panel', 'iqu-registrations'); ?>
 
     <!-- ── Metric Cards ─────────────────────────────── -->
     <div class="iqu-metrics">
@@ -1320,7 +1320,7 @@ class IQU_Admin
   ?>
 <div class="wrap iqu-admin-wrap">
 
-    <?php $this->render_top_bar($title, 'Ilm-ul-Quran USA — Admin Panel', $active_tab); ?>
+    <?php $this->render_top_bar($title, 'Ilm-Ul-Quran USA — Admin Panel', $active_tab); ?>
 
     <!-- ── Filter Bar ────────────────────────────────── -->
     <form method="GET" class="iqu-filter-bar" role="search" data-iqu-live="iqu-list">

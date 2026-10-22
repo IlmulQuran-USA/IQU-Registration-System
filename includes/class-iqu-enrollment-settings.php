@@ -92,7 +92,7 @@ class IQU_Enrollment_Settings
      */
     public static function travel_contact(): array
     {
-        $text = "Assalamu alaikum. I live in the US or Canada and I am travelling right now. I would like to enroll at Ilm-ul-Quran USA.";
+        $text = "Assalamu alaikum. I live in the US or Canada and I am travelling right now. I would like to enroll at Ilm-Ul-Quran USA.";
         $wa = defined('IQU_CONTACT_WHATSAPP') ? trim((string) IQU_CONTACT_WHATSAPP) : '';
         if ($wa !== '') {
             if (preg_match('#^https://(wa\.me|api\.whatsapp\.com)/#i', $wa)) {

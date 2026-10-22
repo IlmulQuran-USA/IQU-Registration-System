@@ -284,7 +284,7 @@ define('IQU_CONTACT_EMAIL', 'info@ilmulquranus.org');
 
 ### খ. `includes/class-iqu-mailer.php`, লাইন ৬৪–৬৭ (`get_headers()`)
 
-অস্তিত্বহীন প্রেরক বাদ। FluentSMTP নিজেই প্রেরক বসাবে (নাম "Ilm-ul-Quran USA", ঠিকানা ilmulquranusa@gmail.com), আর পরিবারের উত্তর Gmail-এ যাবে। ভবিষ্যতে FluentSMTP-এর সংযোগ বদলালেও কোড বদলাতে হবে না।
+অস্তিত্বহীন প্রেরক বাদ। FluentSMTP নিজেই প্রেরক বসাবে (নাম "Ilm-Ul-Quran USA", ঠিকানা ilmulquranusa@gmail.com), আর পরিবারের উত্তর Gmail-এ যাবে। ভবিষ্যতে FluentSMTP-এর সংযোগ বদলালেও কোড বদলাতে হবে না।
 
 **পুরোনো কোড:**
 
@@ -310,5 +310,5 @@ define('IQU_CONTACT_EMAIL', 'info@ilmulquranus.org');
 ### ঘ. তোমার কাজ — কোডের বাইরে
 
 1. **Yahoo Business Mail-এ ফরোয়ার্ডিং:** info@ilmulquranus.org → ilmulquranusa@gmail.com। পলিসি, বিলিং পেজ, Stripe-এর রসিদ আর রেজিস্ট্রেশন ইমেইলে পরিবার এই ঠিকানাই দেখে; ফরোয়ার্ডিং না থাকলে তাদের ইমেইল অনুত্তরিত থাকবে।
-2. **FluentSMTP → সংযোগ Edit → Sender Name:** "Ilm-Ul-Quran USA" → "Ilm-ul-Quran USA" (বাকি সব জায়গার সাথে মিলিয়ে)।
+2. **FluentSMTP → সংযোগ Edit → Sender Name:** "Ilm-Ul-Quran USA" — প্রতিষ্ঠানের আসল নাম, বড় হাতের U (৩.৪.১০ থেকে প্লাগইনের সব জায়গায় এই বানান)।
 3. **পরে ভাবার মতো:** প্রতিষ্ঠানের ইমেইল Gmail থেকে না পাঠিয়ে info@ilmulquranus.org (Yahoo SMTP) থেকে পাঠালে প্রেরক ওয়েবসাইটের সাথে মিলবে — আস্থা বাড়ে, স্প্যামের সম্ভাবনা কমে। DNS-এ Yahoo-র SPF আগে থেকেই আছে।
