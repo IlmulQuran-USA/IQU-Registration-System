@@ -562,6 +562,7 @@ class IQU_Billing_Service
             'cancel_url'             => $link,
             'metadata'               => ['iqu_account_id' => (string) $acc['id'], 'iqu_mode' => (string) $acc['mode']],
             'managed_payments'       => ['enabled' => false], // tuition is never sold through Managed Payments
+            'adaptive_pricing'       => ['enabled' => false], // always USD: amount_check, history and reports read USD cents
         ];
         if ($first_ts) {
             $params['custom_text'] = ['submit' => ['message' => 'Nothing is charged today. Your first payment is on ' . wp_date('j F Y', $first_ts) . ', then on the same date every month.']];

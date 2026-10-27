@@ -151,6 +151,7 @@ class IQU_Summer_Pay
             'success_url'          => self::link_for($id, 'done'),
             'cancel_url'           => self::link_for($id, 'cancelled'),
             'managed_payments'     => ['enabled' => false],
+            'adaptive_pricing'     => ['enabled' => false],
         ], 'iqu-summer-' . $mode . '-' . $id . '-' . $attempt);
 
         if (!$res['ok'] || empty($res['data']['url']) || empty($res['data']['id'])) return $fail((string) $res['error'], (string) ($res['code'] ?? ''));
