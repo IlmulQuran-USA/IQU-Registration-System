@@ -30,6 +30,7 @@ add_action('plugins_loaded', function () {
     require_once $inc . 'class-iqu-billing-service.php';
     require_once $inc . 'class-iqu-billing-sync.php';
     require_once $inc . 'class-iqu-billing-history.php';
+    require_once $inc . 'class-iqu-billing-payout-data.php'; // payouts: shared by the Payouts tab and the webhook
     require_once $inc . 'class-iqu-billing-email.php';
     require_once $inc . 'class-iqu-billing-notify.php';
     require_once $inc . 'class-iqu-billing-receipt.php';
@@ -57,11 +58,13 @@ add_action('plugins_loaded', function () {
         require_once $adm . 'class-iqu-billing-page.php';
         require_once $adm . 'class-iqu-billing-payments.php';
         require_once $adm . 'class-iqu-billing-reports.php';
+        require_once $adm . 'class-iqu-billing-payouts.php';
         IQU_Billing_Page::init();
         IQU_Billing_Settings::init();
         IQU_Billing_Add_Student::init();
         IQU_Billing_Import::init();
         IQU_Billing_Send::init();
         IQU_Billing_Reports::init();
+        IQU_Billing_Payouts::init();
     }
 }, 20);

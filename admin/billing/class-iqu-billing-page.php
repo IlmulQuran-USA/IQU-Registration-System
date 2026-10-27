@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) exit;
  * Class IQU_Billing_Page
  *
  * IQU Registrations → Billing. One menu item with tabs:
- *   Student Billing (default) · Payments · Add Student · Import · Settings
+ *   Student Billing (default) · Payments · Payouts · Reports · Add Student · Import · Settings
  *
  * Student Billing tab: every enrollment in a monthly program, its fee, its billing
  * status and the actions. Several families can be sent links at once.
@@ -67,7 +67,7 @@ class IQU_Billing_Page
     /** Only "Billing" shows in the menu; the rest are tabs inside it. */
     public static function hide_tab_pages(): void
     {
-        foreach ([self::PAYMENTS_SLUG, self::BULK_SLUG, 'iqu-billing-add-student', 'iqu-billing-import', 'iqu-billing-settings', 'iqu-billing-reports'] as $slug) {
+        foreach ([self::PAYMENTS_SLUG, self::BULK_SLUG, 'iqu-billing-add-student', 'iqu-billing-import', 'iqu-billing-settings', 'iqu-billing-reports', 'iqu-billing-payouts'] as $slug) {
             remove_submenu_page('iqu-registrations', $slug);
         }
     }
@@ -81,6 +81,7 @@ class IQU_Billing_Page
         'dashboard' => [IQU_Admin::DASHBOARD_LABEL, IQU_Admin::DASHBOARD_SLUG],
         'students'  => ['Student Billing', self::SLUG],
         'payments'  => ['Payments', self::PAYMENTS_SLUG],
+        'payouts'   => ['Payouts', 'iqu-billing-payouts'],
         'reports'   => ['Reports', 'iqu-billing-reports'],
         'add'       => ['Add Student', 'iqu-billing-add-student'],
         'import'    => ['Import', 'iqu-billing-import'],

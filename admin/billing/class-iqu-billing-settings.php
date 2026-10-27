@@ -223,6 +223,7 @@ class IQU_Billing_Settings
                                     A restricted key is required before going live.
                                 <?php endif; ?>
                             </p>
+                            <p class="iqu-fld-hint">The Payouts tab needs the restricted key to have READ access to "Payouts" and "Balance" (Balance transactions), and to "Disputes" if a payout includes a dispute.</p>
                         <?php else: ?>
                             <div class="iqu-fld-value"><em>Not set.</em></div>
                         <?php endif; ?>

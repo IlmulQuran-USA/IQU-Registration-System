@@ -536,6 +536,54 @@ class IQU_Billing_DB
             ['account_id' => $account_id, 'registration_id' => $registration_id, 'mode' => IQU_Stripe::expected_mode()], ['%f'], ['%d', '%d', '%s']);
     }
 
+    /** Accounts (current mode) for many Stripe customer ids, in one query: [cus_… => account row]. */
+    public static function accounts_by_customers(array $cus_ids): array
+    {
+        global $wpdb;
+        $ids = array_values(array_unique(array_filter(array_map('strval', $cus_ids), fn($c) => (bool) preg_match('/^cus_[A-Za-z0-9]+$/', $c))));
+        if (!$ids) return [];
+        $in   = implode(',', array_fill(0, count($ids), '%s'));
+        $rows = $wpdb->get_results($wpdb->prepare(
+            'SELECT * FROM ' . self::accounts_table() . " WHERE mode = %s AND stripe_customer_id IN ({$in})",
+            array_merge([IQU_Stripe::expected_mode()], $ids)
+        ), ARRAY_A) ?: [];
+        $out = [];
+        foreach ($rows as $r) $out[(string) $r['stripe_customer_id']] = $r;
+        return $out;
+    }
+
+    /** Students' full names for many accounts (current mode), in one query: [account id => "Aisha Rahman, Bilal Rahman"]. */
+    public static function student_names_for_accounts(array $account_ids): array
+    {
+        global $wpdb;
+        $ids = array_values(array_unique(array_filter(array_map('intval', $account_ids))));
+        if (!$ids) return [];
+        $in   = implode(',', array_fill(0, count($ids), '%d'));
+        $regs = $wpdb->prefix . IQU_TABLE_NAME;
+        $rows = $wpdb->get_results($wpdb->prepare(
+            'SELECT m.account_id, r.first_name, r.last_name FROM ' . self::members_table() . " m JOIN `{$regs}` r ON r.id = m.registration_id"
+            . " WHERE m.mode = %s AND m.account_id IN ({$in}) ORDER BY m.id",
+            array_merge([IQU_Stripe::expected_mode()], $ids)
+        ), ARRAY_A) ?: [];
+        $out = [];
+        foreach ($rows as $r) $out[(int) $r['account_id']][] = trim($r['first_name'] . ' ' . $r['last_name']);
+        return array_map(fn($names) => implode(', ', $names), $out);
+    }
+
+    /** Full names of registrations by id, in one query: [registration id => "Aisha Rahman"] (Summer payments). */
+    public static function registration_names(array $registration_ids): array
+    {
+        global $wpdb;
+        $ids = array_values(array_unique(array_filter(array_map('intval', $registration_ids))));
+        if (!$ids) return [];
+        $in   = implode(',', array_fill(0, count($ids), '%d'));
+        $regs = $wpdb->prefix . IQU_TABLE_NAME;
+        $rows = $wpdb->get_results($wpdb->prepare("SELECT id, first_name, last_name FROM `{$regs}` WHERE id IN ({$in})", $ids), ARRAY_A) ?: [];
+        $out  = [];
+        foreach ($rows as $r) $out[(int) $r['id']] = trim($r['first_name'] . ' ' . $r['last_name']);
+        return $out;
+    }
+
     public static function get_members(int $account_id): array
     {
         global $wpdb;
