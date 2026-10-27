@@ -475,7 +475,7 @@ class IQU_Billing_Page
             <td>
                 <?php
                 if ($acc) {
-                    echo $pill(IQU_Billing_Send::status_label($acc['status']), self::status_tone($acc['status']));
+                    echo $pill(IQU_Billing_Send::status_label($acc['status'], (string) ($acc['review_reason'] ?? '')), self::status_tone($acc['status']));
                     if (!empty($acc['link_outdated']) && empty($acc['stripe_subscription_id'])) echo ' <span class="iqu-chip iqu-chip--gold" data-link-outdated>Link outdated — resend</span>';
                     $bits = [];
                     if ($acc['first_charge_date']) $bits[] = 'first charge ' . wp_date('j M', strtotime($acc['first_charge_date'] . ' 12:00:00 UTC'));

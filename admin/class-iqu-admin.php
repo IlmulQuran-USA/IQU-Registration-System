@@ -206,7 +206,7 @@ class IQU_Admin
     $msg = sanitize_key($_GET['iqu_msg'] ?? '');
     if ($msg === 'review_done') echo '<div class="iqu-detail-item iqu-detail-full"><div class="iqu-detail-val"><p class="iqu-free-month-note" role="status">Marked as reviewed. The billing status now follows Stripe again.</p></div></div>';
     if (!$acc) return;
-    $review_labels = ['amount_mismatch' => 'Review: amount mismatch', 'duplicate_subscription' => 'Review: two subscriptions'];
+    $review_labels = ['amount_mismatch' => 'Review: amount mismatch', 'duplicate_subscription' => 'Review: two subscriptions', 'currency' => 'Review: not in USD'];
     if (isset($review_labels[(string) $acc['review_reason']])): ?>
                 <div class="iqu-detail-item iqu-detail-full iqu-billing-review" data-billing-review role="alert">
                     <div class="iqu-detail-lbl">Billing review</div>

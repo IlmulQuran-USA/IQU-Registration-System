@@ -161,9 +161,9 @@ class IQU_Billing_Notify
     }
 
     /** An old Checkout page set up a subscription at a different amount (IQU_Billing_Service::flag_amount_mismatch). */
-    public static function amount_mismatch(array $acc, string $note): void
+    public static function amount_mismatch(array $acc, string $note, string $label = 'Review: amount mismatch'): void
     {
-        self::send("\u{26A0}\u{FE0F} Review: amount mismatch", [self::e($note)], $acc, [], [
+        self::send("\u{26A0}\u{FE0F} " . $label, [self::e($note)], $acc, [], [
             'The family is <b>not</b> marked active and nothing was cancelled. Please check the subscription in Stripe, then press "Mark as reviewed" on the student page.',
         ]);
     }

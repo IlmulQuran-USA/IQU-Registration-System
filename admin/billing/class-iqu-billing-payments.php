@@ -281,7 +281,7 @@ class IQU_Billing_Payments_Screen
                                 <td class="is-num" data-sort="<?php echo esc_attr(number_format($amt, 2, '.', '')); ?>"><?php echo esc_html(IQU_Pricing::format($amt)); ?></td>
                                 <td data-sort="<?php echo esc_attr($fail['period_month'] ?? ''); ?>"><?php echo esc_html($fail ? IQU_Billing_History::month_label((string) $fail['period_month']) : '—'); ?></td>
                                 <td class="is-num"><?php echo (int) ($fail['attempt_count'] ?? 0); ?></td>
-                                <td class="iqu-billing-wrap"><span class="iqu-chip iqu-chip--red"><?php echo esc_html(IQU_Billing_Send::status_label($a['status'])); ?></span><br><span class="iqu-billing-sub"><?php echo esc_html(($fail['failure_reason'] ?? '') ?: ($a['last_failure_reason'] ?: '—')); ?></span></td>
+                                <td class="iqu-billing-wrap"><span class="iqu-chip iqu-chip--red"><?php echo esc_html(IQU_Billing_Send::status_label($a['status'], (string) ($a['review_reason'] ?? ''))); ?></span><br><span class="iqu-billing-sub"><?php echo esc_html(($fail['failure_reason'] ?? '') ?: ($a['last_failure_reason'] ?: '—')); ?></span></td>
                                 <td class="iqu-td-date" data-sort="<?php echo esc_attr($last); ?>"><?php echo esc_html(self::day($last)); ?></td>
                                 <td class="iqu-td-actions"><a class="iqu-action-btn iqu-action-btn--view" href="<?php echo esc_url(IQU_Billing_Page::family_url((int) $a['id'])); ?>">Open family</a></td>
                             </tr>

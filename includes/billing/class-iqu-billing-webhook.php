@@ -157,6 +157,7 @@ class IQU_Billing_Webhook
                     $check = IQU_Billing_Service::amount_check($acc, $sync['subscription'], $obj);
                     if (!$check['match']) {
                         IQU_Billing_Service::flag_amount_mismatch($acc, $check, (string) ($obj['id'] ?? ''));
+                        if (($check['currency'] ?? 'usd') !== 'usd') return ['not_usd', $id, 'currency ' . $check['currency'] . ' charged ' . $check['charged']];
                         return ['amount_mismatch', $id, 'charged ' . $check['charged'] . ' expected ' . $check['expected']];
                     }
                 }
@@ -177,6 +178,7 @@ class IQU_Billing_Webhook
                     $check = IQU_Billing_Service::amount_check($acc, $sync['subscription'], []);
                     if (!$check['match']) {
                         IQU_Billing_Service::flag_amount_mismatch($acc, $check, '');
+                        if (($check['currency'] ?? 'usd') !== 'usd') return ['not_usd', $id, 'currency ' . $check['currency'] . ' charged ' . $check['charged']];
                         return ['amount_mismatch', $id, 'charged ' . $check['charged'] . ' expected ' . $check['expected']];
                     }
                 }
