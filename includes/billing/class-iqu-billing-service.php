@@ -423,10 +423,22 @@ class IQU_Billing_Service
     /**
      * checkout.session.completed: the monthly amount the new subscription charges (its items;
      * else the amount kept with the session) compared with billable_cents().
-     * @return array{match:bool, charged:?int, expected:int}
+     * 3.4.11: a subscription that is not in USD (Adaptive Pricing turned back on) is never compared —
+     * match false with its currency, so flag_amount_mismatch() sends it to "Review: not in USD".
+     * No currency at all (older objects) counts as USD, as before.
+     * @return array{match:bool, charged:?int, expected:int, currency:string}
      */
     public static function amount_check(array $acc, ?array $sub, array $session): array
     {
+        $currency = strtolower((string) ($sub['currency'] ?? ''));
+        if ($currency === '') {
+            foreach ((array) ($sub['items']['data'] ?? []) as $it) {
+                $currency = strtolower((string) ($it['price']['currency'] ?? ''));
+                if ($currency !== '') break;
+            }
+        }
+        if ($currency === '') $currency = 'usd';
+
         $charged = null;
         foreach ((array) ($sub['items']['data'] ?? []) as $it) {
             // An item without a price is "unknown", never $0 (then the amount kept with the session is used).
@@ -438,16 +450,29 @@ class IQU_Billing_Service
             $charged = IQU_Billing_Pricing::to_cents((float) $acc['checkout_amount']);
         }
         $expected = self::stored_cents($acc);
-        return ['match' => $charged === null || $charged === $expected, 'charged' => $charged, 'expected' => $expected];
+        if ($currency !== 'usd') return ['match' => false, 'charged' => $charged, 'expected' => $expected, 'currency' => $currency];
+        return ['match' => $charged === null || $charged === $expected, 'charged' => $charged, 'expected' => $expected, 'currency' => 'usd'];
     }
 
     /**
      * An old Checkout page set up a subscription at a different amount: the family is not marked
      * active. The account goes to "Review: amount mismatch" with both amounts, and the admins get
      * the usual Telegram alert. The subscription is not cancelled.
+     * Not in USD (3.4.11): "Review: not in USD" instead, with Stripe's currency and amount, through the same path.
      */
     public static function flag_amount_mismatch(array $acc, array $check, string $session_id): void
     {
+        $currency = strtolower((string) ($check['currency'] ?? 'usd'));
+        if ($currency !== 'usd') {
+            $code = strtoupper(substr(preg_replace('/[^a-z]/', '', $currency), 0, 3));
+            $note = sprintf('Stripe Checkout set up %s a month, not in USD; the billing record is %s a month%s.',
+                $check['charged'] !== null ? $code . ' ' . number_format(((int) $check['charged']) / 100, 2, '.', ',') : 'an amount in ' . $code,
+                IQU_Pricing::format($check['expected'] / 100),
+                $session_id !== '' ? ' (Checkout ' . $session_id . ')' : '');
+            IQU_Billing_DB::update_account((int) $acc['id'], ['status' => 'review', 'review_reason' => 'currency', 'review_note' => substr($note, 0, 255)]);
+            if (class_exists('IQU_Billing_Notify')) IQU_Billing_Notify::amount_mismatch(IQU_Billing_DB::get_account((int) $acc['id']) ?: $acc, $note, 'Review: not in USD');
+            return;
+        }
         $note = sprintf('Stripe Checkout set up %s a month; the billing record is %s a month%s.',
             IQU_Pricing::format(((int) $check['charged']) / 100), IQU_Pricing::format($check['expected'] / 100),
             $session_id !== '' ? ' (Checkout ' . $session_id . ')' : '');

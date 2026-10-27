@@ -54,8 +54,10 @@ class IQU_Billing_Send
         remove_submenu_page('iqu-registrations', self::MSG_SLUG);
     }
 
-    public static function status_label(string $status): string
+    public static function status_label(string $status, string $review_reason = ''): string
     {
+        // 3.4.11: a subscription that is not in USD waits for an admin under its own label.
+        if ($status === 'review' && $review_reason === 'currency') return 'Review: not in USD';
         $labels = [
             'not_sent'             => 'Billing created, link not sent',
             'link_sent'            => 'Link sent, no card yet',
@@ -427,7 +429,7 @@ class IQU_Billing_Send
                     </span>
                 </span>
                 <span class="iqu-family-head-right">
-                    <span class="iqu-chip iqu-chip--<?php echo esc_attr(IQU_Billing_Page::status_tone((string) $acc['status'])); ?>"><?php echo esc_html(self::status_label((string) $acc['status'])); ?></span>
+                    <span class="iqu-chip iqu-chip--<?php echo esc_attr(IQU_Billing_Page::status_tone((string) $acc['status'])); ?>"><?php echo esc_html(self::status_label((string) $acc['status'], (string) ($acc['review_reason'] ?? ''))); ?></span>
                     <?php if ($stripe): ?><a class="iqu-action-btn" href="<?php echo esc_url($stripe); ?>" target="_blank" rel="noopener noreferrer">View in Stripe</a><?php endif; ?>
                 </span>
             </div>

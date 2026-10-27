@@ -134,6 +134,12 @@ class IQU_Billing_History
 
         $stripe_status = (string) ($invoice['status'] ?? '');
         if (!in_array($stripe_status, ['paid', 'open', 'void', 'uncollectible'], true)) return null; // drafts are not history
+        // 3.4.11: Checkout is always in USD. An invoice in another currency is still stored as Stripe has it (the
+        // account goes to "Review: not in USD"); the log says so, with the invoice id and currency only.
+        $currency = strtolower((string) ($invoice['currency'] ?? ''));
+        if ($currency !== '' && $currency !== 'usd') {
+            error_log('IQU Billing history: invoice ' . $id . ' is in ' . strtoupper(substr(preg_replace('/[^a-z]/', '', $currency), 0, 3)) . ', not USD; stored as Stripe has it.');
+        }
 
         $due      = round(((int) ($invoice['amount_due'] ?? 0)) / 100, 2);
         $paid     = round(((int) ($invoice['amount_paid'] ?? 0)) / 100, 2);

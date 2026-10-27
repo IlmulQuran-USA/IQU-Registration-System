@@ -103,7 +103,7 @@ class IQU_Billing_Reports
                     'days'        => (int) $p['days_per_week'],
                     'monthly'     => (float) $m['amount'],
                     'discount'    => $disc,
-                    'status'      => IQU_Billing_Send::status_label((string) $a['status']),
+                    'status'      => IQU_Billing_Send::status_label((string) $a['status'], (string) ($a['review_reason'] ?? '')),
                     '_tones'      => ['status' => IQU_Billing_Page::status_tone((string) $a['status'])],
                     'first'       => (string) ($a['first_charge_date'] ?? ''),
                     'next'        => (string) ($a['next_charge_at'] ?? ''),
@@ -189,7 +189,7 @@ class IQU_Billing_Reports
                 'paid'       => round($f['paid'], 2),
                 'difference' => round($f['paid'] - $f['expected'], 2),
                 'status'     => implode(', ', array_unique($f['statuses'])),
-                'billing'    => $a ? IQU_Billing_Send::status_label((string) $a['status']) : '',
+                'billing'    => $a ? IQU_Billing_Send::status_label((string) $a['status'], (string) ($a['review_reason'] ?? '')) : '',
                 '_tones'     => ['status' => self::worst_tone($f['tones']), 'billing' => $a ? IQU_Billing_Page::status_tone((string) $a['status']) : 'neutral'],
             ];
         }
