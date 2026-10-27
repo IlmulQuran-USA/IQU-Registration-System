@@ -106,6 +106,17 @@ Code pins Stripe-Version 2025-09-30.clover for its own API calls.
 - The restricted key needs one more permission: **SetupIntents: Read** (microdeposit check). Without it
   the sync still works; a bank account waiting for microdeposits then shows as set up too early.
 
+### Always USD (3.4.11)
+
+- Both Checkout pages (monthly tuition, Summer program) send `adaptive_pricing[enabled]=false` next to
+  `managed_payments[enabled]=false`: Adaptive Pricing would show and, for subscriptions, charge in the
+  family's local currency, while amount_check, payment history and reports read USD cents.
+  The parameter exists since API 2024-11-20.acacia (valid under 2025-09-30.clover).
+- Safety net if it is ever turned back on: a subscription not in USD is not compared as an amount; the
+  account goes to review (review_reason `currency`, label "Review: not in USD", note with Stripe's currency
+  and amount, Telegram alert as for an amount mismatch); "Mark as reviewed" clears it as before. An invoice
+  not in USD is still stored and logged (invoice id and currency only).
+
 ## Decisions
 
 - Sibling discount: NO. Siblings pay the full fee each, but are charged together in one monthly payment.
