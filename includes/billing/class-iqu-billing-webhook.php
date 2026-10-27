@@ -18,11 +18,16 @@ if (!defined('ABSPATH')) exit;
  *   amounts and dates are then read straight from the Stripe API.
  * - The Stripe object must belong to the account's own Stripe customer.
  * - Responses never echo internal errors.
+ * - Payout events (3.5.0) concern the whole account, not a family: the payout is read back from Stripe
+ *   (the signed event body only if that read fails), and each alert goes out once per payout.
  */
 class IQU_Billing_Webhook
 {
     private const TOLERANCE = 300;
     private const MAX_BYTES = 512000;
+    /** Payout alerts: Stripe waits for the answer, so a payout's summary gets this long in all, and each request this long. */
+    private const PAYOUT_BUDGET  = 10.0;
+    private const PAYOUT_TIMEOUT = 5;
     public const EVENTS = [
         'checkout.session.completed',
         'customer.subscription.created',
@@ -41,6 +46,10 @@ class IQU_Billing_Webhook
         'setup_intent.setup_failed',
         'payment_intent.processing',
         'charge.dispute.created',
+        // Payouts to the bank, 3.5.0: "sent to bank" and "failed" alerts; reconciliation_completed only prepares the summary
+        'payout.paid',
+        'payout.failed',
+        'payout.reconciliation_completed',
     ];
 
     public static function init(): void
@@ -122,6 +131,11 @@ class IQU_Billing_Webhook
         // Summer one-time payment (no billing account): handled on its own, read back from Stripe.
         if ($event['type'] === 'checkout.session.completed' && ($obj['metadata']['iqu_kind'] ?? '') === 'summer' && class_exists('IQU_Summer_Pay')) {
             return IQU_Summer_Pay::on_session_completed((string) ($obj['id'] ?? ''));
+        }
+
+        // Payouts (no billing account): about the whole Stripe account.
+        if (strpos((string) $event['type'], 'payout.') === 0) {
+            return self::payout_event((string) $event['type'], $obj);
         }
 
         $acc = self::account_for($obj);
@@ -280,6 +294,53 @@ class IQU_Billing_Webhook
         }
 
         return ['ok', $id, substr($sync['old'] . ' -> ' . $sync['new'], 0, 255)];
+    }
+
+    /**
+     * Payout events. Each sends at most one message per payout, whatever Stripe sends again:
+     * - payout.reconciliation_completed: builds and caches the payout's summary only; never a message.
+     * - payout.paid: the only "sent to bank" alert. Full when the summary is cached or can be built in time
+     *   (PAYOUT_BUDGET), else amount, date and bank only; the reason goes to the error log (ids and codes only).
+     * - payout.failed: the failure alert; says so when a "sent to bank" alert went out for it before.
+     * @return array{0:string,1:?int,2:string}
+     */
+    private static function payout_event(string $type, array $obj): array
+    {
+        $id = (string) ($obj['id'] ?? '');
+        if (!preg_match('/^po_[A-Za-z0-9]+$/', $id) || !class_exists('IQU_Billing_Payout_Data')) return ['ignored', null, 'not a payout'];
+        $marker = 'iqu_payout_%s_' . IQU_Stripe::expected_mode() . '_' . $id; // %s: paid | failed
+
+        if ($type === 'payout.reconciliation_completed') {
+            $s = IQU_Billing_Payout_Data::summary($id, self::PAYOUT_BUDGET, self::PAYOUT_TIMEOUT);
+            if (!$s['ok']) error_log('IQU Billing: summary of payout ' . $id . ' not built (' . $s['code'] . ')');
+            return ['ok', null, $s['ok'] ? 'payout summary cached' : 'payout summary not built: ' . $s['code']];
+        }
+
+        if ($type === 'payout.paid') {
+            if (!add_option(sprintf($marker, 'paid'), time(), '', 'no')) return ['duplicate_alert', null, 'payout already reported'];
+            IQU_Billing_Payout_Data::forget($id); // its status is "paid" now; its transactions stay cached
+            $s = IQU_Billing_Payout_Data::summary($id, self::PAYOUT_BUDGET, self::PAYOUT_TIMEOUT);
+            if (!$s['ok']) error_log('IQU Billing: payout ' . $id . ' alert without its summary (' . $s['code'] . ')');
+            $payout = $s['payout'] ?: IQU_Billing_Payout_Data::payout_fields($obj);
+            IQU_Billing_Notify::payout_paid($payout, $s['ok'] ? (array) $s['summary'] : []);
+            return ['ok', null, $s['ok'] ? 'payout alert with summary' : 'payout alert, short: ' . $s['code']];
+        }
+
+        if ($type === 'payout.failed') {
+            if (!add_option(sprintf($marker, 'failed'), time(), '', 'no')) return ['duplicate_alert', null, 'payout failure already reported'];
+            $was_paid = get_option(sprintf($marker, 'paid')) !== false;
+            $cached   = IQU_Billing_Payout_Data::cached($id);
+            IQU_Billing_Payout_Data::drop($id); // it changed: read it again next time
+            $r = IQU_Stripe::get('/payouts/' . $id, ['expand' => ['destination']], self::PAYOUT_TIMEOUT);
+            if (!$r['ok'] && $r['status'] === 403) $r = IQU_Stripe::get('/payouts/' . $id, [], self::PAYOUT_TIMEOUT);
+            if (!$r['ok']) error_log('IQU Billing: payout ' . $id . ' failure alert from the event (' . $r['code'] . ')');
+            $payout = IQU_Billing_Payout_Data::payout_fields($r['ok'] ? (array) $r['data'] : $obj);
+            if ($payout['last4'] === '' && $cached) $payout['last4'] = (string) $cached['payout']['last4'];
+            IQU_Billing_Notify::payout_failed($payout, $was_paid);
+            return ['ok', null, 'payout failure alert' . ($was_paid ? ' (reported paid before)' : '')];
+        }
+
+        return ['ignored', null, $type];
     }
 
     /** Find our account from a Stripe object, and check it belongs to that account's customer. */

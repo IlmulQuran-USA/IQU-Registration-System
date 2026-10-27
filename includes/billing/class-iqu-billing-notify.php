@@ -11,6 +11,9 @@ if (!defined('ABSPATH')) exit;
  * IQU number, course, days), the email and WhatsApp number, and the card
  * or bank brand with its last four digits. Stripe never gives more than the last four digits of a card or
  * account, so nothing more sensitive can ever appear here.
+ *
+ * Payout alerts (3.5.0) are about the whole account: amounts, counts and totals only, never a
+ * family's name, email, phone or WhatsApp number.
  */
 class IQU_Billing_Notify
 {
@@ -125,6 +128,25 @@ class IQU_Billing_Notify
         IQU_Telegram::send($html, false);
     }
 
+    /** An alert about the whole account (payouts): title, lines, no family and no contact details. */
+    private static function send_account(string $title, array $lines): void
+    {
+        if (!self::ready()) return;
+        $mode = IQU_Stripe::expected_mode() === 'test' ? ' <i>[TEST]</i>' : '';
+        $html = '<b>' . self::e($title) . '</b>' . $mode . "\n\n";
+        foreach ($lines as $l) $html .= $l . "\n";
+        IQU_Telegram::send(rtrim($html), false);
+    }
+
+    /** "STRIPE TEST BANK •••• 6789", "Bank •••• 6789" or "" (never more than the last four digits). */
+    private static function payout_bank(array $p): string
+    {
+        $name = trim((string) ($p['bank_name'] ?? ''));
+        $last = (string) ($p['last4'] ?? '');
+        if ($last === '') return $name;
+        return ($name !== '' ? $name : 'Bank') . ' •••• ' . $last;
+    }
+
     // ------------------------------------------------------------
     // Alerts
     // ------------------------------------------------------------
@@ -212,6 +234,48 @@ class IQU_Billing_Notify
         self::send("\u{1F534} Payment disputed or returned by the bank", $top, $acc, $row ? ['id' => (string) $row['stripe_invoice_id']] : [], [
             'The money goes back to the family. Please contact them, and respond in Stripe → Disputes if needed.',
         ]);
+    }
+
+    /**
+     * A payout reached the bank. $payout: IQU_Billing_Payout_Data::payout_fields(); $summary: that payout's summary,
+     * or [] when its transactions are not known yet (then amount and date only). Counts and totals only: no family
+     * is named and no contact detail is included.
+     */
+    public static function payout_paid(array $payout, array $summary): void
+    {
+        $lines = ['Amount: <b>' . self::e(IQU_Pricing::format(((int) $payout['amount']) / 100)) . '</b>'];
+        if (!empty($payout['arrival_date'])) $lines[] = 'Arrival: ' . self::e(wp_date('j M Y', (int) $payout['arrival_date']));
+        if (($bank = self::payout_bank($payout)) !== '') $lines[] = 'Bank: ' . self::e($bank);
+        if (!empty($summary['totals'])) {
+            $t = $summary['totals'];
+            $lines[] = '';
+            $lines[] = 'Family payments: ' . (int) $t['payments'];
+            $lines[] = 'Gross: ' . self::e(IQU_Pricing::format($t['gross'] / 100));
+            $lines[] = 'Stripe fees: ' . self::e(IQU_Pricing::format($t['fees'] / 100));
+            $lines[] = 'Refunds / disputes: ' . self::e(IQU_Pricing::format($t['refunds'] / 100));
+            if ((int) $t['payout_diff'] !== 0) $lines[] = '<b>Check:</b> the transactions add up to ' . self::e(IQU_Pricing::format($t['net'] / 100)) . ', not the payout amount.';
+        } else {
+            $lines[] = '';
+            $lines[] = 'The list of payments in this payout is not ready yet; the payout page shows it once Stripe has matched them.';
+        }
+        $lines[] = '';
+        $lines[] = '<a href="' . self::e(admin_url('admin.php?page=iqu-billing-payouts&payout=' . rawurlencode((string) $payout['id']))) . '">Open payout</a>';
+        self::send_account("\u{1F4B0} Payout sent to bank", $lines);
+    }
+
+    /** A payout failed. $was_paid: a "sent to bank" alert went out for it earlier. */
+    public static function payout_failed(array $payout, bool $was_paid = false): void
+    {
+        $lines = ['Amount: <b>' . self::e(IQU_Pricing::format(((int) $payout['amount']) / 100)) . '</b>'];
+        if ($was_paid) $lines[] = '<b>This payout was reported as sent earlier and has now failed.</b>';
+        $lines[] = 'Failure code: ' . self::e(($payout['failure_code'] ?? '') ?: '—');
+        if (!empty($payout['failure_message'])) $lines[] = 'Stripe said: ' . self::e($payout['failure_message']);
+        if (($payout['last4'] ?? '') !== '') $lines[] = 'Bank: •••• ' . self::e($payout['last4']);
+        $lines[] = 'The money stays in the Stripe balance until the bank details are fixed.';
+        $lines[] = '';
+        $dash = 'https://dashboard.stripe.com/' . (IQU_Stripe::expected_mode() === 'test' ? 'test/' : '') . 'payouts/' . rawurlencode((string) $payout['id']);
+        $lines[] = '<a href="' . self::e($dash) . '">Open in Stripe</a>';
+        self::send_account("\u{26A0}\u{FE0F} Payout failed", $lines);
     }
 
     public static function needs_contact(array $acc, string $status): void
