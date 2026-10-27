@@ -108,9 +108,10 @@ class IQU_Stripe
      * @param string      $path            e.g. '/customers'
      * @param array       $params          Nested arrays are encoded the Stripe way.
      * @param string|null $idempotency_key Use for every POST that creates something.
+     * @param int|null    $timeout         Seconds per attempt; null = the usual 30 (the webhook passes less to answer Stripe quickly).
      * @return array{ok:bool,status:int,data:array,error:string,code:string}
      */
-    public static function request(string $method, string $path, array $params = [], ?string $idempotency_key = null): array
+    public static function request(string $method, string $path, array $params = [], ?string $idempotency_key = null, ?int $timeout = null): array
     {
         $method = strtoupper($method);
         if (!in_array($method, ['GET', 'POST', 'DELETE'], true)) {
@@ -144,7 +145,7 @@ class IQU_Stripe
         $args = [
             'method'      => $method,
             'headers'     => $headers,
-            'timeout'     => self::TIMEOUT,
+            'timeout'     => ($timeout !== null && $timeout > 0) ? min($timeout, self::TIMEOUT) : self::TIMEOUT,
             'redirection' => 0,
             'sslverify'   => true,
         ];
@@ -180,9 +181,9 @@ class IQU_Stripe
         );
     }
 
-    public static function get(string $path, array $params = []): array
+    public static function get(string $path, array $params = [], ?int $timeout = null): array
     {
-        return self::request('GET', $path, $params);
+        return self::request('GET', $path, $params, null, $timeout);
     }
 
     public static function post(string $path, array $params = [], ?string $idempotency_key = null): array
