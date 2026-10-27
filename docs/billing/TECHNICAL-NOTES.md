@@ -106,6 +106,25 @@ Code pins Stripe-Version 2025-09-30.clover for its own API calls.
 - The restricted key needs one more permission: **SetupIntents: Read** (microdeposit check). Without it
   the sync still works; a bank account waiting for microdeposits then shows as set up too early.
 
+### Payouts (3.5.0)
+
+- Billing → Payouts (`admin/billing/class-iqu-billing-payouts.php`): payouts arriving in the last 3 months
+  (GET /payouts, cached 10 minutes, Refresh, Load more), cards for this month / last month / next payout,
+  and per payout every balance transaction (GET /balance_transactions?payout=…&expand[]=data.source, 100 a page)
+  with family (matched by stripe_customer_id, current mode, one query), students, type, gross, fee, net, CSV.
+- One summary for the screen, the CSV and the Telegram alert: `IQU_Billing_Payout_Data`
+  (`includes/billing/class-iqu-billing-payout-data.php`). Cache: the summary 30 days once paid, 10 minutes
+  otherwise; the matched transactions 30 days (they never change). Cache holds Stripe ids and numbers only.
+- Totals: Gross (charges + payments) − Stripe fees (every row's fee + stripe_fee rows) − Refunds/disputes
+  (+ Other) = Net, and Net = the payout amount; the page warns when either check fails.
+- Webhook: 3 more events (19 in all): payout.paid ("Payout sent to bank", once per payout; full with counts
+  and totals, or amount/date/bank only when the summary is not ready within 10 s), payout.failed (once; says
+  when it was reported as sent before), payout.reconciliation_completed (builds the summary, never a message).
+  Markers: options iqu_payout_paid_{mode}_{po_id} / iqu_payout_failed_{mode}_{po_id} (autoload off).
+- Restricted key: + **Payouts: Read**, **Balance: Read**, and **Disputes: Read** for payouts with a dispute.
+  Only automatic payouts list their transactions; a manual payout shows a notice.
+- `IQU_Stripe::get()` takes an optional timeout (default 30 s); the payout webhook uses 5 s per request.
+
 ## Decisions
 
 - Sibling discount: NO. Siblings pay the full fee each, but are charged together in one monthly payment.
@@ -120,7 +139,7 @@ Public details in Stripe (name, support email, website, statement descriptor ILM
 
 1. Apply patches/01 to iqu-registration.
 2. Move this code into the plugin (or its own plugin) and commit on `stripe-billing`.
-3. Create a RESTRICTED live key (no refunds, payouts, transfers, balance) with exactly:
+3. Create a RESTRICTED live key (no refund, payout or transfer WRITE access) with exactly:
    - Customers: Write (create the family's customer; the Settings "Test connection" reads one)
    - Checkout Sessions: Write (create the payment page, expire an old one, read its status; Summer payments)
    - Customer portal: Write (the family's "Change bank or card" page)
@@ -130,8 +149,10 @@ Public details in Stripe (name, support email, website, statement descriptor ILM
    - PaymentIntents: Read (Summer payment details)
    - PaymentMethods: Read (card / bank label, card country)
    - SetupIntents: Read (3.4.10: a US bank account waiting for microdeposits)
+   - Payouts: Read and Balance: Read (3.5.0: Billing → Payouts and the payout alerts)
+   - Disputes: Read (3.5.0: a payout that includes a dispute)
    Everything else: None. Try the same set as a TEST restricted key first (Test connection + one enrollment).
-4. Live webhook destination with the same 16 events (see "US bank accounts" above); new whsec in wp-config.
+4. Live webhook destination with the same 19 events (see "US bank accounts" and "Payouts" above); new whsec in wp-config.
 5. Set site mode to live (iqu_billing_mode option) only after the security review.
 6. Delete test data: registration IQU-159 "Test Family", billing account 1, the test Stripe customer/subscription.
 7. /my-billing is already excluded from W3 Total Cache (done in the live config).
