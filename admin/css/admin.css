@@ -2882,3 +2882,260 @@ button.iqu-perpage-btn,
   font-size: 12.5px;
   color: var(--iqu-text1);
 }
+
+/* ── Today's Birthdays (Dashboard, 3.6.0) ─────────────────────── */
+.iqu-bday-card {
+  margin-bottom: 16px;
+}
+.iqu-bday-card .iqu-card-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.iqu-bday-empty {
+  margin: 0;
+  padding: 14px 18px;
+  color: var(--iqu-text2);
+  font-size: 13px;
+}
+.iqu-bday-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.iqu-bday-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 10px 18px;
+  border-top: 1px solid var(--iqu-bdr);
+}
+.iqu-bday-row:first-child {
+  border-top: 0;
+}
+.iqu-bday-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  min-width: 0;
+}
+.iqu-bday-name {
+  font-weight: 600;
+}
+.iqu-bday-age {
+  color: color-mix(in srgb, var(--iqu-gold) 65%, var(--iqu-text1));
+  font-weight: 600;
+  font-size: 12px;
+}
+.iqu-bday-meta {
+  color: var(--iqu-text2);
+  font-size: 12px;
+}
+.iqu-wishes-btn {
+  flex: none;
+  white-space: nowrap;
+}
+.iqu-wishes-btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Student page: fund of an agreed reduction (3.6.0) ────────── */
+.iqu-fund {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 8px 0 4px;
+  font-size: 12px;
+}
+.iqu-fund label {
+  font-weight: 600;
+}
+.iqu-fund-amt,
+.iqu-fund-changed {
+  color: var(--iqu-text2);
+}
+.iqu-fund-changed {
+  flex-basis: 100%;
+}
+.iqu-fund-status {
+  color: var(--iqu-green);
+  font-weight: 600;
+}
+
+/* ── Coupons page: Zakat given / Special discounts by month (3.6.0) ── */
+.iqu-ledger {
+  margin: 4px 0 18px;
+}
+.iqu-ledger-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.iqu-ledger-bar select {
+  min-width: 0;
+}
+.iqu-ledger-presets {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.iqu-ledger-preset {
+  padding: 3px 10px;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: 12px;
+}
+.iqu-ledger-preset[aria-current="true"] {
+  background: var(--iqu-blue);
+  border-color: var(--iqu-blue);
+  color: #fff;
+}
+.iqu-ledger-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.iqu-ledger-calc {
+  font-size: 12px;
+}
+/* the same size as the filter bar's Export CSV (.iqu-filter-bar .iqu-export-btn) */
+.iqu-ledger-bar .iqu-export-btn {
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: var(--iqu-radius-md);
+}
+.iqu-ledger-warn {
+  margin: 0 0 10px;
+  color: var(--iqu-text2);
+  font-size: 12px;
+}
+.iqu-ledger-warn a {
+  color: inherit;
+}
+.iqu-ledger-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.iqu-ledger-card {
+  position: relative;
+  overflow: hidden;
+  padding: 16px 18px 14px;
+}
+.iqu-ledger-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+.iqu-ledger-card--zakat .iqu-ledger-accent,
+.iqu-ledger-card--zakat .iqu-ledger-mbar > span {
+  background: var(--iqu-green);
+}
+.iqu-ledger-card--special .iqu-ledger-accent,
+.iqu-ledger-card--special .iqu-ledger-mbar > span {
+  background: var(--iqu-gold);
+}
+.iqu-ledger-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.iqu-ledger-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--iqu-text1);
+}
+.iqu-ledger-range,
+.iqu-ledger-sub,
+.iqu-ledger-empty {
+  color: var(--iqu-text2);
+}
+.iqu-ledger-total {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.iqu-ledger-sub {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.iqu-ledger-empty {
+  font-size: 12px;
+}
+.iqu-ledger-months {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.iqu-ledger-months th,
+.iqu-ledger-months td {
+  padding: 4px 0;
+  border-top: 1px solid var(--iqu-bdr);
+  text-align: left;
+  font-weight: 400;
+}
+.iqu-ledger-months td.is-num {
+  text-align: right;
+  padding-right: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.iqu-ledger-barcell {
+  width: 40%;
+}
+.iqu-ledger-mbar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--iqu-bg2);
+  overflow: hidden;
+}
+.iqu-ledger-mbar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+.iqu-ledger-id {
+  color: var(--iqu-text2);
+  font-size: 11px;
+}
+.iqu-ledger-est {
+  color: var(--iqu-text2);
+  background: var(--iqu-bg2);
+}
+.iqu-ledger-cards--preview {
+  padding: 0 18px 14px;
+}
+@media (max-width: 782px) {
+  .iqu-ledger-cards {
+    grid-template-columns: 1fr;
+  }
+  .iqu-ledger-actions {
+    margin-left: 0;
+  }
+  .iqu-bday-row {
+    flex-wrap: wrap;
+  }
+}

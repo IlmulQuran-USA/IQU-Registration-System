@@ -166,6 +166,7 @@ class IQU_Admin
                     <div class="iqu-detail-val">
                         <strong><?php echo $agreed === null ? 'None — standard price' : esc_html(IQU_Pricing::format($agreed) . ' a month' . ($agreed <= 0 ? ' (full scholarship)' : '')); ?></strong>
                         <?php if ($note !== ''): ?><br><span class="iqu-agreed-note" data-agreed-fee-note><?php echo esc_html($note); ?></span><?php endif; ?>
+                        <?php if (class_exists('IQU_Discount_Ledger_Admin')) echo IQU_Discount_Ledger_Admin::fund_select($row); // reports only; escaped inside ?>
                         <?php if (isset($texts[$msg])): ?><p class="iqu-free-month-note" role="<?php echo esc_attr($texts[$msg][0]); ?>"><?php echo esc_html($texts[$msg][1]); ?></p><?php endif; ?>
                         <?php if ($acc && !empty($acc['stripe_subscription_id'])): ?>
                             <p class="iqu-free-month-note">Monthly billing is already running in Stripe, so the fee can no longer be changed here.</p>
@@ -1095,6 +1096,8 @@ class IQU_Admin
         </div>
     </div>
 
+    <?php self::render_birthdays_card(); ?>
+
     <!-- ── Charts Row ───────────────────────────────── -->
     <div class="iqu-chart-row">
         <div class="iqu-card">
@@ -1140,6 +1143,42 @@ class IQU_Admin
     <?php $this->recent_region(); ?>
 </div>
 <?php
+  }
+
+  /**
+   * Today's Birthdays (Dashboard): active students (IQU_Database::is_active_student — Free and Weekend
+   * "enrolled"; Summer never) whose date of birth is today in the site time zone (29 Feb → 28 Feb in other
+   * years). Name, the age they turn, parent / guardian, WhatsApp and "Send wishes".
+   */
+  private static function render_birthdays_card(): void
+  {
+    if (!class_exists('IQU_Birthday')) return;
+    $rows = IQU_Birthday::today_students();
+  ?>
+    <div class="iqu-card iqu-bday-card" data-iqu-birthdays>
+        <div class="iqu-card-head">
+            <span class="iqu-card-head-title"><?php echo IQU_Icons::svg('cake', 16); ?> Today's Birthdays</span>
+            <span class="iqu-card-head-badge"><?php echo esc_html(wp_date('j M Y')); ?></span>
+        </div>
+        <?php if (!$rows): ?>
+        <p class="iqu-bday-empty">No birthdays today.</p>
+        <?php else: ?>
+        <ul class="iqu-bday-list">
+            <?php foreach ($rows as $r): $wa = trim((string) ($r['guardian_whatsapp'] ?? '')) ?: trim((string) ($r['whatsapp'] ?? '')); ?>
+            <li class="iqu-bday-row">
+                <span class="iqu-bday-who">
+                    <a class="iqu-bday-name" href="<?php echo esc_url(admin_url('admin.php?page=iqu-view-registration&id=' . (int) $r['id'])); ?>"><?php echo esc_html(trim($r['first_name'] . ' ' . $r['last_name'])); ?></a>
+                    <span class="iqu-bday-age"><?php echo esc_html('turns ' . IQU_Dob::age_on((string) $r['date_of_birth'])); ?></span>
+                    <?php if (trim((string) $r['guardian_name']) !== ''): ?><span class="iqu-bday-meta"><?php echo esc_html('Parent / guardian: ' . trim((string) $r['guardian_name'])); ?></span><?php endif; ?>
+                    <span class="iqu-bday-meta"><?php echo esc_html($wa !== '' ? 'WhatsApp ' . $wa : 'No WhatsApp number'); ?></span>
+                </span>
+                <?php echo IQU_Birthday::wishes_button($r); // escaped inside ?>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+        <?php endif; ?>
+    </div>
+  <?php
   }
 
   /**

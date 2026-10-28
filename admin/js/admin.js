@@ -444,3 +444,29 @@ if (refCtx && IQU_Admin.chart_data && IQU_Admin.chart_data.referral) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();
+// ══════════════════════════════════════════════════
+// STUDENT PAGE: "Fund for the reduction" next to the agreed fee (3.6.0). Saved at once (admin-ajax,
+// nonce + capability on the server); reports only — no amount, price or subscription changes.
+// ══════════════════════════════════════════════════
+(function () {
+  "use strict";
+
+  document.addEventListener("change", function (e) {
+    var select = e.target;
+    var box = select && select.closest ? select.closest("[data-iqu-fund]") : null;
+    if (!box || select.tagName !== "SELECT") return;
+    var status = box.querySelector(".iqu-fund-status");
+    var changed = box.querySelector(".iqu-fund-changed");
+    var body = new URLSearchParams({ action: "iqu_set_agreed_fee_fund", id: box.getAttribute("data-id"), fund: select.value, _ajax_nonce: box.getAttribute("data-nonce") });
+    if (status) status.textContent = "Saving…";
+    select.disabled = true;
+    fetch(box.getAttribute("data-ajax"), { method: "POST", credentials: "same-origin", body: body })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (status) status.textContent = j && j.success ? j.data.message : (j && j.data && j.data.message) || "The fund could not be saved.";
+        if (j && j.success && changed) changed.textContent = j.data.changed || "";
+      })
+      .catch(function () { if (status) status.textContent = "The fund could not be saved."; })
+      .then(function () { select.disabled = false; });
+  });
+})();

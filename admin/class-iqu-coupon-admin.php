@@ -387,6 +387,7 @@ class IQU_Coupon_Admin
 
     <?php $this->render_top_bar('Coupon List', self::PAGE_LIST); ?>
     <?php $this->render_notice(); ?>
+    <?php if (class_exists('IQU_Discount_Ledger_Admin') && IQU_Discount_Ledger_Admin::wants_view()) { IQU_Discount_Ledger_Admin::render_view(); echo '</div>'; return; } // "Calculate past discounts" / no fund ?>
 
     <!-- ── Metric Cards: icon, number, label, and what the number means ── -->
     <?php
@@ -440,6 +441,9 @@ class IQU_Coupon_Admin
         </ul>
     </div>
     </div>
+
+    <!-- ── Zakat given / Special discounts by month (IQU_Discount_Ledger, 3.6.0) ── -->
+    <?php if (class_exists('IQU_Discount_Ledger_Admin')) IQU_Discount_Ledger_Admin::render_section(); ?>
 
     <!-- ── State tabs: same counts as the cards (IQU_Coupon::effective_status) ── -->
     <?php

@@ -29,6 +29,23 @@ class IQU_Birthday
         . "May Allah make {first_name} among the people of the Qur'an, bless the years ahead, and make {first_name} a coolness of your eyes. Ameen.\n\n"
         . "With du'as,\nIlm-Ul-Quran USA";
 
+    /**
+     * Active students (IQU_Database::is_active_student) whose birthday is today (site time zone; born 29 Feb
+     * → 28 Feb in a year without one). Students without a date of birth never appear.
+     */
+    public static function today_students(): array
+    {
+        global $wpdb;
+        if (!IQU_Database::date_of_birth_ready()) return [];
+        $today = IQU_Dob::today();
+        $likes = ['%-' . substr($today, 5)];
+        if (substr($today, 5) === '02-28' && !checkdate(2, 29, (int) substr($today, 0, 4))) $likes[] = '%-02-29';
+        $where = '(' . implode(' OR ', array_fill(0, count($likes), 'date_of_birth LIKE %s')) . ')';
+        $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . $wpdb->prefix . IQU_TABLE_NAME . ' WHERE ' . IQU_Database::active_student_sql()
+            . " AND date_of_birth IS NOT NULL AND {$where} ORDER BY first_name, last_name, id", ...$likes), ARRAY_A) ?: [];
+        return array_values(array_filter($rows, fn($r) => IQU_Database::is_active_student($r) && self::dob($r) !== '' && IQU_Dob::is_birthday(self::dob($r), $today)));
+    }
+
     /** The stored date of birth (Y-m-d), or '' (rows from before 3.6.0). */
     public static function dob(array $row): string
     {

@@ -152,6 +152,17 @@ class IQU_Billing_Service
         return 'current';
     }
 
+    /**
+     * The day the free first month ends (Y-m-d, the site's calendar) for a student who gets one, whenever they
+     * registered; null for students without a free month. The discount ledger counts from this month on.
+     */
+    public static function free_month_end(array $reg): ?string
+    {
+        if (!self::is_free_month_eligible($reg)) return null;
+        $created = strtotime((string) ($reg['created_at'] ?? '') . ' UTC');
+        return $created ? wp_date('Y-m-d', $created + self::FREE_MONTH_DAYS * DAY_IN_SECONDS) : null;
+    }
+
     /** Suggested first charge date (Y-m-d, the site's calendar) for a new student; null for current students. */
     public static function suggested_first_charge(array $reg): ?string
     {

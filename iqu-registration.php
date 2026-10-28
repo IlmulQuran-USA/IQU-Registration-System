@@ -129,6 +129,9 @@ require_once IQU_PLUGIN_DIR . 'includes/class-iqu-summer-pay.php';
 // 💳 Monthly tuition billing (Stripe) — see includes/billing/bootstrap.php
 require_once IQU_PLUGIN_DIR . 'includes/billing/bootstrap.php';
 
+// 📒 Zakat / Special discount ledger, month by month (3.6.0)
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-discount-ledger.php';
+
 // ============================================================
 // 🚀 Activation / Deactivation
 // ============================================================
@@ -141,6 +144,8 @@ function iqu_on_activation(): void
   IQU_Notifier::schedule();
   IQU_Geo::schedule();
   IQU_Enrollment::schedule();
+  IQU_Discount_Ledger::maybe_install();
+  IQU_Discount_Ledger::schedule();
 }
 
 function iqu_on_deactivation(): void
@@ -150,6 +155,7 @@ function iqu_on_deactivation(): void
   IQU_Notifier::unschedule();
   IQU_Geo::unschedule();
   IQU_Enrollment::unschedule();
+  IQU_Discount_Ledger::unschedule();
 }
 
 register_activation_hook(__FILE__, 'iqu_on_activation');
@@ -169,6 +175,9 @@ add_action('plugins_loaded', function () {
   IQU_Enrollment::schedule();
   IQU_Enrollment::init();
   IQU_Summer_Pay::init();
+  IQU_Discount_Ledger::maybe_install();
+  IQU_Discount_Ledger::schedule();
+  IQU_Discount_Ledger::init();
 
   new IQU_Form();
   new IQU_Summer_Form();
@@ -183,6 +192,8 @@ add_action('plugins_loaded', function () {
     new IQU_Admin();
     new IQU_Zeffy_Admin();
     new IQU_Coupon_Admin();
+    require_once IQU_PLUGIN_DIR . 'admin/class-iqu-discount-ledger-admin.php';
+    IQU_Discount_Ledger_Admin::init();
     require_once IQU_PLUGIN_DIR . 'admin/class-iqu-enrollment-admin.php';
     require_once IQU_PLUGIN_DIR . 'admin/class-iqu-waitlist-admin.php';
     IQU_Enrollment_Admin::init();
