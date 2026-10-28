@@ -174,6 +174,7 @@ class IQU_Pixel
         try {
             $ud = [];
             self::maybe_set($ud, 'em', self::hash_email($row['email'] ?? ''));
+            self::maybe_set($ud, 'external_id', self::hash_email($row['email'] ?? ''));
             [$first, $last] = self::match_name($row);
             self::maybe_set($ud, 'fn', self::hash_text($first));
             self::maybe_set($ud, 'ln', self::hash_text($last));
@@ -283,6 +284,8 @@ class IQU_Pixel
         $ud = [];
 
         self::maybe_set($ud, 'em', self::hash_email($clean['email'] ?? ''));
+        // Same family, same id on every event (Lead, CompleteRegistration, Purchase).
+        self::maybe_set($ud, 'external_id', self::hash_email($clean['email'] ?? ''));
         [$first, $last] = self::match_name($clean);
         self::maybe_set($ud, 'fn', self::hash_text($first));
         self::maybe_set($ud, 'ln', self::hash_text($last));

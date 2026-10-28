@@ -240,6 +240,7 @@ class IQU_Enrollment
                 if (IQU_Database::transition_status((int) $reg['id'], ['card_pending', 'expired'], 'enrolled')) {
                     $reg['status'] = 'enrolled';
                     $reg['_was_expired'] = $was === 'expired';
+                    $reg['_monthly'] = (float) ($m['amount'] ?? 0); // net monthly tuition, for the Meta value
                     $done[] = $reg;
                 }
             }
@@ -251,7 +252,7 @@ class IQU_Enrollment
             foreach ($done as $reg) {
                 IQU_Pixel::send_server_event('CompleteRegistration', $reg, 'enroll_' . (int) $reg['id'], [
                     'content_name' => 'Free Enrollment',
-                    'value'        => 0,
+                    'value'        => round((float) ($reg['_monthly'] ?? 0), 2),
                     'currency'     => 'USD',
                 ]);
             }
