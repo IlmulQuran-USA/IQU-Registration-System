@@ -128,6 +128,9 @@ Code pins Stripe-Version 2025-09-30.clover for its own API calls.
   otherwise; the matched transactions 30 days (they never change). Cache holds Stripe ids and numbers only.
 - Totals: Gross (charges + payments) − Stripe fees (every row's fee + stripe_fee rows) − Refunds/disputes
   (+ Other) = Net, and Net = the payout amount; the page warns when either check fails.
+  In the table and CSV, Stripe's own fee rows show their amount in the Fee column (Gross 0.00), so the Fee total
+  = the Stripe fees card; the Gross total = the Gross card − Refunds/disputes + Other (those rows show there as
+  negatives / their amount). Net per row is Stripe's, unchanged.
 - Webhook: 3 more events (19 in all): payout.paid ("Payout sent to bank", once per payout; full with counts
   and totals, or amount/date/bank only when the summary is not ready within 10 s), payout.failed (once; says
   when it was reported as sent before), payout.reconciliation_completed (builds the summary, never a message).

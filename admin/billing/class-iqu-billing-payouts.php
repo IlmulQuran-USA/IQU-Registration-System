@@ -285,6 +285,8 @@ class IQU_Billing_Payouts
 
     /**
      * The summary's rows with family, students and a type label (local database, current mode, one query each).
+     * Stripe's own fee rows (stripe_fee, stripe_fx_fee, tax_fee) show their amount as a fee, not as gross: the
+     * Fee total = the Stripe fees card, the Gross total = Gross − Refunds/disputes + Other; net is Stripe's, unchanged.
      * @return array[] created, family, account, customer, students, type_label, amount, fee, net (cents), txn
      */
     private static function display_rows(array $summary): array
@@ -316,9 +318,12 @@ class IQU_Billing_Payouts
                 case 'stripe_fee': $type = 'Stripe fee'; break;
                 default:           $type = 'Other (' . $row['type'] . ')';
             }
+            $amount = (int) $row['amount'];
+            $fee    = (int) $row['fee'];
+            if ($kind === 'stripe_fee') { $fee -= $amount; $amount = 0; } // −$2.00 gross becomes a $2.00 fee
             $out[] = [
                 'created' => (int) $row['created'], 'family' => $family, 'account' => $acc ? (int) $acc['id'] : 0, 'customer' => (string) $row['customer'],
-                'students' => $names, 'type_label' => $type, 'amount' => (int) $row['amount'], 'fee' => (int) $row['fee'], 'net' => (int) $row['net'], 'txn' => (string) $row['id'],
+                'students' => $names, 'type_label' => $type, 'amount' => $amount, 'fee' => $fee, 'net' => (int) $row['net'], 'txn' => (string) $row['id'],
             ];
         }
         return $out;
