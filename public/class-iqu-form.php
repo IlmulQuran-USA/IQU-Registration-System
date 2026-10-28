@@ -1073,6 +1073,7 @@ class IQU_Form
             error_log('[IQU] Free registration DB insert failed.');
             wp_send_json_error(['message' => 'Registration failed due to a server error. Please try again or contact us.', 'code' => 'db_error']);
         }
+        if ($validator->used_legacy_age()) error_log('[IQU] Enroll for Free form from before the update (age, no date of birth) accepted: registration #' . (int) $reg_id);
 
         // ── 🎟️ কুপন রিডিম — রেজিস্ট্রেশন সেভ হওয়ার পরেই ──
         // insert ব্যর্থ হলে কুপন যেন নষ্ট না হয়, তাই ক্রমটা এই।

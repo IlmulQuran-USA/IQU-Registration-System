@@ -163,6 +163,7 @@ class IQU_Database
             agreed_fee         DECIMAL(8,2)        NULL DEFAULT NULL,
             marketing_consent  VARCHAR(10)         NOT NULL DEFAULT 'unknown',
             date_of_birth      DATE                NULL DEFAULT NULL,
+            agreed_fee_fund    VARCHAR(10)         NULL DEFAULT NULL,
             PRIMARY KEY        (id),
             KEY                email (email),
             KEY                form_type (form_type),
@@ -222,6 +223,7 @@ class IQU_Database
         self::maybe_migrate_student_fee_columns();
         self::maybe_migrate_marketing_consent();
         self::maybe_migrate_date_of_birth();
+        self::maybe_migrate_agreed_fee_fund();
     }
 
     /** Registration columns added in 3.3.0, with the definition used if dbDelta did not add one. */
@@ -491,6 +493,75 @@ class IQU_Database
         ], false);
     }
 
+    /**
+     * An active student (3.6.0): an Enroll for Free or Weekend registration with status "enrolled". Summer is
+     * a one-time program and is never active. The one definition used by Today's Birthdays and the discount
+     * ledger; is_active_student() and active_student_sql() must always say the same.
+     */
+    public const ACTIVE_FORMS  = [self::FORM_FREE, self::FORM_WEEKEND_EXISTING, self::FORM_WEEKEND_NEW];
+    public const ACTIVE_STATUS = 'enrolled';
+
+    public static function is_active_student(array $row): bool
+    {
+        return in_array((string) ($row['form_type'] ?? ''), self::ACTIVE_FORMS, true) && (string) ($row['status'] ?? '') === self::ACTIVE_STATUS;
+    }
+
+    /** The same rule as a WHERE fragment for the registrations table (constants only, nothing from a request). */
+    public static function active_student_sql(string $alias = ''): string
+    {
+        $p = $alias !== '' ? $alias . '.' : '';
+        return "({$p}form_type IN ('" . implode("','", self::ACTIVE_FORMS) . "') AND {$p}status = '" . self::ACTIVE_STATUS . "')";
+    }
+
+    /** When this version first ran (the old-form window of IQU_Validator starts here). */
+    public const OPT_DOB_FORMS_SINCE = 'iqu_dob_forms_since';
+
+    /** Set once agreed_fee_fund exists (3.6.0): ['at', 'rows'] */
+    private const OPT_AGREED_FEE_FUND = 'iqu_agreed_fee_fund_migrated';
+
+    /** The fund an agreed reduction is counted under: 'zakat', 'special' or NULL (not set). */
+    public const AGREED_FEE_FUNDS = ['zakat', 'special'];
+
+    public static function agreed_fee_fund_ready(): bool
+    {
+        return is_array(get_option(self::OPT_AGREED_FEE_FUND));
+    }
+
+    /**
+     * One-time migration: add agreed_fee_fund (VARCHAR(10) NULL), through apply_schema() first and an explicit
+     * ALTER where dbDelta did not add it. Existing rows keep NULL (no fund chosen). Verified before the flag is set.
+     */
+    public static function maybe_migrate_agreed_fee_fund(): void
+    {
+        global $wpdb;
+        if (self::agreed_fee_fund_ready()) return;
+        $table = $wpdb->prefix . IQU_TABLE_NAME;
+
+        $cols = self::registration_columns();
+        if (!$cols) return;
+        if (!isset($cols['agreed_fee_fund'])) {
+            self::create_table();
+            $cols = self::registration_columns();
+        }
+        if (!isset($cols['agreed_fee_fund'])) {
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN agreed_fee_fund VARCHAR(10) NULL DEFAULT NULL");
+            $cols = self::registration_columns();
+        }
+        if (!isset($cols['agreed_fee_fund'])) {
+            error_log('[IQU] agreed_fee_fund column could not be added (' . $wpdb->last_error . '); will retry.');
+            return;
+        }
+        update_option(self::OPT_AGREED_FEE_FUND, ['at' => gmdate('Y-m-d H:i:s'), 'rows' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}")], false);
+    }
+
+    /** Set the fund of a registration's agreed reduction ('zakat' | 'special' | null). Reports only: no amount changes. */
+    public static function set_agreed_fee_fund(int $id, ?string $fund): bool
+    {
+        global $wpdb;
+        if (!self::agreed_fee_fund_ready() || ($fund !== null && !in_array($fund, self::AGREED_FEE_FUNDS, true))) return false;
+        return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, ['agreed_fee_fund' => $fund], ['id' => $id], ['%s'], ['%d']);
+    }
+
     /** Set once date_of_birth exists (3.6.0): ['at', 'rows'] */
     private const OPT_DATE_OF_BIRTH = 'iqu_date_of_birth_migrated';
 
@@ -736,6 +807,10 @@ class IQU_Database
         self::maybe_migrate_student_fee_columns();
         self::maybe_migrate_marketing_consent();
         self::maybe_migrate_date_of_birth();
+        self::maybe_migrate_agreed_fee_fund();
+        // The forms ask for a date of birth from this version on; pages opened before it still send an age
+        // (IQU_Validator::v_dob). The moment this version first ran, stored once.
+        if (get_option(self::OPT_DOB_FORMS_SINCE) === false) add_option(self::OPT_DOB_FORMS_SINCE, time(), '', false);
         // One-time import from the legacy IUQ plugin table, if present.
         self::maybe_migrate_from_iuq();
     }

@@ -16,6 +16,13 @@ class IQU_Validator
     private array $errors = [];
     private array $clean = [];
 
+    /** For this long after the update, a page opened before it (age, no date of birth) is still accepted. */
+    public const LEGACY_AGE_DAYS = 14;
+    public const MSG_PAGE_UPDATED = 'This page was updated. Please refresh the page and submit again.';
+
+    /** True when the last validate_*() took the age of a page from before the update (no date of birth). */
+    private bool $legacy_age = false;
+
     // Whitelists
     private const ALLOWED_LEVELS     = ['beginner', 'intermediate', 'advanced'];
     private const ALLOWED_DAYS       = ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
@@ -65,7 +72,8 @@ class IQU_Validator
         $guardian = $this->sanitize_name((string) ($post['guardian_name'] ?? ''));
         if (mb_strlen($guardian) > 150) {
             $this->errors['guardian_name'] = 'Parent / Guardian Full Name is too long.';
-        } elseif ($guardian === '' && !isset($this->errors['date_of_birth']) && $this->clean['age'] < IQU_Dob::ADULT_AGE) {
+        } elseif ($guardian === '' && !$this->legacy_age && !isset($this->errors['date_of_birth']) && !isset($this->errors['age']) && $this->clean['age'] < IQU_Dob::ADULT_AGE) {
+            // (a page from before the update had no guardian field: accepted as that form did)
             $this->errors['guardian_name'] = 'Please add a parent or guardian\'s name.';
         }
         $this->clean['guardian_name'] = $guardian;
@@ -461,6 +469,25 @@ class IQU_Validator
      */
     private function v_dob(array $post, int $min, int $max): void
     {
+        $this->legacy_age = false;
+        // A page opened before the update sends an age and no date_of_birth field at all. For LEGACY_AGE_DAYS
+        // after the update it is accepted with that form's age rules (date_of_birth stays NULL); later the
+        // family is asked to refresh. A form with the date field (even left empty) always uses the date rules.
+        if (!array_key_exists('date_of_birth', $post) && array_key_exists('age', $post)) {
+            $this->clean['date_of_birth'] = '';
+            if (!self::legacy_window_open()) {
+                $this->clean['age'] = 0;
+                $this->errors['age'] = self::MSG_PAGE_UPDATED;
+                return;
+            }
+            $age = absint($post['age']);
+            if ($age < $min || $age > $max) {
+                $this->errors['age'] = "Please enter a valid age ({$min}–{$max}).";
+            }
+            $this->clean['age'] = $age;
+            $this->legacy_age = true;
+            return;
+        }
         $dob = IQU_Dob::clean((string) ($post['date_of_birth'] ?? ''));
         $this->clean['date_of_birth'] = '';
         $this->clean['age'] = 0;
@@ -474,6 +501,19 @@ class IQU_Validator
         if ($age < $min || $age > $max) {
             $this->errors['date_of_birth'] = "Age must be between {$min} and {$max}.";
         }
+    }
+
+    /** True while pages from before the update are still accepted (LEGACY_AGE_DAYS from the first load of this version). */
+    public static function legacy_window_open(): bool
+    {
+        $since = (int) get_option(IQU_Database::OPT_DOB_FORMS_SINCE, 0);
+        return $since <= 0 || time() < $since + self::LEGACY_AGE_DAYS * DAY_IN_SECONDS;
+    }
+
+    /** The last validate_*() accepted an age from a page opened before the update (no date of birth). */
+    public function used_legacy_age(): bool
+    {
+        return $this->legacy_age;
     }
 
     private function v_text(array $post, string $key, string $label, int $max): void

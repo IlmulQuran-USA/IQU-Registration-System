@@ -793,6 +793,7 @@ class IQU_Summer_Form
             error_log('[IQU] Summer registration DB insert failed.');
             wp_send_json_error(['message' => 'Enrollment failed due to a server error. Please try again or contact us.', 'code' => 'db_error']);
         }
+        if ($validator->used_legacy_age()) error_log('[IQU] Summer form from before the update (age, no date of birth) accepted: registration #' . (int) $reg_id);
 
         // Emails
         IQU_Mailer::send_admin_notification($clean, $reg_id);

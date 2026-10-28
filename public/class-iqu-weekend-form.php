@@ -475,6 +475,7 @@ class IQU_Weekend_Form
                 'code'    => 'db_error',
             ]);
         }
+        if ($validator->used_legacy_age()) error_log('[IQU] Weekend form from before the update (age, no date of birth) accepted: registration #' . (int) $reg_id);
 
         // 6. Emails + Telegram
         IQU_Mailer::send_admin_notification($clean, $reg_id);

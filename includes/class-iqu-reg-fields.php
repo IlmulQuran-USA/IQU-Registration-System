@@ -114,6 +114,8 @@ class IQU_Reg_Fields
         // ── ব্যক্তিগত তথ্য ──
         $rows[] = ['Age', (string) (int) ($data['age'] ?? 0)];
         $rows[] = ['Date of Birth', (string) ($data['date_of_birth'] ?? '')];
+        // 3.6.0: the parent / guardian the form asks for (required under 18); no line when empty
+        if (trim((string) ($data['guardian_name'] ?? '')) !== '') $rows[] = ['Parent / Guardian', trim((string) $data['guardian_name'])];
         $rows[] = ['Country of Origin', (string) ($data['country_origin'] ?? '')];
         $rows[] = ['Country of Residence', (string) ($data['country_res'] ?? '')];
         $rows[] = ['WhatsApp', (string) ($data['whatsapp'] ?? '')];
