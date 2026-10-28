@@ -301,17 +301,7 @@ class IQU_Weekend_Form
                         <span class="iqu-error" data-field="email"></span>
                     </div>
 
-                    <div class="iqu-question">
-                        <label for="wk_age">Participant's Age <span class="req">*</span></label>
-                        <p class="iqu-help">Open to children aged 5 to 12.</p>
-                        <select id="wk_age" name="age" class="wk-age-select" data-wk-visible-rows="5" required>
-                            <option value="">-- Select age --</option>
-                            <?php for ($a = 5; $a <= 12; $a++): ?>
-                            <option value="<?php echo (int) $a; ?>"><?php echo (int) $a; ?> years</option>
-                            <?php endfor; ?>
-                        </select>
-                        <span class="iqu-error" data-field="age"></span>
-                    </div>
+                    <?php echo IQU_Dob::render(['id' => 'wk_dob', 'label' => "Participant's Date of Birth", 'help' => 'Open to children aged 5 to 12.', 'min_age' => 5, 'max_age' => 12]); // phpcs:ignore -- escaped inside ?>
                 </div>
 
                 <div class="form-display-flex">

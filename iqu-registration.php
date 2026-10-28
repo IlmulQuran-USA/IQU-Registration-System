@@ -95,6 +95,7 @@ require_once IQU_PLUGIN_DIR . 'includes/class-iqu-submit-guard.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-database.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-contact.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-link-keys.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-dob.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-validator.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-recaptcha.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-mailer.php';

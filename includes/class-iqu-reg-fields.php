@@ -113,6 +113,7 @@ class IQU_Reg_Fields
 
         // ── ব্যক্তিগত তথ্য ──
         $rows[] = ['Age', (string) (int) ($data['age'] ?? 0)];
+        $rows[] = ['Date of Birth', (string) ($data['date_of_birth'] ?? '')];
         $rows[] = ['Country of Origin', (string) ($data['country_origin'] ?? '')];
         $rows[] = ['Country of Residence', (string) ($data['country_res'] ?? '')];
         $rows[] = ['WhatsApp', (string) ($data['whatsapp'] ?? '')];
@@ -235,6 +236,7 @@ class IQU_Reg_Fields
         $rows = [];
         $rows[] = ['Student Status', $is_new ? '🆕 New student' : '✅ Existing student'];
         $rows[] = ['Age', (string) (int) ($data['age'] ?? 0)];
+        $rows[] = ['Date of Birth', (string) ($data['date_of_birth'] ?? '')];
         $rows[] = ['Guardian', (string) ($data['guardian_name'] ?? '')];
         $rows[] = ['WhatsApp', (string) ($data['whatsapp'] ?? '')];
         $rows[] = ['Country of Origin', (string) ($data['country_origin'] ?? '')];
@@ -254,6 +256,7 @@ class IQU_Reg_Fields
         $rows = [];
 
         $rows[] = ['Age', (string) (int) ($data['age'] ?? 0)];
+        $rows[] = ['Date of Birth', (string) ($data['date_of_birth'] ?? '')];
         $rows[] = ['Enrollment Level', strtoupper((string) ($data['enrollment_level'] ?? ''))];
         $rows[] = ['Country of Origin', (string) ($data['country_origin'] ?? '')];
         $rows[] = ['Country of Residence', (string) ($data['country_res'] ?? '')];

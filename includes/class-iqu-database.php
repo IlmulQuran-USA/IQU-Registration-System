@@ -162,6 +162,7 @@ class IQU_Database
             existing_student   TINYINT(1)          NOT NULL DEFAULT 0,
             agreed_fee         DECIMAL(8,2)        NULL DEFAULT NULL,
             marketing_consent  VARCHAR(10)         NOT NULL DEFAULT 'unknown',
+            date_of_birth      DATE                NULL DEFAULT NULL,
             PRIMARY KEY        (id),
             KEY                email (email),
             KEY                form_type (form_type),
@@ -220,6 +221,7 @@ class IQU_Database
         self::maybe_migrate_created_via();
         self::maybe_migrate_student_fee_columns();
         self::maybe_migrate_marketing_consent();
+        self::maybe_migrate_date_of_birth();
     }
 
     /** Registration columns added in 3.3.0, with the definition used if dbDelta did not add one. */
@@ -489,6 +491,46 @@ class IQU_Database
         ], false);
     }
 
+    /** Set once date_of_birth exists (3.6.0): ['at', 'rows'] */
+    private const OPT_DATE_OF_BIRTH = 'iqu_date_of_birth_migrated';
+
+    /** date_of_birth is only written once this returns true (the column exists). */
+    public static function date_of_birth_ready(): bool
+    {
+        return is_array(get_option(self::OPT_DATE_OF_BIRTH));
+    }
+
+    /**
+     * One-time migration: add date_of_birth (DATE NULL), through apply_schema() first and an explicit
+     * ALTER where dbDelta did not add it. Existing rows keep NULL: they have an age only, and no date is
+     * guessed for them. Verified before the flag is set; nothing else is changed.
+     */
+    public static function maybe_migrate_date_of_birth(): void
+    {
+        global $wpdb;
+        if (self::date_of_birth_ready()) return;
+        $table = $wpdb->prefix . IQU_TABLE_NAME;
+
+        $cols = self::registration_columns();
+        if (!$cols) return;
+        if (!isset($cols['date_of_birth'])) {
+            self::create_table();
+            $cols = self::registration_columns();
+        }
+        if (!isset($cols['date_of_birth'])) {
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN date_of_birth DATE NULL DEFAULT NULL");
+            $cols = self::registration_columns();
+        }
+        if (!isset($cols['date_of_birth'])) {
+            error_log('[IQU] date_of_birth column could not be added (' . $wpdb->last_error . '); will retry.');
+            return;
+        }
+        update_option(self::OPT_DATE_OF_BIRTH, [
+            'at'   => gmdate('Y-m-d H:i:s'),
+            'rows' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}"),
+        ], false);
+    }
+
     /**
      * Admin override on the student page: mark a row "Existing student — no free month" (true)
      * or undo it (false). Stored in existing_student, never in the referral.
@@ -693,6 +735,7 @@ class IQU_Database
         self::maybe_migrate_created_via();
         self::maybe_migrate_student_fee_columns();
         self::maybe_migrate_marketing_consent();
+        self::maybe_migrate_date_of_birth();
         // One-time import from the legacy IUQ plugin table, if present.
         self::maybe_migrate_from_iuq();
     }
@@ -809,6 +852,10 @@ class IQU_Database
 
         if (empty($data['created_at'])) {
             $data['created_at'] = gmdate('Y-m-d H:i:s');
+        }
+        // A date of birth is stored only as a real date, and only once its column exists.
+        if (array_key_exists('date_of_birth', $data) && (!self::date_of_birth_ready() || empty($data['date_of_birth']))) {
+            unset($data['date_of_birth']);
         }
 
         $inserted = $wpdb->insert($table, $data);

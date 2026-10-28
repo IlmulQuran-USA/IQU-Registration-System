@@ -79,10 +79,19 @@ class IQU_Form
             true
         );
 
+        // Date of birth control (Month | Day | Year), shared by the three forms.
+        wp_enqueue_script(
+            'iqu-dob',
+            IQU_PLUGIN_URL . 'public/js/dob.js',
+            [],
+            IQU_VERSION,
+            true
+        );
+
         wp_enqueue_script(
             'iqu-form-script',
             IQU_PLUGIN_URL . 'public/js/form.js',
-            ['jquery', 'iqu-intl-tel-input', 'flatpickr-js'],
+            ['jquery', 'iqu-intl-tel-input', 'flatpickr-js', 'iqu-dob'],
             IQU_VERSION,
             true
         );
@@ -505,6 +514,18 @@ class IQU_Form
                     </div>
                 </div>
 
+                <div class="form-display-flex form-display-flex--dob">
+                    <!-- ── Date of Birth (IQU_Dob, shared by the three forms) ── -->
+                    <?php echo IQU_Dob::render(['id' => 'dob', 'label' => "Participant's Date of Birth", 'min_age' => 4, 'max_age' => 100, 'hint' => true]); // phpcs:ignore -- escaped inside ?>
+                    <!-- ── Parent / Guardian: shown once a full date is chosen; required under 18 ── -->
+                    <div class="iqu-question iqu-guardian-q" data-iqu-guardian data-state="pending">
+                        <label for="guardian_name">Parent / Guardian Full Name <span class="req">*</span><span class="iqu-optional">(optional)</span></label>
+                        <input type="text" id="guardian_name" name="guardian_name" placeholder="Parent or guardian's full name"
+                            maxlength="150" autocomplete="name" disabled>
+                        <span class="iqu-error" data-field="guardian_name"></span>
+                    </div>
+                </div>
+
                 <div class="form-display-flex">
                     <!-- ── Email ────────────────────────────────────── -->
                     <div class="iqu-question">
@@ -513,12 +534,16 @@ class IQU_Form
                             maxlength="191" autocomplete="email" required>
                         <span class="iqu-error" data-field="email"></span>
                     </div>
-                    <!-- ── Age ──────────────────────────────────────── -->
+                    <!-- ── WhatsApp ─────────────────────────────── -->
                     <div class="iqu-question">
-                        <label for="age">Participant's Age <span class="req">*</span></label>
-                        <input type="number" id="age" name="age" placeholder="How old is the participant?" min="4"
-                            max="100" required>
-                        <span class="iqu-error" data-field="age"></span>
+                        <label for="whatsapp">WhatsApp Number (with country code) <span class="req">*</span></label>
+                        <p class="iqu-help">
+                            <strong>Country code required.</strong>
+                            Select your flag from the dropdown, then enter your number.<br>
+                            Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
+                        </p>
+                        <input type="tel" id="whatsapp" name="whatsapp" maxlength="25" autocomplete="tel" required>
+                        <span class="iqu-error" data-field="whatsapp"></span>
                     </div>
                 </div>
 
@@ -674,17 +699,6 @@ class IQU_Form
                 </div>
 
                 <div class="form-display-flex">
-                    <!-- ── WhatsApp ─────────────────────────────── -->
-                    <div class="iqu-question">
-                        <label for="whatsapp">WhatsApp Number (with country code) <span class="req">*</span></label>
-                        <p class="iqu-help">
-                            <strong>Country code required.</strong>
-                            Select your flag from the dropdown, then enter your number.<br>
-                            Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
-                        </p>
-                        <input type="tel" id="whatsapp" name="whatsapp" maxlength="25" autocomplete="tel" required>
-                        <span class="iqu-error" data-field="whatsapp"></span>
-                    </div>
                     <!-- ── Memorized Qur'an ─────────────────────── -->
                     <div class="iqu-question">
                         <label for="memorized">Have you memorized any part of the Qur'an before? If yes, please specify

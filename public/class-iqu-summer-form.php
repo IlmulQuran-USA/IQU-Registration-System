@@ -413,15 +413,8 @@ class IQU_Summer_Form
                         <span class="iqu-error" data-field="enrollment_level"></span>
                     </div>
 
-                    <!-- Age — লেভেল অনুযায়ী অপশন JS ভরে দেয় -->
-                    <div class="iqu-question">
-                        <label for="summer_age">Participant's Age <span class="req">*</span></label>
-                        <p class="iqu-help" id="iqu-summer-age-help">Enter the student's current age.</p>
-                        <select id="summer_age" name="age" data-min-age="5" data-max-age="15" required>
-                            <option value="">-- Select age --</option>
-                        </select>
-                        <span class="iqu-error" data-field="age"></span>
-                    </div>
+                    <!-- Date of birth — the level sets the age limits (form.js → IQU_DOB.setRange) -->
+                    <?php echo IQU_Dob::render(['id' => 'summer_dob', 'label' => "Participant's Date of Birth", 'help' => "Enter the student's date of birth.", 'help_id' => 'iqu-summer-age-help', 'min_age' => 5, 'max_age' => 15]); // phpcs:ignore -- escaped inside ?>
                 </div>
 
                 <div class="form-display-flex">

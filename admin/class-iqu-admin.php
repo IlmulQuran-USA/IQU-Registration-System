@@ -2025,7 +2025,7 @@ class IQU_Admin
     $out = fopen('php://output', 'w');
     fputs($out, "\xEF\xBB\xBF");
     IQU_CSV::put($out, [
-      'ID', 'Form Type', 'First Name', 'Last Name', 'Email', 'Age',
+      'ID', 'Form Type', 'First Name', 'Last Name', 'Email', 'Age', 'Date of Birth',
       'Country Origin', 'Country Residence', "Qur'an Level",
 
       // 💰 নতুন কলাম — হেডার ও রো একই ক্রমে রাখতে হবে
@@ -2048,6 +2048,7 @@ class IQU_Admin
         self::csv_safe($r['last_name']),
         self::csv_safe($r['email']),
         $r['age'],
+        (string) ($r['date_of_birth'] ?? ''), // YYYY-MM-DD; empty for rows from before 3.6.0
         self::csv_safe($r['country_origin']),
         self::csv_safe($r['country_res']),
         $r['quran_level'],

@@ -529,6 +529,40 @@
     }
 
     function enhanceFreeFormUI($form) {
+      // ── Date of birth → hint + Parent / Guardian (3.6.0) ──
+      // The guardian field appears once a full, valid date is chosen: required under 18,
+      // optional from 18. Until then its cell keeps its space (no jump) and the input is
+      // disabled, so it is neither checked nor sent.
+      const $guardianQ = $form.find("[data-iqu-guardian]");
+      const $guardianIn = $guardianQ.find("input");
+      const $dobHint = $form.find(".iqu-dob-hint");
+      $form.on("iqu:dob", "[data-iqu-dob]", function (e) {
+        const s = e.originalEvent ? e.originalEvent.detail : e.detail;
+        const prev = $guardianQ.attr("data-state");
+        let next = "pending";
+        if (s && s.iso && s.inRange) next = s.age < 18 ? "minor" : "adult";
+        $dobHint
+          .text(
+            next === "minor"
+              ? "Under 18 — please add a parent or guardian's name."
+              : next === "adult"
+                ? "18 or older — you can pay yourself; guardian is optional."
+                : "",
+          )
+          .attr("data-tone", next);
+        $guardianQ.attr("data-state", next);
+        $guardianIn
+          .prop("disabled", next === "pending")
+          .attr("aria-required", next === "minor" ? "true" : "false");
+        if (next !== prev) {
+          showFieldError($form, "guardian_name", "");
+          $guardianIn.removeClass("iqu-invalid");
+        }
+      });
+      $guardianIn.on("input", function () {
+        showFieldError($form, "guardian_name", "");
+        $(this).removeClass("iqu-invalid");
+      });
       var $timeInput = $form.find("#time_slot");
       if ($timeInput.length) {
         $timeInput
@@ -1555,7 +1589,7 @@
     }
 
     function enhanceSummerFormUI($form) {
-      const $ageInput = $form.find("#summer_age");
+      const $dob = $form.find("[data-iqu-dob]");
       const $ageHelp = $form.find("#iqu-summer-age-help");
       const $levelSelect = $form.find("#enrollment_level");
 
@@ -1567,7 +1601,7 @@
         const level = $levelSelect.val();
         let minAge = 5;
         let maxAge = 15;
-        let helpText = "Enter the student's current age.";
+        let helpText = "Enter the student's date of birth.";
 
         if (level === "level1") {
           minAge = 5;
@@ -1579,30 +1613,10 @@
           helpText = "Level 2 is for students ages 11 to 15.";
         }
 
-        // basicValidate-এর পুরনো min/max চেকটা এখনও এগুলোই পড়ে
-        $ageInput.attr("min", minAge).attr("max", maxAge);
         $ageHelp.text(helpText);
 
-        // 🎂 বয়সের অপশনগুলো লেভেল অনুযায়ী নতুন করে বানাও
-        const prev = $ageInput.val();
-        const placeholder = $ageInput.find("option").first().text();
-
-        $ageInput.empty();
-        $("<option></option>").val("").text(placeholder).appendTo($ageInput);
-
-        for (let a = minAge; a <= maxAge; a++) {
-          $("<option></option>")
-            .val(a)
-            .text(a + " years")
-            .appendTo($ageInput);
-        }
-
-        // আগের বয়স নতুন পরিসরে থাকলে রেখে দাও, নইলে খালি
-        const keep = Number(prev);
-        $ageInput.val(keep >= minAge && keep <= maxAge ? String(keep) : "");
-
-        // কাস্টম ড্রপডাউনের লেখা রিফ্রেশ
-        $ageInput.trigger("wk:sync");
+        // 🎂 Year list for the level; a date already chosen keeps its value (error shown if now outside)
+        if ($dob.length && window.IQU_DOB) window.IQU_DOB.setRange($dob[0], minAge, maxAge);
       }
 
       function toggleOtherField($select, $wrap, $input, errorFieldName) {
@@ -1621,9 +1635,7 @@
       }
 
       $form.on("change", "#enrollment_level", function () {
-        showFieldError($form, "age", "");
         showFieldError($form, "enrollment_level", "");
-        $ageInput.removeClass("iqu-invalid");
         $(this).removeClass("iqu-invalid");
         syncAgeRules();
       });
@@ -1764,6 +1776,7 @@
     function buildCustomSelect(select) {
       if (!select || select.multiple) return;
       if (select.dataset.wkReady === "1") return;
+      if (select.dataset.iquNative === "1") return; // date of birth: native selects (keyboard), same CSS
       if ($(select).closest(".iti").length) return; // ফোন ফিল্ডের নিজস্ব UI
       select.dataset.wkReady = "1";
 
@@ -2231,21 +2244,17 @@
         valid = false;
       }
 
-      const $summerAge = $form.find("#summer_age");
-      if ($summerAge.length) {
-        const enteredAge = Number($summerAge.val() || 0);
-        const minAge = Number($summerAge.attr("min") || 5);
-        const maxAge = Number($summerAge.attr("max") || 15);
+      // Date of birth (all three forms): complete, real, and within the form's age limits.
+      if (window.IQU_DOB && !window.IQU_DOB.validate($form[0])) {
+        valid = false;
+      }
 
-        if (enteredAge && (enteredAge < minAge || enteredAge > maxAge)) {
-          showFieldError(
-            $form,
-            "age",
-            "Please enter a valid age (" + minAge + "-" + maxAge + ").",
-          );
-          $summerAge.addClass("iqu-invalid");
-          valid = false;
-        }
+      // Enroll for Free: under 18, a parent or guardian's name is required.
+      const $guardianQ = $form.find('[data-iqu-guardian][data-state="minor"]');
+      if ($guardianQ.length && !String($guardianQ.find("input").val() || "").trim()) {
+        showFieldError($form, "guardian_name", "Please add a parent or guardian's name.");
+        $guardianQ.find("input").addClass("iqu-invalid");
+        valid = false;
       }
 
       const $enrollmentLevel = $form.find("#enrollment_level");

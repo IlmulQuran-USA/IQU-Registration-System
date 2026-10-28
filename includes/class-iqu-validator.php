@@ -60,7 +60,15 @@ class IQU_Validator
         $this->v_name($post, 'first_name', 'Participant\'s First Name');
         $this->v_name($post, 'last_name', 'Participant\'s Last Name');
         $this->v_email($post, 'email', 'Participant\'s Email');
-        $this->v_age($post, 'age', 4, 100);
+        $this->v_dob($post, 4, 100);
+        // Parent / guardian: required under 18, optional from 18 (a parent confirms payments for a child).
+        $guardian = $this->sanitize_name((string) ($post['guardian_name'] ?? ''));
+        if (mb_strlen($guardian) > 150) {
+            $this->errors['guardian_name'] = 'Parent / Guardian Full Name is too long.';
+        } elseif ($guardian === '' && !isset($this->errors['date_of_birth']) && $this->clean['age'] < IQU_Dob::ADULT_AGE) {
+            $this->errors['guardian_name'] = 'Please add a parent or guardian\'s name.';
+        }
+        $this->clean['guardian_name'] = $guardian;
         $this->v_text($post, 'country_res', 'Country of Residence', 100);
         $this->v_text($post, 'country_origin', 'Country of Origin', 100);
 
@@ -226,11 +234,11 @@ class IQU_Validator
 
         // Age bounds depend on level
         if ($enroll === 'level1') {
-            $this->v_age($post, 'age', 5, 10);
+            $this->v_dob($post, 5, 10);
         } elseif ($enroll === 'level2') {
-            $this->v_age($post, 'age', 11, 15);
+            $this->v_dob($post, 11, 15);
         } else {
-            $this->v_age($post, 'age', 5, 15);
+            $this->v_dob($post, 5, 15);
         }
 
         $this->v_text($post, 'guardian_name', 'Guardian\'s Full Name', 150);
@@ -380,7 +388,7 @@ class IQU_Validator
         $this->v_name($post, 'first_name', 'Participant\'s First Name');
         $this->v_name($post, 'last_name', 'Participant\'s Last Name');
         $this->v_email($post, 'email', 'Participant\'s Email');
-        $this->v_age($post, 'age', 5, 12);
+        $this->v_dob($post, 5, 12);
         $this->v_text($post, 'guardian_name', 'Guardian\'s Full Name', 150);
         $this->v_text($post, 'country_origin', 'Country of Origin', 100);
         $this->v_text($post, 'country_res', 'Country of Residence', 100);
@@ -446,13 +454,26 @@ class IQU_Validator
         $this->clean[$key] = $val;
     }
 
-    private function v_age(array $post, string $key, int $min, int $max): void
+    /**
+     * Date of birth from the shared control (IQU_Dob): a real date, not in the future, and an age
+     * within [min, max] in the site time zone. Stores date_of_birth and the age computed from it, so
+     * pricing, Meta (ADULT_AGE) and everything else that reads `age` work as before.
+     */
+    private function v_dob(array $post, int $min, int $max): void
     {
-        $age = absint($post[$key] ?? 0);
-        if ($age < $min || $age > $max) {
-            $this->errors[$key] = "Please enter a valid age ({$min}–{$max}).";
+        $dob = IQU_Dob::clean((string) ($post['date_of_birth'] ?? ''));
+        $this->clean['date_of_birth'] = '';
+        $this->clean['age'] = 0;
+        if ($dob === '' || strcmp($dob, IQU_Dob::today()) > 0) {
+            $this->errors['date_of_birth'] = 'Please choose a valid date of birth.';
+            return;
         }
-        $this->clean[$key] = $age;
+        $age = IQU_Dob::age_on($dob);
+        $this->clean['date_of_birth'] = $dob;
+        $this->clean['age'] = min(255, $age);
+        if ($age < $min || $age > $max) {
+            $this->errors['date_of_birth'] = "Age must be between {$min} and {$max}.";
+        }
     }
 
     private function v_text(array $post, string $key, string $label, int $max): void
