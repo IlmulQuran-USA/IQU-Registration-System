@@ -140,6 +140,26 @@ Code pins Stripe-Version 2025-09-30.clover for its own API calls.
   Only automatic payouts list their transactions; a manual payout shows a notice.
 - `IQU_Stripe::get()` takes an optional timeout (default 30 s); the payout webhook uses 5 s per request.
 
+### 3.6.0
+
+- Meta: `external_id` (SHA-256 of the email, as `em`) on the Lead and every server event; CompleteRegistration
+  value = the member row's `amount` (net monthly; full scholarship 0). No date of birth or age is ever sent.
+- Date of birth (`IQU_Dob` + `public/js/dob.js`): Month | Day | Year on all three forms, `date_of_birth DATE NULL`
+  (flag `iqu_date_of_birth_migrated`), the age computed from it in the site time zone. Enroll for Free: Parent /
+  Guardian, required under 18. Pages opened before the update (age, no date field) are accepted with the old age
+  rules for 14 days from `iqu_dob_forms_since` (stored on the first load), then "This page was updated…".
+- Active student (one rule, `IQU_Database::is_active_student()` / `active_student_sql()`): Free and Weekend with
+  status `enrolled`; Summer never. Used by Today's Birthdays and the discount ledger.
+- Birthdays (`IQU_Birthday`): chip on the student page; Today's Birthdays on the Dashboard; "Send wishes"
+  (wa.me, version A 18+ / B under 18, filter `iqu_birthday_message`).
+- Discount ledger (`IQU_Discount_Ledger`, table `{prefix}iqu_discount_ledger`, flag `iqu_discount_ledger_db`):
+  Zakat (coupons, full scholarship) and Special (special plan) per student and month; an agreed reduced fee counts
+  under the fund an admin picks (`agreed_fee_fund`, flag `iqu_agreed_fee_fund_migrated`; changes logged in
+  `iqu_agreed_fee_fund_log`). Daily WP-Cron `iqu_discount_ledger_daily` (current month); "Calculate past
+  discounts" on the Coupons page (preview, then save). Summer adds nothing (no Zakat / Special data on Summer rows).
+- Enroll page: first-month-free pill, "How payment works" FAQ; Checkout `custom_text` in bold with the family's
+  monthly total and the first charge date.
+
 ## Decisions
 
 - Sibling discount: NO. Siblings pay the full fee each, but are charged together in one monthly payment.
