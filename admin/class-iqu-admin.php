@@ -1533,7 +1533,7 @@ class IQU_Admin
                     <div class="iqu-profile-meta">
                         <?php echo self::type_chip_html($row['form_type']); ?>
                         <?php echo self::status_badge_html($row['status']) . self::review_badges_html($row); ?>
-                        <span style="font-size:11px;color:var(--iqu-text2)">Age <?php echo (int) $row['age']; ?></span>
+                        <?php echo IQU_Birthday::profile_chip($row); // date of birth / birthday / age at registration (escaped inside) ?>
                         <span style="font-size:11px;color:var(--iqu-text2)">#<?php echo (int) $row['id']; ?></span>
                     </div>
                 </div>

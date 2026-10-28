@@ -927,6 +927,28 @@
   color: #8a5200;
 }
 
+/* ── Date of birth chip (student page, IQU_Birthday::profile_chip) ── */
+.iqu-dob-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--iqu-bdr);
+}
+.iqu-dob-chip--today {
+  color: color-mix(in srgb, var(--iqu-gold) 65%, var(--iqu-text1));
+  background: color-mix(in srgb, var(--iqu-gold) 14%, var(--iqu-bg1));
+  border-color: color-mix(in srgb, var(--iqu-gold) 40%, var(--iqu-bg1));
+}
+.iqu-dob-chip--date {
+  color: var(--iqu-text2);
+  background: var(--iqu-bg2);
+}
+.iqu-dob-chip--age {
+  color: var(--iqu-blue);
+  background: color-mix(in srgb, var(--iqu-blue) 8%, var(--iqu-bg1));
+  border-color: color-mix(in srgb, var(--iqu-blue) 25%, var(--iqu-bg1));
+}
+
 /* ── Status badges ──────────────────────────────────────────── */
 .iqu-status-badge {
   display: inline-flex;
