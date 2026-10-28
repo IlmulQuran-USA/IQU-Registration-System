@@ -200,14 +200,14 @@ class IQU_Billing_Payouts
         $rows = self::display_rows($s);
         echo '<div class="iqu-card iqu-list-card"><div class="iqu-card-head iqu-list-head"><div class="iqu-card-head-text">'
             . '<span class="iqu-card-head-title">Transactions (' . count($rows) . ')</span>'
-            . '<p class="iqu-card-head-sub">Gross is what the family paid (negative for money that went back), the Stripe fee is what Stripe kept, net is what reached the bank.</p>'
+            . '<p class="iqu-card-head-sub">Gross is what the family paid, refunds &amp; adjustments are money that went back (or came back), the Stripe fee is what Stripe kept, net is what reached the bank.</p>'
             . '</div></div>';
         if (!$rows) {
             echo '<div class="iqu-empty-state">No transactions in this payout.</div></div>';
             return;
         }
         echo '<div class="iqu-table-wrap"><table class="iqu-tbl iqu-billing-tbl"><thead><tr>'
-            . '<th>Date</th><th>Family</th><th>Students</th><th>Type</th><th class="is-num">Gross</th><th class="is-num">Stripe fee</th><th class="is-num">Net</th>'
+            . '<th>Date</th><th>Family</th><th>Students</th><th>Type</th><th class="is-num">Gross</th><th class="is-num">Refunds &amp; adjustments</th><th class="is-num">Stripe fee</th><th class="is-num">Net</th>'
             . '</tr></thead><tbody>';
         foreach ($rows as $row) {
             if ($row['account']) {
@@ -223,12 +223,14 @@ class IQU_Billing_Payouts
                 . '<td class="iqu-billing-wrap">' . esc_html($row['students'] !== '' ? $row['students'] : '—') . '</td>'
                 . '<td>' . esc_html($row['type_label']) . '</td>'
                 . '<td class="is-num">' . esc_html(self::money($row['amount'])) . '</td>'
+                . '<td class="is-num">' . esc_html(self::money($row['adjust'])) . '</td>'
                 . '<td class="is-num">' . esc_html(self::money($row['fee'])) . '</td>'
                 . '<td class="is-num">' . esc_html(self::money($row['net'])) . '</td>'
                 . '</tr>';
         }
         echo '</tbody><tfoot><tr><td colspan="4">Total (' . count($rows) . ')</td>'
             . '<td class="is-num">' . esc_html(self::money(array_sum(array_column($rows, 'amount')))) . '</td>'
+            . '<td class="is-num">' . esc_html(self::money(array_sum(array_column($rows, 'adjust')))) . '</td>'
             . '<td class="is-num">' . esc_html(self::money(array_sum(array_column($rows, 'fee')))) . '</td>'
             . '<td class="is-num">' . esc_html(self::money(array_sum(array_column($rows, 'net')))) . '</td>'
             . '</tr></tfoot></table></div></div>';
@@ -285,9 +287,11 @@ class IQU_Billing_Payouts
 
     /**
      * The summary's rows with family, students and a type label (local database, current mode, one query each).
-     * Stripe's own fee rows (stripe_fee, stripe_fx_fee, tax_fee) show their amount as a fee, not as gross: the
-     * Fee total = the Stripe fees card, the Gross total = Gross − Refunds/disputes + Other; net is Stripe's, unchanged.
-     * @return array[] created, family, account, customer, students, type_label, amount, fee, net (cents), txn
+     * Each row's amount sits in one column: payments in Gross (amount), Stripe's own fee rows (stripe_fee,
+     * stripe_fx_fee, tax_fee) in Stripe fee, refunds, disputes, bank returns and other rows in Refunds & adjustments
+     * (adjust, signed). Per row gross + adjust − fee = net; the totals: Gross card, −Refunds + Other, Stripe fees card,
+     * Net card. Net is Stripe's, unchanged.
+     * @return array[] created, family, account, customer, students, type_label, amount, adjust, fee, net (cents), txn
      */
     private static function display_rows(array $summary): array
     {
@@ -320,10 +324,14 @@ class IQU_Billing_Payouts
             }
             $amount = (int) $row['amount'];
             $fee    = (int) $row['fee'];
-            if ($kind === 'stripe_fee') { $fee -= $amount; $amount = 0; } // −$2.00 gross becomes a $2.00 fee
+            $gross  = 0;
+            $adjust = 0;
+            if ($kind === 'payment' || $kind === 'summer') $gross = $amount;
+            elseif ($kind === 'stripe_fee') $fee -= $amount; // −$2.00 gross becomes a $2.00 fee
+            else $adjust = $amount;                             // −$10.00 refund, +$120.00 dispute reversal
             $out[] = [
                 'created' => (int) $row['created'], 'family' => $family, 'account' => $acc ? (int) $acc['id'] : 0, 'customer' => (string) $row['customer'],
-                'students' => $names, 'type_label' => $type, 'amount' => $amount, 'fee' => $fee, 'net' => (int) $row['net'], 'txn' => (string) $row['id'],
+                'students' => $names, 'type_label' => $type, 'amount' => $gross, 'adjust' => $adjust, 'fee' => $fee, 'net' => (int) $row['net'], 'txn' => (string) $row['id'],
             ];
         }
         return $out;
@@ -379,14 +387,14 @@ class IQU_Billing_Payouts
     public static function write_csv($out, array $rows): void
     {
         fputs($out, "\xEF\xBB\xBF");
-        IQU_CSV::put($out, ['Date', 'Family', 'Stripe customer', 'Students', 'Type', 'Gross', 'Stripe fee', 'Net', 'Stripe transaction']);
+        IQU_CSV::put($out, ['Date', 'Family', 'Stripe customer', 'Students', 'Type', 'Gross', 'Refunds & adjustments', 'Stripe fee', 'Net', 'Stripe transaction']);
         foreach ($rows as $row) {
             IQU_CSV::put($out, [
                 $row['created'] ? wp_date('Y-m-d', $row['created']) : '', $row['family'], $row['customer'], $row['students'], $row['type_label'],
-                self::csv_money($row['amount']), self::csv_money($row['fee']), self::csv_money($row['net']), $row['txn'],
+                self::csv_money($row['amount']), self::csv_money($row['adjust']), self::csv_money($row['fee']), self::csv_money($row['net']), $row['txn'],
             ]);
         }
-        IQU_CSV::put($out, ['Total', '', '', '', '', self::csv_money(array_sum(array_column($rows, 'amount'))), self::csv_money(array_sum(array_column($rows, 'fee'))), self::csv_money(array_sum(array_column($rows, 'net'))), '']);
+        IQU_CSV::put($out, ['Total', '', '', '', '', self::csv_money(array_sum(array_column($rows, 'amount'))), self::csv_money(array_sum(array_column($rows, 'adjust'))), self::csv_money(array_sum(array_column($rows, 'fee'))), self::csv_money(array_sum(array_column($rows, 'net'))), '']);
     }
 
     // ------------------------------------------------------------
