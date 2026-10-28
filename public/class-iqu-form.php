@@ -310,9 +310,8 @@ class IQU_Form
             <h2>Enroll for Your <br>Qur'anic Journey</h2>
             <p class="iqu-hero-subtitle">
                 Choose from One-to-One or group classes, <br />flexible scheduling, and dedicated male & female teachers
-                <br />
-                100% Free for the first Month.
             </p>
+            <p class="iqu-hero-free"><span class="iqu-hero-free-pill"><span class="iqu-hero-pill-dot iqu-hero-pill-dot--gold" aria-hidden="true"></span>First month free — no charge for 30 days</span></p>
         </div>
 
         <div class="iqu-hero-pills">
@@ -346,7 +345,7 @@ class IQU_Form
                 </div>
                 <div>
                     <div class="iqu-hero-stat-label"><em>1 Month Free</em></div>
-                    <div class="iqu-hero-stat-sub">Then affordable monthly tuition</div>
+                    <div class="iqu-hero-stat-sub">No charge for 30 days</div>
                 </div>
             </div>
             <div class="iqu-hero-stat">
@@ -476,6 +475,30 @@ class IQU_Form
                         </div>
                     </div>
                     <p class="iqu-closing">We look forward to welcoming you! 🤲</p>
+                </section>
+
+                <!-- ═══ HOW PAYMENT WORKS (one answer open at a time per button; form.js) ═══ -->
+                <section class="iqu-intro-card iqu-pay-faq" aria-labelledby="iqu-pay-faq-title">
+                    <h3 id="iqu-pay-faq-title" class="iqu-pay-faq-title">How payment works</h3>
+                    <p class="iqu-highlight iqu-pay-faq-free"><strong>First month free — no charge for 30 days.</strong></p>
+                    <div class="iqu-faq">
+                        <div class="iqu-faq-item">
+                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q1" aria-expanded="true" aria-controls="iqu-faq-a1"><span>Is the first month really free?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
+                            <div class="iqu-faq-a" id="iqu-faq-a1" role="region" aria-labelledby="iqu-faq-q1"><p>Yes. New students get their first 30 days of classes free.</p></div>
+                        </div>
+                        <div class="iqu-faq-item">
+                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q2" aria-expanded="false" aria-controls="iqu-faq-a2"><span>Why add a card or bank now?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
+                            <div class="iqu-faq-a" id="iqu-faq-a2" role="region" aria-labelledby="iqu-faq-q2" hidden><p>To keep your spot. Please add it within 7 days, or your enrollment is put on hold. Nothing is charged during the free month.</p></div>
+                        </div>
+                        <div class="iqu-faq-item">
+                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q3" aria-expanded="false" aria-controls="iqu-faq-a3"><span>When is the first charge?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
+                            <div class="iqu-faq-a" id="iqu-faq-a3" role="region" aria-labelledby="iqu-faq-q3" hidden><p>30 days after you register, then once a month on the same date.</p></div>
+                        </div>
+                        <div class="iqu-faq-item">
+                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q4" aria-expanded="false" aria-controls="iqu-faq-a4"><span>How do I cancel?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
+                            <div class="iqu-faq-a" id="iqu-faq-a4" role="region" aria-labelledby="iqu-faq-q4" hidden><p>Message us at <a href="mailto:info@ilmulquranus.org">info@ilmulquranus.org</a> or on WhatsApp before your next charge date, and we&#039;ll stop future charges.</p></div>
+                        </div>
+                    </div>
                 </section>
             </div>
         </aside>

@@ -306,6 +306,14 @@
       });
     }
 
+    // ── Enroll for Free: "How payment works" — each question opens / closes its answer ──
+    $(document).on("click", ".iqu-faq-q", function () {
+      const open = this.getAttribute("aria-expanded") === "true";
+      const panel = document.getElementById(this.getAttribute("aria-controls") || "");
+      this.setAttribute("aria-expanded", open ? "false" : "true");
+      if (panel) panel.hidden = open;
+    });
+
     const $freeForm = $("#iqu-reg-form");
     if ($freeForm.length) {
       wireFreeForm($freeForm);

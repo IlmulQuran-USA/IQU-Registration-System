@@ -590,7 +590,11 @@ class IQU_Billing_Service
             'adaptive_pricing'       => ['enabled' => false], // always USD: amount_check, history and reports read USD cents
         ];
         if ($first_ts) {
-            $params['custom_text'] = ['submit' => ['message' => 'Nothing is charged today. Your first payment is on ' . wp_date('j F Y', $first_ts) . ', then on the same date every month.']];
+            // Stripe renders custom_text with Markdown: bold is the strongest emphasis allowed here
+            // (font size cannot be changed on Stripe-hosted Checkout).
+            $params['custom_text'] = ['submit' => ['message' => '**Nothing is charged today.** Your first payment of **'
+                . IQU_Pricing::format((float) $acc['net_amount']) . '** is on **' . wp_date('j F Y', $first_ts)
+                . '**, then on the same date every month.']];
         }
 
         // The amount this page sets up, kept with the session (and on the record below) so an old

@@ -4423,3 +4423,116 @@ body.iqu-geo-open {
     display: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+ * FIRST MONTH FREE — hero pill and "How payment works" (Enroll for Free)
+ * The hero's own gold (#c9a349), text darkened for contrast.
+ * ══════════════════════════════════════════════════════════ */
+.iqu-hero-free {
+  margin: -12px 0 26px;
+  text-align: center;
+}
+
+.iqu-hero-free-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: #fbf3dc;
+  border: 1px solid #e3c97f;
+  border-radius: 50px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6f5413;
+}
+
+.iqu-pay-faq {
+  margin-top: 18px;
+}
+
+.iqu-pay-faq-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.iqu-intro-card .iqu-pay-faq-free {
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  font-size: 15px;
+}
+
+.iqu-faq-item {
+  border-top: 1px solid #ece5d6;
+}
+
+.iqu-faq-item:last-child {
+  border-bottom: 1px solid #ece5d6;
+}
+
+.iqu-faq-h {
+  margin: 0;
+  font-size: inherit;
+}
+
+.iqu-faq-q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 2px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.iqu-faq-q:focus-visible {
+  outline: 2px solid var(--iqu-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* + / − */
+.iqu-faq-icon {
+  position: relative;
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.iqu-faq-icon::before,
+.iqu-faq-icon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: #b08d3a;
+}
+
+.iqu-faq-icon::after {
+  transform: rotate(90deg);
+}
+
+.iqu-faq-q[aria-expanded="true"] .iqu-faq-icon::after {
+  display: none;
+}
+
+.iqu-intro-card .iqu-faq-a p {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.iqu-faq-a a {
+  color: var(--iqu-primary);
+}
