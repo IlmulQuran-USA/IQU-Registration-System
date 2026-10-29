@@ -441,7 +441,7 @@ class IQU_Summer_Form
                     <div class="iqu-question">
                         <label for="guardian_contact">Guardian's Contact Number <span class="req">*</span></label>
                         <p class="iqu-help">
-                            <strong>Country code required.</strong>
+                            <strong>define('IQU_VERSION', '3.0.0');</strong>
                             Select your flag from the dropdown, then enter your number.<br>
                             Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
                         </p>
@@ -454,7 +454,7 @@ class IQU_Summer_Form
                         <label for="guardian_whatsapp">Guardian's WhatsApp Contact Number <span
                                 class="req">*</span></label>
                         <p class="iqu-help">
-                            <strong>Country code required.</strong>
+                            <strong>define('IQU_VERSION', '3.0.0');</strong>
                             Select your flag from the dropdown, then enter your number.<br>
                             Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
                         </p>
