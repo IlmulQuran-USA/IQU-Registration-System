@@ -436,7 +436,7 @@ class IQU_Summer_Form
                     </div>
                 </div>
 
-                <div class="form-display-flex">
+                <div class="form-display-flex form-display-flex--contact">
                     <!-- Guardian Contact Number -->
                     <div class="iqu-question">
                         <label for="guardian_contact">Guardian's Contact Number <span class="req">*</span></label>

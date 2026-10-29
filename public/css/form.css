@@ -4562,7 +4562,7 @@ body.iqu-geo-open {
   }
 }
 
-/* Rows 2 and 3 and the last row: cells aligned at the top */
+/* Rows 2 and 3 and the last row (and Summer's Contact Number | WhatsApp row): cells aligned at the top */
 .form-display-flex--contact,
 .form-display-flex--last {
   align-items: stretch;
