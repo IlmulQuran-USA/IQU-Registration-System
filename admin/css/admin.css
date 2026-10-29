@@ -3237,3 +3237,77 @@ button.iqu-perpage-btn,
     flex: 0 0 auto;
   }
 }
+/* ── 3.7.0: confirmation dialog ("Stop billing" …) and the danger button ───────── */
+.iqu-btn--danger,
+.iqu-btn--danger:visited {
+  color: #fff;
+  background: var(--iqu-red);
+  border-color: var(--iqu-red);
+}
+.iqu-btn--danger:hover,
+.iqu-btn--danger:focus {
+  color: #fff;
+  background: #8f2424;
+  border-color: #8f2424;
+}
+.iqu-modal {
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 0;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: 8px;
+  background: var(--iqu-bg1);
+  color: var(--iqu-text1);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25);
+}
+.iqu-modal::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+.iqu-modal-form {
+  padding: 20px 22px;
+}
+.iqu-modal-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.iqu-modal-text {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.iqu-modal .iqu-fld {
+  margin: 0 0 12px;
+}
+.iqu-modal select,
+.iqu-modal input[type="text"] {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+}
+.iqu-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.iqu-inline-form {
+  display: inline;
+  margin: 0;
+}
+.iqu-stop-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+@media (max-width: 600px) {
+  .iqu-modal-actions .iqu-btn {
+    flex: 1 1 100%;
+  }
+}

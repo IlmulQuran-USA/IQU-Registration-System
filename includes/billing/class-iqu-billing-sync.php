@@ -78,6 +78,7 @@ class IQU_Billing_Sync
             'status'                 => $status,
             'next_charge_at'         => self::next_charge($sub),
             'payment_method_label'   => $label,
+            'ends_at'                => self::ends_at($sub), // 3.7.0: billing stops at the end of the paid period / stopped
         ];
         IQU_Billing_DB::update_account((int) $acc['id'], $upd);
 
@@ -92,6 +93,8 @@ class IQU_Billing_Sync
     public static function status_from(array $sub): string
     {
         if (!empty($sub['pause_collection'])) return 'paused';
+        // 3.7.0: set to stop at the end of the period already paid (or of the free month): no further charge
+        if (in_array((string) ($sub['status'] ?? ''), ['trialing', 'active'], true) && self::stops_at_period_end($sub)) return 'ending';
         switch ((string) $sub['status']) {
             case 'trialing':
                 return 'free_month';
@@ -155,10 +158,34 @@ class IQU_Billing_Sync
         return null;
     }
 
+    /** True when the subscription stops at the end of its current period (cancel_at_period_end, or a cancel_at date). */
+    public static function stops_at_period_end(array $sub): bool
+    {
+        return !empty($sub['cancel_at_period_end']) || !empty($sub['cancel_at']);
+    }
+
+    /**
+     * When billing stops (UTC, MySQL format): a stopped subscription's end; one set to stop, the end of the period
+     * already paid (the free month's end while trialing) — the day the next charge would have been. Otherwise null.
+     */
+    public static function ends_at(array $sub): ?string
+    {
+        if (in_array((string) ($sub['status'] ?? ''), ['canceled', 'incomplete_expired'], true)) {
+            $t = (int) ($sub['ended_at'] ?? 0) ?: (int) ($sub['canceled_at'] ?? 0);
+            return $t ? gmdate('Y-m-d H:i:s', $t) : null;
+        }
+        if (!self::stops_at_period_end($sub)) return null;
+        $t = (int) ($sub['cancel_at'] ?? 0);
+        if (!$t) $t = (string) ($sub['status'] ?? '') === 'trialing' && !empty($sub['trial_end']) ? (int) $sub['trial_end']
+            : (int) ($sub['items']['data'][0]['current_period_end'] ?? $sub['current_period_end'] ?? 0);
+        return $t ? gmdate('Y-m-d H:i:s', $t) : null;
+    }
+
     /** Next charge time (UTC, MySQL format) or null. */
     private static function next_charge(array $sub): ?string
     {
         if (in_array($sub['status'], ['canceled', 'incomplete_expired'], true)) return null;
+        if (self::stops_at_period_end($sub)) return null; // 3.7.0: stops at the period end — no next charge
         if ($sub['status'] === 'trialing' && !empty($sub['trial_end'])) {
             return gmdate('Y-m-d H:i:s', (int) $sub['trial_end']);
         }

@@ -37,6 +37,9 @@ add_action('plugins_loaded', function () {
     require_once $inc . 'class-iqu-billing-webhook.php';
     require_once $inc . 'class-iqu-billing-summary.php';
     require_once $inc . 'class-iqu-billing-portal.php';
+    require_once $inc . 'class-iqu-billing-stop.php'; // 3.7.0: stop billing at the end of the paid period
+    // daily: a student whose billing end date has passed becomes "cancelled" (an ended scholarship, a removed student)
+    if (class_exists('IQU_Discount_Ledger')) add_action(IQU_Discount_Ledger::CRON, ['IQU_Billing_Stop', 'finish_due'], 5);
 
     add_action('init', ['IQU_Billing_DB', 'maybe_install']);
     // Then every IQU table is checked against its CREATE statement, whatever the stored versions
@@ -59,6 +62,7 @@ add_action('plugins_loaded', function () {
         require_once $adm . 'class-iqu-billing-payments.php';
         require_once $adm . 'class-iqu-billing-reports.php';
         require_once $adm . 'class-iqu-billing-payouts.php';
+        require_once $adm . 'class-iqu-billing-stop-admin.php'; // 3.7.0
         IQU_Billing_Page::init();
         IQU_Billing_Settings::init();
         IQU_Billing_Add_Student::init();
@@ -66,5 +70,6 @@ add_action('plugins_loaded', function () {
         IQU_Billing_Send::init();
         IQU_Billing_Reports::init();
         IQU_Billing_Payouts::init();
+        IQU_Billing_Stop_Admin::init();
     }
 }, 20);

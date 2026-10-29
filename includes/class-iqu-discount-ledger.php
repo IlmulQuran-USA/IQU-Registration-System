@@ -191,6 +191,12 @@ final class IQU_Discount_Ledger
     /** Last month that counts: [Y-m-01, estimated] — null for a student who never started (or is not monthly). */
     public static function last_month(array $reg): ?array
     {
+        // 3.7.0: billing ended (or ends) on a known date: that month is the last one counted — exact, not estimated
+        $ended = (string) ($reg['billing_ended_at'] ?? '');
+        if ($ended !== '' && in_array((string) ($reg['status'] ?? ''), array_merge([IQU_Database::ACTIVE_STATUS], self::ENDED_STATUSES), true)) {
+            $m = wp_date('Y-m-01', (int) strtotime($ended . ' UTC'));
+            return [strcmp($m, self::current_month()) > 0 ? self::current_month() : $m, false];
+        }
         if (IQU_Database::is_active_student($reg)) return [self::current_month(), false];
         if (in_array((string) ($reg['status'] ?? ''), self::ENDED_STATUSES, true)) {
             $updated = strtotime((string) ($reg['updated_at'] ?? $reg['created_at'] ?? '') . ' UTC');

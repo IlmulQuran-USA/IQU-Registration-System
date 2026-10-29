@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) exit;
  */
 class IQU_Billing_DB
 {
-    public const DB_VERSION = '1.5.0';
+    public const DB_VERSION = '1.6.0';
     private const OPT_VERSION = 'iqu_billing_db_version';
 
     /** Columns update_account() may change, with their formats. */
@@ -52,6 +52,7 @@ class IQU_Billing_DB
         'link_outdated'          => '%d',
         'review_reason'          => '%s',
         'review_note'            => '%s',
+        'ends_at'                => '%s', // 1.6.0: when billing stops (end of the paid period) or stopped
     ];
 
     public const STATUSES = [
@@ -59,6 +60,7 @@ class IQU_Billing_DB
         'active', 'past_due', 'unpaid', 'paused', 'canceled',
         'review', // 1.4.0: set up through an old Checkout page at a different amount; an admin checks it
         'bank_verification', // 3.4.10: US bank account added, waiting for microdeposit verification
+        'ending', // 3.7.0: stops at the end of the period already paid (ends_at); no further charge
     ];
 
     // ------------------------------------------------------------
@@ -100,6 +102,7 @@ class IQU_Billing_DB
         $members  = self::members_table();
         $events   = self::events_table();
         $payments = self::payments_table();
+        $actions  = self::actions_table();
 
         return [
         $accounts => "CREATE TABLE {$accounts} (
@@ -132,6 +135,7 @@ class IQU_Billing_DB
             link_outdated TINYINT(1) NOT NULL DEFAULT 0,
             review_reason VARCHAR(30) NOT NULL DEFAULT '',
             review_note VARCHAR(255) NOT NULL DEFAULT '',
+            ends_at DATETIME DEFAULT NULL,
             created_by BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
@@ -204,6 +208,23 @@ class IQU_Billing_DB
             KEY mode_period (mode,period_month),
             KEY account_period (account_id,period_month)
         ) {$charset};",
+        // 1.6.0: every money action an admin takes (stop / resume billing, cancel an enrollment, end a scholarship,
+        // refunds …): who, when, what, amount, reason and the Stripe id. Never edited or deleted.
+        $actions => "CREATE TABLE {$actions} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            mode VARCHAR(4) NOT NULL DEFAULT 'test',
+            account_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+            registration_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+            action VARCHAR(30) NOT NULL DEFAULT '',
+            amount DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+            reason VARCHAR(255) NOT NULL DEFAULT '',
+            stripe_ref VARCHAR(100) NOT NULL DEFAULT '',
+            user_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY  (id),
+            KEY account_id (account_id),
+            KEY registration_id (registration_id)
+        ) {$charset};",
         ];
     }
 
@@ -224,6 +245,7 @@ class IQU_Billing_DB
         if ($problem === '') $problem = self::migrate_payments_130();
         if ($problem === '') $problem = self::migrate_accounts_140();
         if ($problem === '') $problem = self::migrate_accounts_150();
+        if ($problem === '') $problem = self::migrate_accounts_160();
         if ($problem !== '') {
             // Leave the version behind so the next page load tries again.
             error_log('IQU Billing: payments table upgrade to ' . self::DB_VERSION . ' not finished — ' . $problem);
@@ -292,6 +314,59 @@ class IQU_Billing_DB
         foreach ((array) $wpdb->get_results('SHOW COLUMNS FROM ' . self::accounts_table(), ARRAY_A) as $c) $cols[(string) $c['Field']] = true;
         $missing = array_diff(array_keys(self::ACCOUNT_COLUMNS_140), array_keys($cols));
         return $missing ? 'missing account columns: ' . implode(', ', $missing) . ' (' . $wpdb->last_error . ')' : '';
+    }
+
+    /**
+     * 1.6.0: ends_at on the accounts table — when billing stops at the end of the paid period ("Ends …"), or when it
+     * stopped. Added when missing, then verified. (The actions table is created with the others, IF NOT EXISTS.)
+     * @return string '' when the column exists, otherwise the reason.
+     */
+    private static function migrate_accounts_160(): string
+    {
+        global $wpdb;
+        $has = function () use ($wpdb): bool {
+            foreach ((array) $wpdb->get_results('SHOW COLUMNS FROM ' . self::accounts_table(), ARRAY_A) as $c) if ((string) $c['Field'] === 'ends_at') return true;
+            return false;
+        };
+        if (!$has()) $wpdb->query('ALTER TABLE ' . self::accounts_table() . ' ADD COLUMN ends_at DATETIME DEFAULT NULL');
+        return $has() ? '' : 'missing account column: ends_at (' . $wpdb->last_error . ')';
+    }
+
+    public static function actions_table(): string
+    {
+        global $wpdb;
+        return $wpdb->prefix . 'iqu_billing_actions';
+    }
+
+    /**
+     * Log one money action (1.6.0): $a = action, account_id, registration_id, amount, reason, stripe_ref; who (the
+     * current WP user) and when are added here. Returns the row id (0 when the table is not there yet).
+     */
+    public static function log_action(array $a): int
+    {
+        global $wpdb;
+        if (!self::is_installed()) return 0;
+        $ok = $wpdb->insert(self::actions_table(), [
+            'mode'            => IQU_Stripe::expected_mode(),
+            'account_id'      => (int) ($a['account_id'] ?? 0),
+            'registration_id' => (int) ($a['registration_id'] ?? 0),
+            'action'          => substr((string) ($a['action'] ?? ''), 0, 30),
+            'amount'          => round((float) ($a['amount'] ?? 0), 2),
+            'reason'          => substr((string) ($a['reason'] ?? ''), 0, 255),
+            'stripe_ref'      => substr((string) ($a['stripe_ref'] ?? ''), 0, 100),
+            'user_id'         => (int) ($a['user_id'] ?? get_current_user_id()),
+            'created_at'      => current_time('mysql', true),
+        ], ['%s', '%d', '%d', '%s', '%f', '%s', '%s', '%d', '%s']);
+        return $ok ? (int) $wpdb->insert_id : 0;
+    }
+
+    /** An account's logged actions, newest first ($action: only that one). */
+    public static function actions_for_account(int $account_id, string $action = ''): array
+    {
+        global $wpdb;
+        if (!self::is_installed()) return [];
+        $sql = 'SELECT * FROM ' . self::actions_table() . ' WHERE account_id = %d' . ($action !== '' ? ' AND action = %s' : '') . ' ORDER BY id DESC';
+        return $wpdb->get_results($action !== '' ? $wpdb->prepare($sql, $account_id, $action) : $wpdb->prepare($sql, $account_id), ARRAY_A) ?: [];
     }
 
     /** True once every billing table and column of this version is in place. */

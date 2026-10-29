@@ -166,7 +166,14 @@ class IQU_Admin
                     <div class="iqu-detail-val">
                         <strong><?php echo $agreed === null ? 'None — standard price' : esc_html(IQU_Pricing::format($agreed) . ' a month' . ($agreed <= 0 ? ' (full scholarship)' : '')); ?></strong>
                         <?php if ($note !== ''): ?><br><span class="iqu-agreed-note" data-agreed-fee-note><?php echo esc_html($note); ?></span><?php endif; ?>
-                        <?php if (class_exists('IQU_Discount_Ledger_Admin')) echo IQU_Discount_Ledger_Admin::fund_select($row); // reports only; escaped inside ?>
+                        <?php if (class_exists('IQU_Discount_Ledger_Admin')) echo IQU_Discount_Ledger_Admin::fund_select($row); // reports only; escaped inside
+                        // 3.7.0: a full scholarship with no billing record: "End scholarship" (nothing is printed otherwise)
+                        if (class_exists('IQU_Billing_Stop_Admin')) {
+                            $stop_html = IQU_Billing_Stop_Admin::student_controls($row);
+                            $stop_msg  = get_transient('iqu_reg_notice_' . get_current_user_id());
+                            if ($stop_msg) { delete_transient('iqu_reg_notice_' . get_current_user_id()); echo '<p class="iqu-free-month-note" role="' . ($stop_msg['ok'] ? 'status' : 'alert') . '">' . esc_html($stop_msg['message']) . '</p>'; }
+                            if ($stop_html !== '') echo '<div class="iqu-stop-row">' . $stop_html . '</div>'; // escaped inside
+                        } ?>
                         <?php if (isset($texts[$msg])): ?><p class="iqu-free-month-note" role="<?php echo esc_attr($texts[$msg][0]); ?>"><?php echo esc_html($texts[$msg][1]); ?></p><?php endif; ?>
                         <?php if ($acc && !empty($acc['stripe_subscription_id'])): ?>
                             <p class="iqu-free-month-note">Monthly billing is already running in Stripe, so the fee can no longer be changed here.</p>

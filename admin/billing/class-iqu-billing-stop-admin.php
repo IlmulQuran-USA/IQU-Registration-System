@@ -1,0 +1,167 @@
+<?php
+if (!defined('ABSPATH')) exit;
+
+/**
+ * Class IQU_Billing_Stop_Admin
+ *
+ * "Stop billing" on the Billing details page (and "End scholarship" on the student page of a full-scholarship student
+ * with no billing record): the button, its confirmation dialog with the required reason, and the action
+ * (IQU_Billing_Stop). manage_options + a nonce per account / student on every action. The dialog is a <dialog>
+ * opened by admin.js; without JavaScript the button is a link that shows the same dialog open (?iqu_confirm=…).
+ */
+final class IQU_Billing_Stop_Admin
+{
+    private const CAP      = 'manage_options';
+    public const A_STOP    = 'iqu_billing_stop';
+    public const A_REG     = 'iqu_end_scholarship';
+
+    /** kind => [button, title, confirm, keep] */
+    private const TEXT = [
+        'stop'              => ['Stop billing', 'Stop billing', 'Stop billing', 'Keep billing'],
+        'cancel_enrollment' => ['Cancel enrollment', 'Cancel enrollment', 'Cancel enrollment', 'Keep enrollment'],
+        'end_scholarship'   => ['End scholarship', 'End scholarship', 'End scholarship', 'Keep scholarship'],
+    ];
+
+    public static function init(): void
+    {
+        add_action('admin_post_' . self::A_STOP, [__CLASS__, 'handle']);
+        add_action('admin_post_' . self::A_REG, [__CLASS__, 'handle_registration']);
+    }
+
+    // ------------------------------------------------------------
+    // Billing details page
+    // ------------------------------------------------------------
+
+    /** The family header's chip and button(s): "Ends {date}" + "Resume billing", or the stop button with its dialog. */
+    public static function family_controls(array $acc): string
+    {
+        if (!current_user_can(self::CAP)) return '';
+        $kind = IQU_Billing_Stop::kind($acc);
+        $id   = (int) $acc['id'];
+        $html = '';
+        // (an ending family's chip says "Ends {date}": IQU_Billing_Send::status_chip)
+        if ($kind === 'resume') {
+            $html .= '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" class="iqu-inline-form" onsubmit="return confirm(\'Resume billing? The next charge happens as before.\');">'
+                . self::hidden($id, 'resume') . '<button type="submit" class="iqu-action-btn iqu-action-btn--view">Resume billing</button></form>';
+        } elseif (isset(self::TEXT[$kind])) {
+            $html .= self::dialog('acc', $id, $kind, self::text_for($acc, $kind), add_query_arg('iqu_confirm', $kind, IQU_Billing_Page::family_url($id)));
+        }
+        return $html;
+    }
+
+    /** The sentence of the dialog. */
+    private static function text_for(array $acc, string $kind): string
+    {
+        if ($kind === 'stop') {
+            $day = IQU_Billing_Stop::day(IQU_Billing_Stop::period_end_ts($acc));
+            return 'Billing will stop at the end of the period already paid. The family keeps classes until ' . ($day !== '' ? $day : 'the end of that period') . '. No further charges.';
+        }
+        if ($kind === 'cancel_enrollment') return 'No bank or card has been charged. The family\'s payment page is closed and the enrollment is cancelled now. No further charges.';
+        return 'The scholarship ends on ' . IQU_Billing_Stop::day((int) strtotime(IQU_Billing_Stop::month_end_utc() . ' UTC')) . ', the end of this month. Classes continue until then.';
+    }
+
+    // ------------------------------------------------------------
+    // Student page (full scholarship, no billing record)
+    // ------------------------------------------------------------
+
+    public static function student_controls(array $reg): string
+    {
+        if (!current_user_can(self::CAP) || !class_exists('IQU_Billing_Stop')) return '';
+        $id = (int) $reg['id'];
+        $ended = (string) ($reg['billing_ended_at'] ?? '');
+        if ($ended !== '') {
+            return '<span class="iqu-chip iqu-chip--gold" data-iqu-ends>Ends ' . esc_html(IQU_Billing_Stop::day((int) strtotime($ended . ' UTC'))) . '</span>';
+        }
+        if (IQU_Billing_Stop::kind_for_registration($reg) !== 'end_scholarship') return '';
+        return self::dialog('reg', $id, 'end_scholarship', self::text_for([], 'end_scholarship'),
+            add_query_arg('iqu_confirm', 'end_scholarship', admin_url('admin.php?page=iqu-view-registration&id=' . $id)));
+    }
+
+    // ------------------------------------------------------------
+    // The button and its dialog
+    // ------------------------------------------------------------
+
+    private static function hidden(int $id, string $kind, string $for = 'acc'): string
+    {
+        $action = $for === 'reg' ? self::A_REG : self::A_STOP;
+        return '<input type="hidden" name="action" value="' . esc_attr($action) . '">'
+            . '<input type="hidden" name="' . ($for === 'reg' ? 'id' : 'account') . '" value="' . $id . '">'
+            . '<input type="hidden" name="kind" value="' . esc_attr($kind) . '">'
+            // the form's one-time id: a double submit sends the same id → the same Stripe idempotency key
+            . '<input type="hidden" name="op" value="' . esc_attr(str_replace('-', '', wp_generate_uuid4())) . '">'
+            . wp_nonce_field($action . '_' . $id, '_wpnonce', true, false);
+    }
+
+    private static function dialog(string $for, int $id, string $kind, string $sentence, string $fallback): string
+    {
+        [$button, $title, $confirm, $keep] = self::TEXT[$kind];
+        $d    = 'iqu-' . $kind . '-' . $for . '-' . $id;
+        $open = sanitize_key((string) ($_GET['iqu_confirm'] ?? '')) === $kind;
+        $opts = '<option value="">Choose a reason…</option>';
+        foreach (IQU_Billing_Stop::REASONS as $k => $label) $opts .= '<option value="' . esc_attr($k) . '">' . esc_html($label) . '</option>';
+        return '<a class="iqu-action-btn iqu-action-btn--delete" href="' . esc_url($fallback) . '" data-iqu-dialog="' . esc_attr($d) . '">' . esc_html($button) . '</a>'
+            . '<dialog class="iqu-modal" id="' . esc_attr($d) . '" aria-labelledby="' . esc_attr($d) . '-t"' . ($open ? ' open' : '') . '>'
+            . '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" class="iqu-modal-form" data-iqu-reason-form>'
+            . '<h2 class="iqu-modal-title" id="' . esc_attr($d) . '-t">' . esc_html($title) . '</h2>'
+            . '<p class="iqu-modal-text">' . esc_html($sentence) . '</p>'
+            . self::hidden($id, $kind, $for)
+            . '<div class="iqu-fld"><label for="' . esc_attr($d) . '-r">Reason <em>*</em></label>'
+            . '<select id="' . esc_attr($d) . '-r" name="reason" required>' . $opts . '</select></div>'
+            . '<div class="iqu-fld" data-iqu-other><label for="' . esc_attr($d) . '-o">Other reason <em>*</em></label>'
+            . '<input type="text" id="' . esc_attr($d) . '-o" name="reason_other" maxlength="' . IQU_Billing_Stop::OTHER_MAX . '"></div>'
+            . '<div class="iqu-modal-actions">'
+            . '<button type="submit" class="iqu-btn iqu-btn--danger">' . esc_html($confirm) . '</button>'
+            . '<button type="submit" formmethod="dialog" formnovalidate value="cancel" class="iqu-btn iqu-btn--secondary">' . esc_html($keep) . '</button>'
+            . '</div></form></dialog>';
+    }
+
+    // ------------------------------------------------------------
+    // Actions
+    // ------------------------------------------------------------
+
+    private static function posted_reason(): string
+    {
+        return IQU_Billing_Stop::reason(sanitize_key(wp_unslash($_POST['reason'] ?? '')), sanitize_text_field(wp_unslash($_POST['reason_other'] ?? '')));
+    }
+
+    public static function handle(): void
+    {
+        $id = absint($_POST['account'] ?? 0);
+        if (!current_user_can(self::CAP)) wp_die('You do not have permission to do this.', 403);
+        check_admin_referer(self::A_STOP . '_' . $id);
+        $acc = IQU_Billing_DB::get_account($id);
+        if (!$acc) wp_die('Billing record not found.', 404);
+        $kind = sanitize_key((string) ($_POST['kind'] ?? ''));
+        $op   = preg_replace('/[^A-Za-z0-9]/', '', (string) ($_POST['op'] ?? ''));
+        if ($kind !== IQU_Billing_Stop::kind($acc) || $op === '') {
+            $r = ['ok' => false, 'message' => 'This page was out of date, so nothing was changed. Please check the status and try again.'];
+        } elseif ($kind === 'stop') {
+            $r = IQU_Billing_Stop::stop($acc, self::posted_reason(), $op);
+        } elseif ($kind === 'resume') {
+            $r = IQU_Billing_Stop::resume($acc, $op);
+        } elseif ($kind === 'cancel_enrollment') {
+            $r = IQU_Billing_Stop::cancel_enrollment($acc, self::posted_reason());
+        } else { // end_scholarship (everyone on the record has a full scholarship)
+            $regs = array_values(array_filter(array_map(fn($m) => IQU_Database::get_registration((int) $m['registration_id']), IQU_Billing_DB::get_members($id)),
+                fn($r) => $r && IQU_Database::is_active_student($r) && (string) ($r['billing_ended_at'] ?? '') === ''));
+            $r = IQU_Billing_Stop::end_scholarship($regs, self::posted_reason(), $id);
+        }
+        IQU_Billing_Send::notice(['type' => $r['ok'] ? 'success' : 'error', 'items' => [$r['message']]]);
+        IQU_Billing_Send::to_message($id);
+    }
+
+    public static function handle_registration(): void
+    {
+        $id = absint($_POST['id'] ?? 0);
+        if (!current_user_can(self::CAP)) wp_die('You do not have permission to do this.', 403);
+        check_admin_referer(self::A_REG . '_' . $id);
+        $reg = IQU_Database::get_registration($id);
+        if (!$reg) wp_die('Student not found.', 404);
+        $r = IQU_Billing_Stop::kind_for_registration($reg) === 'end_scholarship'
+            ? IQU_Billing_Stop::end_scholarship([$reg], self::posted_reason())
+            : ['ok' => false, 'message' => 'This page was out of date, so nothing was changed.'];
+        set_transient('iqu_reg_notice_' . get_current_user_id(), $r, 120);
+        wp_safe_redirect(admin_url('admin.php?page=iqu-view-registration&id=' . $id));
+        exit;
+    }
+}

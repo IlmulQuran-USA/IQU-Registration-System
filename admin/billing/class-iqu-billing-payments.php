@@ -20,7 +20,7 @@ class IQU_Billing_Payments_Screen
 
     /** Family status groups for the doughnut: label => [statuses, colour token]. */
     private const STATUS_GROUPS = [
-        'Active'               => [['active'], 'green'],
+        'Active'               => [['active', 'ending'], 'green'], // 3.7.0: "ending" is still active until its paid period ends
         'Free month'           => [['free_month'], 'blue'],
         'Waiting first charge' => [['waiting_first_charge'], 'purple'],
         'Payment problem'      => [['past_due', 'unpaid', 'paused'], 'red'],

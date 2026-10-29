@@ -137,6 +137,7 @@ class IQU_Billing_Page
     /** Chip colour for an account status: gold, green, red or neutral (see admin/css/billing.css). */
     public static function status_tone(string $status): string
     {
+        if ($status === 'ending') return 'gold'; // 3.7.0: "Ends {date}"
         return ['link_sent' => 'gold', 'active' => 'green', 'failed' => 'red'][self::group_for_status($status)] ?? 'neutral';
     }
 
@@ -182,7 +183,7 @@ class IQU_Billing_Page
     private static function group_for_status(string $status): string
     {
         if (in_array($status, ['not_sent', 'link_sent', 'bank_verification'], true)) return 'link_sent';
-        if (in_array($status, ['free_month', 'waiting_first_charge', 'active'], true)) return 'active';
+        if (in_array($status, ['free_month', 'waiting_first_charge', 'active', 'ending'], true)) return 'active';
         if (in_array($status, ['past_due', 'unpaid', 'paused', 'review'], true)) return 'failed';
         return 'not_billed';
     }
@@ -475,7 +476,7 @@ class IQU_Billing_Page
             <td>
                 <?php
                 if ($acc) {
-                    echo $pill(IQU_Billing_Send::status_label($acc['status'], (string) ($acc['review_reason'] ?? '')), self::status_tone($acc['status']));
+                    echo $pill(IQU_Billing_Send::status_chip($acc), self::status_tone($acc['status']));
                     if (!empty($acc['link_outdated']) && empty($acc['stripe_subscription_id'])) echo ' <span class="iqu-chip iqu-chip--gold" data-link-outdated>Link outdated — resend</span>';
                     $bits = [];
                     if ($acc['first_charge_date']) $bits[] = 'first charge ' . wp_date('j M', strtotime($acc['first_charge_date'] . ' 12:00:00 UTC'));

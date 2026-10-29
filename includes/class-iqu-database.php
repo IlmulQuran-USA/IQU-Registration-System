@@ -164,6 +164,7 @@ class IQU_Database
             marketing_consent  VARCHAR(10)         NOT NULL DEFAULT 'unknown',
             date_of_birth      DATE                NULL DEFAULT NULL,
             agreed_fee_fund    VARCHAR(10)         NULL DEFAULT NULL,
+            billing_ended_at   DATETIME            NULL DEFAULT NULL,
             PRIMARY KEY        (id),
             KEY                email (email),
             KEY                form_type (form_type),
@@ -224,6 +225,7 @@ class IQU_Database
         self::maybe_migrate_marketing_consent();
         self::maybe_migrate_date_of_birth();
         self::maybe_migrate_agreed_fee_fund();
+        self::maybe_migrate_column('billing_ended_at', 'DATETIME NULL DEFAULT NULL', self::OPT_BILLING_ENDED_AT);
     }
 
     /** Registration columns added in 3.3.0, with the definition used if dbDelta did not add one. */
@@ -501,16 +503,73 @@ class IQU_Database
     public const ACTIVE_FORMS  = [self::FORM_FREE, self::FORM_WEEKEND_EXISTING, self::FORM_WEEKEND_NEW];
     public const ACTIVE_STATUS = 'enrolled';
 
+    /**
+     * 3.7.0: a registration whose billing ended (billing_ended_at, UTC) is active up to the end of that month (site time
+     * zone) and not active from the month after.
+     */
     public static function is_active_student(array $row): bool
     {
-        return in_array((string) ($row['form_type'] ?? ''), self::ACTIVE_FORMS, true) && (string) ($row['status'] ?? '') === self::ACTIVE_STATUS;
+        if (!in_array((string) ($row['form_type'] ?? ''), self::ACTIVE_FORMS, true) || (string) ($row['status'] ?? '') !== self::ACTIVE_STATUS) return false;
+        $ended = (string) ($row['billing_ended_at'] ?? '');
+        return $ended === '' || strcmp($ended, self::month_start_utc()) >= 0;
     }
 
     /** The same rule as a WHERE fragment for the registrations table (constants only, nothing from a request). */
     public static function active_student_sql(string $alias = ''): string
     {
         $p = $alias !== '' ? $alias . '.' : '';
-        return "({$p}form_type IN ('" . implode("','", self::ACTIVE_FORMS) . "') AND {$p}status = '" . self::ACTIVE_STATUS . "')";
+        $sql = "{$p}form_type IN ('" . implode("','", self::ACTIVE_FORMS) . "') AND {$p}status = '" . self::ACTIVE_STATUS . "'";
+        if (self::billing_ended_at_ready()) $sql .= " AND ({$p}billing_ended_at IS NULL OR {$p}billing_ended_at >= '" . self::month_start_utc() . "')";
+        return "({$sql})";
+    }
+
+    /** The first moment of the current month in the site time zone, as UTC 'Y-m-d H:i:s'. */
+    public static function month_start_utc(): string
+    {
+        $start = new DateTimeImmutable(wp_date('Y-m-01 00:00:00'), wp_timezone());
+        return $start->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    }
+
+    /** Set once billing_ended_at exists (3.7.0): ['at', 'rows'] */
+    private const OPT_BILLING_ENDED_AT = 'iqu_billing_ended_at_migrated';
+
+    public static function billing_ended_at_ready(): bool
+    {
+        return is_array(get_option(self::OPT_BILLING_ENDED_AT));
+    }
+
+    /** When a student's billing ended or ends (UTC 'Y-m-d H:i:s'); null clears it. Reports and the active rule read it. */
+    public static function set_billing_ended(int $id, ?string $utc): bool
+    {
+        global $wpdb;
+        if (!self::billing_ended_at_ready()) return false;
+        return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, ['billing_ended_at' => $utc], ['id' => $id], ['%s'], ['%d']);
+    }
+
+    /**
+     * One-time migration of one NULL-able column (3.7.0 on): apply_schema() first, an explicit ALTER where dbDelta did
+     * not add it, verified before $flag is stored (['at', 'rows']). Existing rows keep NULL. Retried on the next load.
+     */
+    private static function maybe_migrate_column(string $col, string $def, string $flag): void
+    {
+        global $wpdb;
+        if (is_array(get_option($flag))) return;
+        $table = $wpdb->prefix . IQU_TABLE_NAME;
+        $cols = self::registration_columns();
+        if (!$cols) return;
+        if (!isset($cols[$col])) {
+            self::create_table();
+            $cols = self::registration_columns();
+        }
+        if (!isset($cols[$col])) {
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN {$col} {$def}");
+            $cols = self::registration_columns();
+        }
+        if (!isset($cols[$col])) {
+            error_log("[IQU] {$col} column could not be added (" . $wpdb->last_error . '); will retry.');
+            return;
+        }
+        update_option($flag, ['at' => gmdate('Y-m-d H:i:s'), 'rows' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}")], false);
     }
 
     /** When this version first ran (the old-form window of IQU_Validator starts here). */
@@ -808,6 +867,7 @@ class IQU_Database
         self::maybe_migrate_marketing_consent();
         self::maybe_migrate_date_of_birth();
         self::maybe_migrate_agreed_fee_fund();
+        self::maybe_migrate_column('billing_ended_at', 'DATETIME NULL DEFAULT NULL', self::OPT_BILLING_ENDED_AT);
         // The forms ask for a date of birth from this version on; pages opened before it still send an age
         // (IQU_Validator::v_dob). The moment this version first ran, stored once.
         if (get_option(self::OPT_DOB_FORMS_SINCE) === false) add_option(self::OPT_DOB_FORMS_SINCE, time(), '', false);

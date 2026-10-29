@@ -278,6 +278,18 @@ class IQU_Billing_Notify
         self::send_account("\u{26A0}\u{FE0F} Payout failed", $lines);
     }
 
+    /** 3.7.0: the subscription has ended (it was set to stop, or was stopped in Stripe): family, students, end date, reason. */
+    public static function billing_ended(array $acc, string $ended_utc, string $reason): void
+    {
+        self::send("\u{1F6D1} Billing stopped", [
+            'Ended: <b>' . self::e(self::day($ended_utc)) . '</b>',
+            'Reason: ' . self::e($reason),
+            'Monthly was: ' . self::e(IQU_Pricing::format((float) $acc['net_amount'])),
+        ], $acc, [], [
+            'No further charges. The students are marked "cancelled"; their records and payments are kept.',
+        ]);
+    }
+
     public static function needs_contact(array $acc, string $status): void
     {
         $label = $status === 'canceled' ? 'Subscription canceled' : 'Automatic attempts finished';

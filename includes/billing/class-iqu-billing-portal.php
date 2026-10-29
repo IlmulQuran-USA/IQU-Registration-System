@@ -323,6 +323,7 @@ class IQU_Billing_Portal
         'canceled'             => ['Stopped', 'muted'],
         'review'               => ['Set up — we are checking the details', 'muted'],
         'bank_verification'    => ['Waiting for bank verification', 'muted'],
+        'ending'               => ['Billing ends — no further charges', 'muted'], // 3.7.0
     ];
 
     private static function pill(string $status): string

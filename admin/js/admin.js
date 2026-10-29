@@ -470,3 +470,42 @@ if (refCtx && IQU_Admin.chart_data && IQU_Admin.chart_data.referral) {
       .then(function () { select.disabled = false; });
   });
 })();
+// ══════════════════════════════════════════════════
+// CONFIRMATION DIALOGS (3.7.0): "Stop billing", "Cancel enrollment", "End scholarship" … A [data-iqu-dialog] link
+// opens its <dialog> (without JavaScript the link shows the same dialog open). The reason "Other" asks for a short
+// text, required only then.
+// ══════════════════════════════════════════════════
+(function () {
+  "use strict";
+
+  function other(form) {
+    var select = form.querySelector("select[name=reason]"), box = form.querySelector("[data-iqu-other]");
+    if (!select || !box) return;
+    var on = select.value === "other", input = box.querySelector("input");
+    box.hidden = !on;
+    if (input) input.required = on;
+  }
+
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest ? e.target.closest("[data-iqu-dialog]") : null;
+    if (!a) return;
+    var d = document.getElementById(a.getAttribute("data-iqu-dialog"));
+    if (!d || typeof d.showModal !== "function") return; // the link opens the page with the dialog shown
+    e.preventDefault();
+    if (d.open) d.close();
+    d.showModal();
+    var first = d.querySelector("select, input:not([type=hidden])");
+    if (first) first.focus();
+  });
+
+  document.addEventListener("change", function (e) {
+    var form = e.target && e.target.closest ? e.target.closest("[data-iqu-reason-form]") : null;
+    if (form && e.target.name === "reason") other(form);
+  });
+
+  function init() {
+    document.querySelectorAll("[data-iqu-reason-form]").forEach(other);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();

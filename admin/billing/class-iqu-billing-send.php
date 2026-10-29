@@ -54,6 +54,13 @@ class IQU_Billing_Send
         remove_submenu_page('iqu-registrations', self::MSG_SLUG);
     }
 
+    /** The status chip's text: "Ends {Mon D, YYYY}" while billing is set to stop (3.7.0), otherwise the status label. */
+    public static function status_chip(array $acc): string
+    {
+        if ((string) $acc['status'] === 'ending' && class_exists('IQU_Billing_Stop') && IQU_Billing_Stop::ends_ts($acc)) return 'Ends ' . IQU_Billing_Stop::day(IQU_Billing_Stop::ends_ts($acc));
+        return self::status_label((string) $acc['status'], (string) ($acc['review_reason'] ?? ''));
+    }
+
     public static function status_label(string $status, string $review_reason = ''): string
     {
         // 3.4.11: a subscription that is not in USD waits for an admin under its own label.
@@ -70,6 +77,7 @@ class IQU_Billing_Send
             'canceled'             => 'Canceled',
             'review'               => 'Review: amount mismatch',
             'bank_verification'    => 'Waiting for bank verification',
+            'ending'               => 'Billing ends', // 3.7.0 (the chip says "Ends {date}": status_chip())
         ];
         return $labels[$status] ?? ucfirst(str_replace('_', ' ', $status));
     }
@@ -429,7 +437,8 @@ class IQU_Billing_Send
                     </span>
                 </span>
                 <span class="iqu-family-head-right">
-                    <span class="iqu-chip iqu-chip--<?php echo esc_attr(IQU_Billing_Page::status_tone((string) $acc['status'])); ?>"><?php echo esc_html(self::status_label((string) $acc['status'], (string) ($acc['review_reason'] ?? ''))); ?></span>
+                    <span class="iqu-chip iqu-chip--<?php echo esc_attr(IQU_Billing_Page::status_tone((string) $acc['status'])); ?>"><?php echo esc_html(self::status_chip($acc)); ?></span>
+                    <?php if (class_exists('IQU_Billing_Stop_Admin')) echo IQU_Billing_Stop_Admin::family_controls($acc); // 3.7.0: stop / resume billing; escaped inside ?>
                     <?php if ($stripe): ?><a class="iqu-action-btn" href="<?php echo esc_url($stripe); ?>" target="_blank" rel="noopener noreferrer">View in Stripe</a><?php endif; ?>
                 </span>
             </div>
@@ -650,6 +659,7 @@ class IQU_Billing_Send
     {
         $acc = self::account_for_action(self::A_SYNC);
         $r   = IQU_Billing_Sync::sync($acc);
+        if ($r['ok'] && class_exists('IQU_Billing_Stop')) IQU_Billing_Stop::on_synced($acc, $r); // 3.7.0: found ended → the students' billing ends
         $n   = $r['ok'] ? IQU_Billing_History::refresh_account($r['account']) : null;
         self::notice($r['ok']
             ? ['type' => 'success', 'items' => ['Synced from Stripe. Status: ' . self::status_label($r['new']) . ($r['old'] !== $r['new'] ? ' (was: ' . self::status_label($r['old']) . ')' : '') . '.'
@@ -943,7 +953,7 @@ class IQU_Billing_Send
     // Notices and redirects
     // ------------------------------------------------------------
 
-    private static function notice(array $n): void
+    public static function notice(array $n): void
     {
         set_transient(self::TX . get_current_user_id(), $n, 120);
     }
@@ -954,7 +964,7 @@ class IQU_Billing_Send
         echo '<div class="notice notice-' . esc_attr($type) . '"><p>' . implode('<br>', array_map('esc_html', (array) ($n['items'] ?? []))) . '</p></div>';
     }
 
-    private static function to_message(int $account_id): void
+    public static function to_message(int $account_id): void
     {
         wp_safe_redirect(admin_url('admin.php?page=' . self::MSG_SLUG . '&account=' . $account_id));
         exit;
