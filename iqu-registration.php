@@ -145,7 +145,8 @@ function iqu_on_activation(): void
   IQU_Geo::schedule();
   IQU_Enrollment::schedule();
   IQU_Discount_Ledger::maybe_install();
-  IQU_Discount_Ledger::migrate_admin_discounts(); // 3.6.2, once
+  // (the 3.6.2 migration is not run here: the billing classes it needs are not loaded while a plugin is
+  // being activated — it runs on the next request, on init; see below)
   IQU_Discount_Ledger::schedule();
 }
 
@@ -177,7 +178,10 @@ add_action('plugins_loaded', function () {
   IQU_Enrollment::init();
   IQU_Summer_Pay::init();
   IQU_Discount_Ledger::maybe_install();
-  IQU_Discount_Ledger::migrate_admin_discounts(); // 3.6.2, once
+  // One-time migrations that need the billing classes run on init: includes/billing/bootstrap.php loads
+  // those classes on plugins_loaded at priority 20, after this callback (priority 10), and installs its
+  // tables on init at 10. On plugins_loaded the 3.6.2 migration found no IQU_Billing_Pricing and never ran.
+  add_action('init', ['IQU_Discount_Ledger', 'migrate_admin_discounts'], 12);
   IQU_Discount_Ledger::schedule();
   IQU_Discount_Ledger::init();
 
