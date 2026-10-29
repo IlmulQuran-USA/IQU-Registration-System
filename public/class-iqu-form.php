@@ -311,7 +311,9 @@ class IQU_Form
             <p class="iqu-hero-subtitle">
                 Choose from One-to-One or group classes, <br />flexible scheduling, and dedicated male & female teachers
             </p>
-            <p class="iqu-hero-free"><span class="iqu-hero-free-pill"><span class="iqu-hero-pill-dot iqu-hero-pill-dot--gold" aria-hidden="true"></span>First month free — no charge for 30 days</span></p>
+            <p class="iqu-hero-free"><span class="iqu-hero-free-pill"><span
+                        class="iqu-hero-pill-dot iqu-hero-pill-dot--gold" aria-hidden="true"></span>First month free —
+                    no charge for 30 days</span></p>
         </div>
 
         <div class="iqu-hero-pills">
@@ -480,23 +482,43 @@ class IQU_Form
                 <!-- ═══ HOW PAYMENT WORKS (one answer open at a time per button; form.js) ═══ -->
                 <section class="iqu-intro-card iqu-pay-faq" aria-labelledby="iqu-pay-faq-title">
                     <h3 id="iqu-pay-faq-title" class="iqu-pay-faq-title">How payment works</h3>
-                    <p class="iqu-highlight iqu-pay-faq-free"><strong>First month free — no charge for 30 days.</strong></p>
+                    <p class="iqu-highlight iqu-pay-faq-free"><strong>First month free — no charge for 30 days.</strong>
+                    </p>
                     <div class="iqu-faq">
                         <div class="iqu-faq-item">
-                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q1" aria-expanded="true" aria-controls="iqu-faq-a1"><span>Is the first month really free?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
-                            <div class="iqu-faq-a" id="iqu-faq-a1" role="region" aria-labelledby="iqu-faq-q1"><p>Yes. New students get their first 30 days of classes free.</p></div>
+                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q1"
+                                    aria-expanded="true" aria-controls="iqu-faq-a1"><span>Is the first month really
+                                        free?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
+                            <div class="iqu-faq-a" id="iqu-faq-a1" role="region" aria-labelledby="iqu-faq-q1">
+                                <p>Yes. New students get their first 30 days of classes free.</p>
+                            </div>
                         </div>
                         <div class="iqu-faq-item">
-                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q2" aria-expanded="false" aria-controls="iqu-faq-a2"><span>Why add a card or bank now?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
-                            <div class="iqu-faq-a" id="iqu-faq-a2" role="region" aria-labelledby="iqu-faq-q2" hidden><p>To keep your spot. Please add it within 7 days, or your enrollment is put on hold. Nothing is charged during the free month.</p></div>
+                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q2"
+                                    aria-expanded="false" aria-controls="iqu-faq-a2"><span>Why add a card or bank
+                                        now?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
+                            <div class="iqu-faq-a" id="iqu-faq-a2" role="region" aria-labelledby="iqu-faq-q2" hidden>
+                                <p>To keep your spot. Please add it within 7 days, or your enrollment is put on hold.
+                                    Nothing is charged during the free month.</p>
+                            </div>
                         </div>
                         <div class="iqu-faq-item">
-                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q3" aria-expanded="false" aria-controls="iqu-faq-a3"><span>When is the first charge?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
-                            <div class="iqu-faq-a" id="iqu-faq-a3" role="region" aria-labelledby="iqu-faq-q3" hidden><p>30 days after you register, then once a month on the same date.</p></div>
+                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q3"
+                                    aria-expanded="false" aria-controls="iqu-faq-a3"><span>When is the first
+                                        charge?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button>
+                            </h4>
+                            <div class="iqu-faq-a" id="iqu-faq-a3" role="region" aria-labelledby="iqu-faq-q3" hidden>
+                                <p>30 days after you register, then once a month on the same date.</p>
+                            </div>
                         </div>
                         <div class="iqu-faq-item">
-                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q4" aria-expanded="false" aria-controls="iqu-faq-a4"><span>How do I cancel?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
-                            <div class="iqu-faq-a" id="iqu-faq-a4" role="region" aria-labelledby="iqu-faq-q4" hidden><p>Message us at <a href="mailto:info@ilmulquranus.org">info@ilmulquranus.org</a> or on WhatsApp before your next charge date, and we&#039;ll stop future charges.</p></div>
+                            <h4 class="iqu-faq-h"><button type="button" class="iqu-faq-q" id="iqu-faq-q4"
+                                    aria-expanded="false" aria-controls="iqu-faq-a4"><span>How do I cancel?</span><span
+                                        class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
+                            <div class="iqu-faq-a" id="iqu-faq-a4" role="region" aria-labelledby="iqu-faq-q4" hidden>
+                                <p>Message us at <a href="mailto:info@ilmulquranus.org">info@ilmulquranus.org</a> or on
+                                    WhatsApp before your next charge date, and we&#039;ll stop future charges.</p>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -540,16 +562,17 @@ class IQU_Form
                 <div class="form-display-flex form-display-flex--dob">
                     <!-- ── Date of Birth (IQU_Dob, shared by the three forms) ── -->
                     <?php echo IQU_Dob::render(['id' => 'dob', 'label' => "Participant's Date of Birth", 'min_age' => 4, 'max_age' => 100, 'hint' => true]); // phpcs:ignore -- escaped inside ?>
-                    <!-- ── Parent / Guardian: shown once a full date is chosen; required under 18 ── -->
+                    <!-- ── Parent / Guardian: always shown; required, optional once the date gives 18 or older ── -->
                     <div class="iqu-question iqu-guardian-q" data-iqu-guardian data-state="pending">
-                        <label for="guardian_name">Parent / Guardian Full Name <span class="req">*</span><span class="iqu-optional">(optional)</span></label>
-                        <input type="text" id="guardian_name" name="guardian_name" placeholder="Parent or guardian's full name"
-                            maxlength="150" autocomplete="name" disabled>
+                        <label for="guardian_name">Parent / Guardian Full Name <span class="req">*</span><span
+                                class="iqu-optional">(optional)</span></label>
+                        <input type="text" id="guardian_name" name="guardian_name"
+                            placeholder="Parent or guardian's full name" maxlength="150" autocomplete="name" aria-required="true">
                         <span class="iqu-error" data-field="guardian_name"></span>
                     </div>
                 </div>
 
-                <div class="form-display-flex">
+                <div class="form-display-flex form-display-flex--contact">
                     <!-- ── Email ────────────────────────────────────── -->
                     <div class="iqu-question">
                         <label for="email">Participant's Email <span class="req">*</span></label>
@@ -560,11 +583,6 @@ class IQU_Form
                     <!-- ── WhatsApp ─────────────────────────────── -->
                     <div class="iqu-question">
                         <label for="whatsapp">WhatsApp Number (with country code) <span class="req">*</span></label>
-                        <p class="iqu-help">
-                            <strong>Country code required.</strong>
-                            Select your flag from the dropdown, then enter your number.<br>
-                            Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
-                        </p>
                         <input type="tel" id="whatsapp" name="whatsapp" maxlength="25" autocomplete="tel" required>
                         <span class="iqu-error" data-field="whatsapp"></span>
                     </div>
@@ -595,9 +613,9 @@ class IQU_Form
                         </p>
                         <select id="quran_level" name="quran_level" required>
                             <option value="">-- Please select a level --</option>
-<?php foreach (IQU_Reg_Fields::QURAN_LEVELS as $opt_v => $opt_l): ?>
+                            <?php foreach (IQU_Reg_Fields::QURAN_LEVELS as $opt_v => $opt_l): ?>
                             <option value="<?php echo esc_attr($opt_v); ?>"><?php echo esc_html($opt_l); ?></option>
-<?php endforeach; ?>
+                            <?php endforeach; ?>
                         </select>
                         <span class="iqu-error" data-field="quran_level"></span>
                     </div>
@@ -682,9 +700,9 @@ class IQU_Form
                             <label for="iqu_time_slot_timezone">Time Zone</label>
                             <select id="iqu_time_slot_timezone" required>
                                 <option value="">-- Select Time Zone --</option>
-<?php foreach (IQU_Reg_Fields::TIME_ZONES as $opt_v => $opt_l): ?>
+                                <?php foreach (IQU_Reg_Fields::TIME_ZONES as $opt_v => $opt_l): ?>
                                 <option value="<?php echo esc_attr($opt_v); ?>"><?php echo esc_html($opt_l); ?></option>
-<?php endforeach; ?>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                     </div>
@@ -700,9 +718,9 @@ class IQU_Form
                                 class="req">*</span></label>
                         <select id="session_dur" name="session_dur" required>
                             <option value="">-- Please select an option --</option>
-<?php foreach (IQU_Reg_Fields::SESSION_DURATIONS as $opt_v => $opt_l): ?>
+                            <?php foreach (IQU_Reg_Fields::SESSION_DURATIONS as $opt_v => $opt_l): ?>
                             <option value="<?php echo esc_attr($opt_v); ?>"><?php echo esc_html($opt_l); ?></option>
-<?php endforeach; ?>
+                            <?php endforeach; ?>
                         </select>
                         <span class="iqu-error" data-field="session_dur"></span>
                     </div>
@@ -722,31 +740,15 @@ class IQU_Form
                 </div>
 
                 <div class="form-display-flex">
-                    <!-- ── Memorized Qur'an ─────────────────────── -->
-                    <div class="iqu-question">
-                        <label for="memorized">Have you memorized any part of the Qur'an before? If yes, please specify
-                            the
-                            Surahs or
-                            Juz.
-                            <span class="req">*</span></label>
-                        <textarea id="memorized" name="memorized"
-                            placeholder="If yes, tell us which Surahs or Juz. If not, just write &quot;No&quot;."
-                            rows="3" maxlength="500" style="height:78px; resize:none; min-height:0; "
-                            required></textarea>
-                        <span class="iqu-error" data-field="memorized"></span>
-                    </div>
-                </div>
-
-                <div class="form-display-flex">
                     <!-- ── Teacher Preference ───────────────────── -->
                     <div class="iqu-question">
                         <label for="teacher_pref">Do you prefer a male or female teacher? <span
                                 class="req">*</span></label>
                         <select id="teacher_pref" name="teacher_pref" required>
                             <option value="">-- Please select an option --</option>
-<?php foreach (IQU_Reg_Fields::TEACHER_PREFS as $opt_v => $opt_l): ?>
+                            <?php foreach (IQU_Reg_Fields::TEACHER_PREFS as $opt_v => $opt_l): ?>
                             <option value="<?php echo esc_attr($opt_v); ?>"><?php echo esc_html($opt_l); ?></option>
-<?php endforeach; ?>
+                            <?php endforeach; ?>
                         </select>
                         <span class="iqu-error" data-field="teacher_pref"></span>
                     </div>
@@ -760,9 +762,9 @@ class IQU_Form
 
                         <select id="referral" name="referral" required>
                             <option value="">-- Please select an option --</option>
-<?php foreach (IQU_Reg_Fields::REFERRALS as $opt_v => $opt_l): ?>
+                            <?php foreach (IQU_Reg_Fields::REFERRALS as $opt_v => $opt_l): ?>
                             <option value="<?php echo esc_attr($opt_v); ?>"><?php echo esc_html($opt_l); ?></option>
-<?php endforeach; ?>
+                            <?php endforeach; ?>
                         </select>
                         <div class="iqu-other-wrap iqu-referral-other-wrap" hidden>
                             <input type="text" id="referral_other" name="referral_other" placeholder="Please specify" />
@@ -770,18 +772,36 @@ class IQU_Form
                         <span class="iqu-error" data-field="referral"></span>
                     </div>
                 </div>
-<?php if (IQU_Enrollment_Settings::free_payment_active()): ?>
-                <!-- ── Existing student? (only with the Stripe payment step) ── -->
-                <fieldset class="iqu-question iqu-existing-question">
-                    <input type="hidden" name="iqu_existing_q" value="1">
-                    <legend>Are you already an Ilm-Ul-Quran student? <span class="req">*</span></legend>
-                    <div class="iqu-existing-options">
-                        <label class="iqu-radio-card"><input type="radio" name="is_existing_student" value="yes" required> Yes</label>
-                        <label class="iqu-radio-card"><input type="radio" name="is_existing_student" value="no" required> No</label>
+                <!-- ── Last row: memorized Qur'an | already a student? (that question only with the payment step) ── -->
+                <div class="form-display-flex form-display-flex--last">
+                    <!-- ── Memorized Qur'an ─────────────────────── -->
+                    <div class="iqu-question">
+                        <label for="memorized">Have you memorized any part of the Qur'an before? If yes, please specify
+                            the
+                            Surahs or
+                            Juz.
+                            <span class="req">*</span></label>
+                        <textarea id="memorized" name="memorized"
+                            placeholder="If yes, tell us which Surahs or Juz. If not, just write &quot;No&quot;."
+                            rows="3" maxlength="500" style="height:78px; resize:none; min-height:0; "
+                            required></textarea>
+                        <span class="iqu-error" data-field="memorized"></span>
                     </div>
-                    <span class="iqu-error" data-field="is_existing_student"></span>
-                </fieldset>
-<?php endif; ?>
+                    <?php if (IQU_Enrollment_Settings::free_payment_active()): ?>
+                    <!-- ── Existing student? (only with the Stripe payment step) ── -->
+                    <fieldset class="iqu-question iqu-existing-question">
+                        <input type="hidden" name="iqu_existing_q" value="1">
+                        <legend>Are you already an Ilm-Ul-Quran student? <span class="req">*</span></legend>
+                        <div class="iqu-existing-options">
+                            <label class="iqu-radio-card"><input type="radio" name="is_existing_student" value="yes"
+                                    required> Yes</label>
+                            <label class="iqu-radio-card"><input type="radio" name="is_existing_student" value="no"
+                                    required> No</label>
+                        </div>
+                        <span class="iqu-error" data-field="is_existing_student"></span>
+                    </fieldset>
+                    <?php endif; ?>
+                </div>
 
                 <!-- ── Tuition Summary ──────────────────────── -->
                 <div class="iqu-question iqu-tuition-block" id="iqu-tuition-block">

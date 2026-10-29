@@ -306,12 +306,44 @@
       });
     }
 
+    // Keyboard or mouse (3.6.1): Chrome counts every focus on a <select> as :focus-visible, so the date
+    // selects show their focus ring only while the visitor moves around with the keyboard (iqu-kbd).
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Tab" || String(e.key).indexOf("Arrow") === 0) document.documentElement.classList.add("iqu-kbd");
+    }, true);
+    ["mousedown", "touchstart"].forEach(function (t) {
+      document.addEventListener(t, function () { document.documentElement.classList.remove("iqu-kbd"); }, { capture: true, passive: true });
+    });
+
     // ── Enroll for Free: "How payment works" — each question opens / closes its answer ──
     $(document).on("click", ".iqu-faq-q", function () {
       const open = this.getAttribute("aria-expanded") === "true";
       const panel = document.getElementById(this.getAttribute("aria-controls") || "");
       this.setAttribute("aria-expanded", open ? "false" : "true");
-      if (panel) panel.hidden = open;
+      if (!panel) return;
+      // Height + opacity, 250 ms ease-out; instant with "reduce motion" (or without the Web Animations API).
+      const still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (panel.iquAnim) panel.iquAnim.cancel();
+      if (still || typeof panel.animate !== "function") {
+        panel.hidden = open;
+        return;
+      }
+      panel.hidden = false;
+      const h = panel.scrollHeight;
+      panel.style.overflow = "hidden";
+      const frames = open
+        ? [{ height: h + "px", opacity: 1 }, { height: "0px", opacity: 0 }]
+        : [{ height: "0px", opacity: 0 }, { height: h + "px", opacity: 1 }];
+      const anim = panel.animate(frames, { duration: 250, easing: "ease-out" });
+      panel.iquAnim = anim;
+      anim.onfinish = function () {
+        panel.iquAnim = null;
+        panel.style.overflow = "";
+        if (open) panel.hidden = true;
+      };
+      anim.oncancel = function () {
+        panel.style.overflow = "";
+      };
     });
 
     const $freeForm = $("#iqu-reg-form");
@@ -538,9 +570,8 @@
 
     function enhanceFreeFormUI($form) {
       // ── Date of birth → hint + Parent / Guardian (3.6.0) ──
-      // The guardian field appears once a full, valid date is chosen: required under 18,
-      // optional from 18. Until then its cell keeps its space (no jump) and the input is
-      // disabled, so it is neither checked nor sent.
+      // The guardian field is always shown: required (*) until a full date gives 18 or older,
+      // then optional ("(optional)", no *). The server rule is the same (required under 18).
       const $guardianQ = $form.find("[data-iqu-guardian]");
       const $guardianIn = $guardianQ.find("input");
       const $dobHint = $form.find(".iqu-dob-hint");
@@ -559,9 +590,7 @@
           )
           .attr("data-tone", next);
         $guardianQ.attr("data-state", next);
-        $guardianIn
-          .prop("disabled", next === "pending")
-          .attr("aria-required", next === "minor" ? "true" : "false");
+        $guardianIn.attr("aria-required", next === "adult" ? "false" : "true");
         if (next !== prev) {
           showFieldError($form, "guardian_name", "");
           $guardianIn.removeClass("iqu-invalid");
