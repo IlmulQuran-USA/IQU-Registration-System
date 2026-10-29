@@ -3343,3 +3343,19 @@ button.iqu-perpage-btn,
 .iqu-refund-status:empty {
   display: none;
 }
+/* 3.7.0 AK: Archive / Restore on the student page; the "Archived" chip above an Enroll list */
+.iqu-archive-ctl {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.iqu-archive-note {
+  font-size: 12px;
+  color: var(--iqu-text2);
+}
+.iqu-archived-filter {
+  margin-top: -2px;
+}

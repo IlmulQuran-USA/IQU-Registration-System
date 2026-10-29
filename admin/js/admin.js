@@ -230,6 +230,9 @@
 
       var $btn = $(this);
       var id = $btn.data("id");
+      // 3.7.0: deleting asks for the student's name (the server checks it again, and refuses anyone with billing history)
+      var typed = window.prompt("To delete permanently, type the student's name: " + String($btn.data("name") || ""));
+      if (typed === null) return;
 
       $btn.prop("disabled", true).text("Deleting…");
 
@@ -238,6 +241,7 @@
         {
           action: "iqu_delete_reg",
           id: id,
+          confirm_name: typed,
           _wpnonce: IQU_Admin.nonce_delete,
         },
         function (res) {

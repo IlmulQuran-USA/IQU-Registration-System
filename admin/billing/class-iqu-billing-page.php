@@ -151,7 +151,8 @@ class IQU_Billing_Page
         global $wpdb;
         $table = $wpdb->prefix . IQU_TABLE_NAME;
         $in    = implode(',', array_fill(0, count(self::MONTHLY_FORMS), '%s'));
-        $regs  = $wpdb->get_results($wpdb->prepare("SELECT * FROM `{$table}` WHERE form_type IN ({$in}) ORDER BY id DESC", ...self::MONTHLY_FORMS), ARRAY_A) ?: [];
+        $arch  = IQU_Database::archive_ready() ? ' AND archived_at IS NULL' : ''; // 3.7.0 AK: archived students leave the list
+        $regs  = $wpdb->get_results($wpdb->prepare("SELECT * FROM `{$table}` WHERE form_type IN ({$in}){$arch} ORDER BY id DESC", ...self::MONTHLY_FORMS), ARRAY_A) ?: [];
 
         $mode = IQU_Stripe::expected_mode();
         $acc_rows = $wpdb->get_results($wpdb->prepare(

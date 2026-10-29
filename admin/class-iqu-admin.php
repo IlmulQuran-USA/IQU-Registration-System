@@ -58,6 +58,7 @@ class IQU_Admin
     add_action('wp_ajax_iqu_update_status', [$this, 'handle_update_status']);
     add_action('wp_ajax_iqu_export_csv', [$this, 'handle_export_csv']);
     add_action('wp_ajax_iqu_delete_reg', [$this, 'handle_delete']);
+    add_action('admin_post_iqu_archive_reg', [$this, 'handle_archive']); // 3.7.0 AK
     add_action('admin_post_iqu_set_existing_student', [$this, 'handle_set_existing_student']);
     add_action('admin_post_iqu_set_course', [$this, 'handle_set_course']);
     add_action('admin_post_iqu_set_agreed_fee', [$this, 'handle_set_agreed_fee']);
@@ -1277,7 +1278,7 @@ class IQU_Admin
                     <td class="iqu-td-actions"><a href="<?php echo esc_url($view); ?>"
                             class="iqu-action-btn iqu-action-btn--view">View</a>
                         <button class="iqu-action-btn iqu-action-btn--delete iqu-delete-btn"
-                            data-id="<?php echo (int) $row['id']; ?>">Delete</button>
+                            data-id="<?php echo (int) $row['id']; ?>" data-name="<?php echo esc_attr(trim($row['first_name'] . ' ' . $row['last_name'])); ?>">Delete</button>
                     </td>
                 </tr>
 <?php
@@ -1312,12 +1313,14 @@ class IQU_Admin
 
     // "Needs review" (3.3.0) is a filter on review reasons, not a status.
     $needs_review = ($status === 'needs_review');
-    $args = ['form_type' => $form_type, 'status' => $needs_review ? '' : $status, 'review' => $needs_review, 'search' => $search];
-    $local = IQU_Pager::local(IQU_Database::count_registrations(['form_type' => $form_type]));
+    // 3.7.0 AK: "Archived" shows the archived students (every other view leaves them out)
+    $archived = ($status === 'archived');
+    $args = ['form_type' => $form_type, 'status' => ($needs_review || $archived) ? '' : $status, 'review' => $needs_review, 'search' => $search, 'archived' => $archived];
+    $local = IQU_Pager::local(IQU_Database::count_registrations(['form_type' => $form_type, 'archived' => $archived]));
     $out = $shown = [];
     if ($local) {
-      $rows = IQU_Database::get_registrations(['form_type' => $form_type, 'page' => 1, 'per_page' => IQU_Pager::LOCAL_MAX]);
-      $match = $status !== '' || $search !== ''
+      $rows = IQU_Database::get_registrations(['form_type' => $form_type, 'page' => 1, 'per_page' => IQU_Pager::LOCAL_MAX, 'archived' => $archived]);
+      $match = ($status !== '' && !$archived) || $search !== ''
         ? array_column(IQU_Database::get_registrations($args + ['page' => 1, 'per_page' => IQU_Pager::LOCAL_MAX]), 'id')
         : array_column($rows, 'id');
       $view = IQU_Pager::local_view(array_column($rows, 'id'), $match, $_GET);
@@ -1330,7 +1333,7 @@ class IQU_Admin
     // একাধিক টাইপ হলে URL-এ একটাই সিন্থেটিক কী যায় — 'weekend'
     $type_key = is_array($form_type) ? 'weekend' : $form_type;
     return [
-      'status' => $status, 'search' => $search, 'slug' => $page_slug, 'type_key' => $type_key,
+      'status' => $status, 'search' => $search, 'slug' => $page_slug, 'type_key' => $type_key, 'archived' => $archived, 'form_type' => $form_type,
       'is_summer' => in_array($type_key, [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true),
       'local' => $local, 'rows' => $rows, 'pager' => $pager, 'out' => $out, 'shown' => $shown,
       'list_url' => IQU_Pager::url($page_slug, ['search' => $search, 'status' => $status]),
@@ -1385,6 +1388,7 @@ class IQU_Admin
         <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter'); // results update as you type ?>
         <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
     </form>
+<?php echo self::archived_chip($c); // 3.7.0 AK: only when this list has archived students; escaped inside ?>
 
     <?php $this->list_region($c); ?>
 </div>
@@ -1534,9 +1538,10 @@ class IQU_Admin
                                           ?>
                     </td>
                     <td class="iqu-td-actions">
-                        <a href="<?php echo esc_url($view); ?>" class="iqu-action-btn iqu-action-btn--view">View</a>
+                        <a href="<?php echo esc_url($view); ?>" class="iqu-action-btn iqu-action-btn--view">View</a><?php if (!empty($c['archived'])): // 3.7.0 AK ?><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-inline-form"><input type="hidden" name="action" value="iqu_archive_reg"><input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>"><input type="hidden" name="do" value="restore"><?php wp_nonce_field('iqu_archive_' . (int) $row['id']); ?><button type="submit" class="iqu-action-btn iqu-action-btn--view">Restore</button></form><?php endif; ?>
+
                         <button class="iqu-action-btn iqu-action-btn--delete iqu-delete-btn"
-                            data-id="<?php echo (int) $row['id']; ?>">Delete</button>
+                            data-id="<?php echo (int) $row['id']; ?>" data-name="<?php echo esc_attr(trim($row['first_name'] . ' ' . $row['last_name'])); ?>">Delete</button>
                     </td>
                 </tr>
 <?php
@@ -1580,7 +1585,8 @@ class IQU_Admin
                         <?php echo self::type_chip_html($row['form_type']); ?>
                         <?php echo self::status_badge_html($row['status']) . self::review_badges_html($row); ?>
                         <?php echo IQU_Birthday::profile_chip($row); // date of birth / birthday / age at registration (escaped inside) ?>
-                        <span style="font-size:11px;color:var(--iqu-text2)">#<?php echo (int) $row['id']; ?></span>
+                        <span style="font-size:11px;color:var(--iqu-text2)">#<?php echo (int) $row['id']; ?></span><?php echo self::archive_controls($row); // 3.7.0 AK: Archive / Restore; escaped inside ?>
+
                     </div>
                 </div>
             </div>
@@ -2150,13 +2156,60 @@ class IQU_Admin
     $table = $wpdb->prefix . IQU_TABLE_NAME;
     if (!$id)
       wp_send_json_error('Invalid ID.');
-    // A student on a billing record (any mode) is never deleted: Stripe would keep charging for a student who
-    // no longer exists here, and the family's pages would silently drop them. Stop billing / cancel instead.
-    if (class_exists('IQU_Billing_DB') && (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . IQU_Billing_DB::members_table() . ' WHERE registration_id = %d', $id)) > 0) {
-      wp_send_json_error('This student is on a billing record, so it cannot be deleted. Set the status to Cancelled, or stop the billing in Stripe first.');
-    }
-    $deleted = $wpdb->delete($table, ['id' => $id], ['%d']);
+    // 3.7.0 AK: records of anyone billed in live mode (or counted in the discount ledger) are never deleted — archive
+    // instead. A student billed in test mode only is deleted with its test billing members / unused test accounts.
+    $reg = IQU_Database::get_registration($id);
+    if (!$reg)
+      wp_send_json_error('Registration not found.');
+    $why = IQU_Archive::delete_blocker($id);
+    if ($why !== '')
+      wp_send_json_error($why);
+    if (!IQU_Archive::name_matches($reg, (string) wp_unslash($_POST['confirm_name'] ?? '')))
+      wp_send_json_error('Type the student\x27s name exactly to confirm.');
+    $deleted = IQU_Archive::delete($id);
     $deleted ? wp_send_json_success('Registration deleted.') : wp_send_json_error('Delete failed.');
+  }
+
+  /** 3.7.0 AK: the "Archived" chip of an Enroll list — only when it has archived students (otherwise nothing changes). */
+  private static function archived_chip(array $c): string
+  {
+    if (!IQU_Database::archive_ready()) return '';
+    $n = IQU_Database::count_registrations(['form_type' => $c['form_type'], 'archived' => true]);
+    if ($n === 0 && empty($c['archived'])) return '';
+    $on = !empty($c['archived']);
+    $url = admin_url('admin.php?page=' . $c['slug'] . ($on ? '' : '&status=archived'));
+    return '<nav class="iqu-seg iqu-archived-filter" aria-label="Archived students"><a class="iqu-seg-pill' . ($on ? ' is-active' : '') . '" href="' . esc_url($url) . '"' . ($on ? ' aria-current="page"' : '') . '>'
+      . '<span class="iqu-seg-dot iqu-seg-dot--muted" aria-hidden="true"></span>Archived<span class="iqu-billing-count">' . (int) $n . '</span></a></nav>';
+  }
+
+  /** 3.7.0 AK: Archive / Restore one student (manage_options + a nonce per student). */
+  public function handle_archive(): void
+  {
+    $id = absint($_POST['id'] ?? 0);
+    if (!current_user_can('manage_options')) wp_die('Permission denied.', 403);
+    check_admin_referer('iqu_archive_' . $id);
+    $r = sanitize_key((string) ($_POST['do'] ?? '')) === 'restore' ? IQU_Archive::restore($id) : IQU_Archive::archive($id, get_current_user_id());
+    set_transient('iqu_archive_notice_' . get_current_user_id(), $r, 120);
+    wp_safe_redirect(admin_url('admin.php?page=iqu-view-registration&id=' . $id));
+    exit;
+  }
+
+  /** 3.7.0 AK: the student page's Archive / Restore control (one marked element: [data-iqu-archive]). */
+  private static function archive_controls(array $row): string
+  {
+    if (!class_exists('IQU_Archive') || !IQU_Database::archive_ready() || !current_user_can('manage_options')) return '';
+    $id  = (int) $row['id'];
+    $msg = get_transient('iqu_archive_notice_' . get_current_user_id());
+    if ($msg) delete_transient('iqu_archive_notice_' . get_current_user_id());
+    $form = fn(string $do, string $label, string $cls, string $confirm) => '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" class="iqu-inline-form" onsubmit="return confirm(' . esc_attr(wp_json_encode($confirm)) . ');">'
+      . '<input type="hidden" name="action" value="iqu_archive_reg"><input type="hidden" name="id" value="' . $id . '"><input type="hidden" name="do" value="' . $do . '">'
+      . wp_nonce_field('iqu_archive_' . $id, '_wpnonce', true, false) . '<button type="submit" class="iqu-action-btn ' . $cls . '">' . esc_html($label) . '</button></form>';
+    $at = (string) ($row['archived_at'] ?? '');
+    $html = $at !== ''
+      ? '<span class="iqu-chip iqu-chip--neutral">Archived ' . esc_html(wp_date('j M Y', (int) strtotime($at . ' UTC'))) . '</span> ' . $form('restore', 'Restore', 'iqu-action-btn--view', 'Restore this student to the lists?')
+      : $form('archive', 'Archive', '', 'Archive this student? They leave the lists and counts; nothing is deleted, and Restore brings them back.');
+    if ($msg) $html .= ' <span class="iqu-archive-note" role="' . ($msg['ok'] ? 'status' : 'alert') . '">' . esc_html($msg['message']) . '</span>';
+    return ' <span class="iqu-archive-ctl" data-iqu-archive>' . $html . '</span>';
   }
 
   private static function send_json(bool $ok): void

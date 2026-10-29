@@ -132,6 +132,9 @@ require_once IQU_PLUGIN_DIR . 'includes/billing/bootstrap.php';
 // 📒 Zakat / Special discount ledger, month by month (3.6.0)
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-discount-ledger.php';
 
+// 🗄️ Archive (never delete billed students) and the hard-delete rules (3.7.0)
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-archive.php';
+
 // ============================================================
 // 🚀 Activation / Deactivation
 // ============================================================

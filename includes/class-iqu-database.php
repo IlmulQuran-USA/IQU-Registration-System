@@ -165,6 +165,8 @@ class IQU_Database
             date_of_birth      DATE                NULL DEFAULT NULL,
             agreed_fee_fund    VARCHAR(10)         NULL DEFAULT NULL,
             billing_ended_at   DATETIME            NULL DEFAULT NULL,
+            archived_at        DATETIME            NULL DEFAULT NULL,
+            archived_by        BIGINT(20) UNSIGNED NULL DEFAULT NULL,
             PRIMARY KEY        (id),
             KEY                email (email),
             KEY                form_type (form_type),
@@ -226,6 +228,8 @@ class IQU_Database
         self::maybe_migrate_date_of_birth();
         self::maybe_migrate_agreed_fee_fund();
         self::maybe_migrate_column('billing_ended_at', 'DATETIME NULL DEFAULT NULL', self::OPT_BILLING_ENDED_AT);
+        self::maybe_migrate_column('archived_at', 'DATETIME NULL DEFAULT NULL', self::OPT_ARCHIVED_AT);
+        self::maybe_migrate_column('archived_by', 'BIGINT(20) UNSIGNED NULL DEFAULT NULL', self::OPT_ARCHIVED_BY);
     }
 
     /** Registration columns added in 3.3.0, with the definition used if dbDelta did not add one. */
@@ -510,6 +514,7 @@ class IQU_Database
     public static function is_active_student(array $row): bool
     {
         if (!in_array((string) ($row['form_type'] ?? ''), self::ACTIVE_FORMS, true) || (string) ($row['status'] ?? '') !== self::ACTIVE_STATUS) return false;
+        if ((string) ($row['archived_at'] ?? '') !== '') return false; // 3.7.0 AK: archived = not active
         $ended = (string) ($row['billing_ended_at'] ?? '');
         return $ended === '' || strcmp($ended, self::month_start_utc()) >= 0;
     }
@@ -520,6 +525,7 @@ class IQU_Database
         $p = $alias !== '' ? $alias . '.' : '';
         $sql = "{$p}form_type IN ('" . implode("','", self::ACTIVE_FORMS) . "') AND {$p}status = '" . self::ACTIVE_STATUS . "'";
         if (self::billing_ended_at_ready()) $sql .= " AND ({$p}billing_ended_at IS NULL OR {$p}billing_ended_at >= '" . self::month_start_utc() . "')";
+        if (self::archive_ready()) $sql .= " AND {$p}archived_at IS NULL";
         return "({$sql})";
     }
 
@@ -528,6 +534,37 @@ class IQU_Database
     {
         $start = new DateTimeImmutable(wp_date('Y-m-01 00:00:00'), wp_timezone());
         return $start->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    }
+
+    /** Set once archived_at / archived_by exist (3.7.0 AK): ['at', 'rows'] */
+    private const OPT_ARCHIVED_AT = 'iqu_archived_at_migrated';
+    private const OPT_ARCHIVED_BY = 'iqu_archived_by_migrated';
+
+    public static function archive_ready(): bool
+    {
+        return is_array(get_option(self::OPT_ARCHIVED_AT)) && is_array(get_option(self::OPT_ARCHIVED_BY));
+    }
+
+    /**
+     * Archive ($user > 0) or restore (null) a registration: only archived_at / archived_by change — updated_at is kept
+     * as it was (no ON UPDATE bump), so nothing else in the row changes.
+     */
+    public static function set_archived(int $id, ?int $user): bool
+    {
+        global $wpdb;
+        if (!self::archive_ready()) return false;
+        $t = $wpdb->prefix . IQU_TABLE_NAME;
+        $sql = $user === null
+            ? $wpdb->prepare("UPDATE {$t} SET archived_at = NULL, archived_by = NULL, updated_at = updated_at WHERE id = %d", $id)
+            : $wpdb->prepare("UPDATE {$t} SET archived_at = %s, archived_by = %d, updated_at = updated_at WHERE id = %d", current_time('mysql', true), $user, $id);
+        return false !== $wpdb->query($sql);
+    }
+
+    /** WHERE part for the ['archived'] list argument: false (default) = not archived, true = archived only, 'any' = both. */
+    private static function archived_clause($archived): string
+    {
+        if (!self::archive_ready() || $archived === 'any') return '';
+        return $archived === true ? ' AND archived_at IS NOT NULL' : ' AND archived_at IS NULL';
     }
 
     /** Set once billing_ended_at exists (3.7.0): ['at', 'rows'] */
@@ -868,6 +905,8 @@ class IQU_Database
         self::maybe_migrate_date_of_birth();
         self::maybe_migrate_agreed_fee_fund();
         self::maybe_migrate_column('billing_ended_at', 'DATETIME NULL DEFAULT NULL', self::OPT_BILLING_ENDED_AT);
+        self::maybe_migrate_column('archived_at', 'DATETIME NULL DEFAULT NULL', self::OPT_ARCHIVED_AT);
+        self::maybe_migrate_column('archived_by', 'BIGINT(20) UNSIGNED NULL DEFAULT NULL', self::OPT_ARCHIVED_BY);
         // The forms ask for a date of birth from this version on; pages opened before it still send an age
         // (IQU_Validator::v_dob). The moment this version first ran, stored once.
         if (get_option(self::OPT_DOB_FORMS_SINCE) === false) add_option(self::OPT_DOB_FORMS_SINCE, time(), '', false);
@@ -1107,6 +1146,8 @@ class IQU_Database
         if (! empty($args['stripe_flow']) && self::schema_ready()) {
             $where .= ' AND billing_account_id > 0';
         }
+        // 3.7.0 AK: archived students are left out of every list and count unless asked for
+        $where .= self::archived_clause($args['archived'] ?? false);
 
         if (! empty($args['search'])) {
             [$clause, $more] = self::search_clause((string) $args['search']); // the same in the list and its count
@@ -1177,6 +1218,8 @@ class IQU_Database
         if (! empty($args['stripe_flow']) && self::schema_ready()) {
             $where .= ' AND billing_account_id > 0';
         }
+        // 3.7.0 AK: archived students are left out of every list and count unless asked for
+        $where .= self::archived_clause($args['archived'] ?? false);
         if (! empty($args['search'])) {
             [$clause, $more] = self::search_clause((string) $args['search']); // the same in the list and its count
             $where  .= ' AND ' . $clause;
