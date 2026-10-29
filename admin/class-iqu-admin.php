@@ -1611,7 +1611,7 @@ class IQU_Admin
                 </div>
             </div>
 
-            <?php if ($is_summer || $is_weekend): ?>
+            <?php if ($is_summer || $is_weekend || trim((string) $row['guardian_name']) !== ''): ?>
             <div class="iqu-section-title">Guardian Information</div>
             <div class="iqu-detail-data">
                 <div class="iqu-detail-item">
