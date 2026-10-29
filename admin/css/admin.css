@@ -2139,7 +2139,7 @@ button.iqu-perpage-btn,
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
   .iqu-metrics--coupons .iqu-discount-rows {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr)); /* 3.6.2: five items (the ledger's breakdown) */
     column-gap: 20px;
   }
 }

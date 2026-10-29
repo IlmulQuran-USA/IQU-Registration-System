@@ -377,7 +377,9 @@ class IQU_Coupon_Admin
         $c = $this->list_context();
         ['state' => $state, 'course_type' => $course_type, 'search' => $search, 'per_page' => $per_page] = $c;
         $stats     = IQU_Coupon_DB::get_stats();
-        $discounts = IQU_Coupon_DB::get_discount_summary();
+        // Total Discount Given: the discount ledger, all time — the same rows as the Zakat / Special cards with "All time"
+        [$all_from, $all_to] = IQU_Discount_Ledger_Admin::range(['lp' => 'all']);
+        $discounts = IQU_Discount_Ledger::breakdown($all_from, $all_to);
 
         $export_url = admin_url(
             'admin-ajax.php?action=iqu_export_coupons&_wpnonce=' . wp_create_nonce('iqu_export_coupons')
@@ -427,15 +429,16 @@ class IQU_Coupon_Admin
         </div>
         <ul class="iqu-discount-rows">
             <?php foreach ([
-                ['full', 'Full Scholarship'], ['special', 'Special Discount'], ['percent', 'Percentage Coupon'], ['fixed', 'Fixed Amount Coupon'],
+                ['full', 'Full Scholarship'], ['percent', 'Percentage Coupon'], ['fixed', 'Fixed Amount Coupon'],
+                ['admin', 'Admin / Agreed Reduction (Zakat Fund)'], ['special', 'Special Discount'],
             ] as [$k, $label]):
-                $amt   = (float) $discounts[$k];
+                $amt   = (float) $discounts[$k]['amount'];
                 $share = $discounts['total'] > 0 ? (int) round($amt / $discounts['total'] * 100) : 0; ?>
-            <li class="iqu-discount-row">
+            <li class="iqu-discount-row" data-iqu-discount="<?php echo esc_attr($k); ?>">
                 <span class="iqu-discount-lbl"><?php echo esc_html($label); ?></span>
                 <span class="iqu-discount-amt"><?php echo esc_html(IQU_Pricing::format($amt)); ?></span>
                 <span class="iqu-discount-bar" role="img" aria-label="<?php echo esc_attr($share . '% of the total'); ?>"><span style="width:<?php echo (int) $share; ?>%"></span></span>
-                <span class="iqu-discount-sub"><?php echo esc_html($share . '% · ' . $students((int) $discounts[$k . '_count'])); ?></span>
+                <span class="iqu-discount-sub"><?php echo esc_html($share . '% · ' . $students((int) $discounts[$k]['students'])); ?></span>
             </li>
             <?php endforeach; ?>
         </ul>

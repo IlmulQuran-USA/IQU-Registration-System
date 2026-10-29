@@ -393,6 +393,44 @@ final class IQU_Discount_Ledger
         return $m ? substr((string) $m, 0, 7) . '-01' : null;
     }
 
+    /** "Total Discount Given" items, in the card's order. */
+    public const BREAKDOWN = ['full', 'percent', 'fixed', 'admin', 'special'];
+
+    /**
+     * "Total Discount Given" for the months $from..$to (the same rows as totals(), so the two always agree):
+     * 'total' and per item the amount and the number of students. Zakat coupons: full scholarship (the family pays
+     * nothing), else percentage or fixed by the coupon's type (a deleted coupon counts as percentage, as before);
+     * Zakat agreed fee / admin discount: 'admin'; every Special row: 'special'.
+     */
+    public static function breakdown(string $from, string $to): array
+    {
+        global $wpdb;
+        $out = ['total' => 0.0];
+        foreach (self::BREAKDOWN as $k) $out[$k] = ['amount' => 0.0, 'students' => 0];
+        if (!self::ready()) return $out;
+        $t = self::table();
+        $r = $wpdb->prefix . IQU_TABLE_NAME;
+        $c = IQU_Coupon_DB::table();
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT l.registration_id, l.kind, l.reason, SUM(l.amount) AS amount, r.payment_amount, cp.discount_type
+             FROM {$t} l LEFT JOIN {$r} r ON r.id = l.registration_id LEFT JOIN {$c} cp ON cp.id = r.coupon_id
+             WHERE l.month >= %s AND l.month <= %s GROUP BY l.registration_id, l.kind, l.reason, r.payment_amount, cp.discount_type",
+            $from, $to), ARRAY_A) ?: [];
+        $who = [];
+        foreach ($rows as $row) {
+            if (!in_array($row['kind'], self::KINDS, true)) continue; // as totals()
+            if ($row['kind'] === 'special') $k = 'special';
+            elseif ($row['reason'] !== 'coupon') $k = 'admin';
+            elseif ($row['payment_amount'] !== null && (float) $row['payment_amount'] <= 0) $k = 'full';
+            else $k = $row['discount_type'] === IQU_Coupon_DB::TYPE_FIXED ? 'fixed' : 'percent';
+            $out[$k]['amount'] = round($out[$k]['amount'] + (float) $row['amount'], 2);
+            $out['total'] = round($out['total'] + (float) $row['amount'], 2);
+            $who[$k][(int) $row['registration_id']] = true;
+        }
+        foreach (self::BREAKDOWN as $k) $out[$k]['students'] = count($who[$k] ?? []);
+        return $out;
+    }
+
     /**
      * Totals for the months $from..$to (Y-m-01, both included): per kind the total, the number of students and
      * the amount of each month (newest first).
