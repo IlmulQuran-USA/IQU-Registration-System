@@ -450,6 +450,19 @@ final class IQU_Discount_Ledger
         return $out;
     }
 
+    /** Discount given through each coupon in the months $from..$to: [coupon id => amount] (reason 'coupon' rows). */
+    public static function coupon_totals(string $from, string $to): array
+    {
+        global $wpdb;
+        if (!self::ready()) return [];
+        $rows = $wpdb->get_results($wpdb->prepare(
+            'SELECT r.coupon_id, SUM(l.amount) AS amount FROM ' . self::table() . ' l JOIN ' . $wpdb->prefix . IQU_TABLE_NAME . " r ON r.id = l.registration_id
+             WHERE l.reason = 'coupon' AND r.coupon_id > 0 AND l.month >= %s AND l.month <= %s GROUP BY r.coupon_id", $from, $to), ARRAY_A) ?: [];
+        $out = [];
+        foreach ($rows as $r) $out[(int) $r['coupon_id']] = round((float) $r['amount'], 2);
+        return $out;
+    }
+
     /**
      * Totals for the months $from..$to (Y-m-01, both included): per kind the total, the number of students and
      * the amount of each month (newest first).

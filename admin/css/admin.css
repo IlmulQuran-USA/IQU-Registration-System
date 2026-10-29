@@ -3139,3 +3139,18 @@ button.iqu-perpage-btn,
     flex-wrap: wrap;
   }
 }
+/* ── 3.6.2 Coupons page ──────────────────────────────────────── */
+/* C4: "Total discount" column (right-aligned like the other amounts) and the created date under the code */
+.iqu-coupon-tbl th.is-num,
+.iqu-coupon-tbl td.is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.iqu-cpn-created {
+  display: block;
+  margin-top: 2px;
+  color: var(--iqu-text2);
+  font-size: 11px;
+  font-weight: 400;
+}

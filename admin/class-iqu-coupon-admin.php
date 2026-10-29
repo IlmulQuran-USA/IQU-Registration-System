@@ -25,6 +25,9 @@ class IQU_Coupon_Admin
     /** কুপন কত দিন পরে মেয়াদ শেষ হবে (ডিফল্ট) */
     private const DEFAULT_EXPIRY_DAYS = 30;
 
+    /** Total discount per coupon id for the table being printed (list_region → list_row). */
+    private array $given = [];
+
     public function __construct()
     {
         add_action('admin_menu', [$this, 'register_menu']);
@@ -498,6 +501,9 @@ class IQU_Coupon_Admin
         ['state' => $state, 'course_type' => $course_type, 'search' => $search, 'per_page' => $per_page, 'local' => $local,
          'rows' => $rows, 'pager' => $pager, 'list_url' => $list_url] = $c;
         $today = current_time('Y-m-d');
+        // Total discount per coupon: the discount ledger, all time (as "Total Discount Given")
+        [$all_from, $all_to] = IQU_Discount_Ledger_Admin::range(['lp' => 'all']);
+        $this->given = IQU_Discount_Ledger::coupon_totals($all_from, $all_to);
         $tid   = $local ? 'iqu-coupons-tbl' : '';
         $clear = IQU_Pager::url(self::PAGE_LIST, ['status' => $state, 'course_type' => $course_type])(['per_page' => $per_page]);
         $none  = 'No coupons found. <a href="' . esc_url(admin_url('admin.php?page=' . self::PAGE_CREATE)) . '">Create your first one.</a>';
@@ -519,7 +525,7 @@ class IQU_Coupon_Admin
                         <th>Expires</th>
                         <th>Uses</th>
                         <th>Status</th>
-                        <th>Created</th>
+                        <th class="is-num">Total discount</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -607,6 +613,7 @@ class IQU_Coupon_Admin
                                     </svg>
                                 </button>
                             </span>
+                            <small class="iqu-cpn-created">Created <?php echo esc_html(mysql2date('j M Y', $row['created_at'])); ?></small>
                         </td>
                         <td><?php echo esc_html($row['occasion_name']); ?></td>
                         <td>
@@ -625,7 +632,7 @@ class IQU_Coupon_Admin
                             </td>
                             <td><?php echo $badge; // ভেতরের ভ্যালু আগেই esc করা 
                                                 ?></td>
-                            <td><?php echo esc_html(mysql2date('j M, Y', $row['created_at'])); ?></td>
+                            <td class="is-num iqu-cpn-given"><?php echo esc_html(IQU_Pricing::format((float) ($this->given[$id] ?? 0))); ?></td>
                             <td class="iqu-td-actions">
                                 <a href="<?php echo esc_url($toggle_url); ?>"
                                     class="iqu-action-btn iqu-action-btn--view">
@@ -801,8 +808,11 @@ class IQU_Coupon_Admin
             'Status',
             'Description',
             'Created',
+            'Total discount',
         ]);
 
+        [$all_from, $all_to] = IQU_Discount_Ledger_Admin::range(['lp' => 'all']);
+        $given = IQU_Discount_Ledger::coupon_totals($all_from, $all_to); // as the table: the ledger, all time
         foreach ($data['items'] as $r) {
             IQU_CSV::put($out, [
                 $r['id'],
@@ -818,6 +828,7 @@ class IQU_Coupon_Admin
                 IQU_Coupon::STATE_LABELS[IQU_Coupon::effective_status($r)], // Active, Used up, Expired or Disabled
                 self::csv_safe($r['description']),
                 $r['created_at'],
+                number_format((float) ($given[(int) $r['id']] ?? 0), 2, '.', ''),
             ]);
         }
 
