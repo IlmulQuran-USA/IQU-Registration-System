@@ -509,6 +509,7 @@ class IQU_Billing_Send
     /** 4. Payment history: every tuition month, newest first, with yearly subtotals. */
     private static function family_history(array $history, ?array $acc = null): void
     {
+        $can_refund = class_exists('IQU_Billing_Refund') && IQU_Billing_Refund::can_refund(); // 3.7.0: IQU_REFUND_USERS
         $years = [];
         foreach ($history as $r) $years[substr((string) $r['period_month'], 0, 4) ?: '—'][] = $r;
         ?>
@@ -538,7 +539,7 @@ class IQU_Billing_Send
                         <tr>
                             <td><?php echo esc_html(IQU_Billing_History::month_label((string) $r['period_month'])); ?></td>
                             <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) $r['amount_due'])); ?></td>
-                            <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) $r['amount_paid'])); ?><?php if ((float) $r['amount_refunded'] > 0): ?><br><span class="iqu-billing-sub">Refunded <?php echo esc_html(IQU_Pricing::format((float) $r['amount_refunded'])); ?></span><?php endif; ?></td>
+                            <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) $r['amount_paid'])); ?><?php if ((float) $r['amount_refunded'] > 0): ?><br><span class="iqu-billing-sub">Refunded <?php echo esc_html(IQU_Pricing::format((float) $r['amount_refunded'])); ?></span><?php endif; ?><?php if ($can_refund) echo self::refund_link($r); // 3.7.0: named users only; escaped inside ?></td>
                             <td><span class="iqu-chip iqu-chip--<?php echo esc_attr($btone); ?>"><?php echo esc_html($blabel); ?></span></td>
                             <td class="iqu-td-date"><?php echo $r['paid_at'] ? esc_html(self::nice_time((string) $r['paid_at'])) : '—'; ?></td>
                             <td><?php echo esc_html(IQU_Billing_History::method_display((string) $r['method_label'], true) ?: '—'); ?></td>
@@ -555,6 +556,42 @@ class IQU_Billing_Send
             <?php endif; ?>
         </div>
         <?php
+    }
+
+    /**
+     * 3.7.0: "Refund…" (a muted text link) and its dialog, for a payment with something left to refund. Printed only
+     * for the users in IQU_REFUND_USERS (the caller checks IQU_Billing_Refund::can_refund(); the AJAX handler checks again).
+     */
+    private static function refund_link(array $r): string
+    {
+        $left = IQU_Billing_Refund::remainder($r);
+        if ($left <= 0) return '';
+        $id = (int) $r['id'];
+        $d  = 'iqu-refund-' . $id;
+        $paid = $r['paid_at'] ? self::nice_time((string) $r['paid_at']) : IQU_Billing_History::month_label((string) $r['period_month']);
+        $opts = '<option value="">Choose a reason…</option>';
+        foreach (IQU_Billing_Refund::REASONS as $k => $label) $opts .= '<option value="' . esc_attr($k) . '">' . esc_html($label) . '</option>';
+        $amt = number_format($left, 2, '.', '');
+        return ' <a href="#' . esc_attr($d) . '" class="iqu-refund-link" data-iqu-dialog="' . esc_attr($d) . '">Refund…</a>'
+            . '<dialog class="iqu-modal" id="' . esc_attr($d) . '" aria-labelledby="' . esc_attr($d) . '-t">'
+            . '<form class="iqu-modal-form" data-iqu-refund data-iqu-reason-form data-ajax="' . esc_url(admin_url('admin-ajax.php')) . '" data-payment="' . $id . '"'
+            . ' data-nonce="' . esc_attr(wp_create_nonce(IQU_Billing_Refund::ACTION . '_' . $id)) . '" data-op="' . esc_attr(str_replace('-', '', wp_generate_uuid4())) . '">'
+            . '<h2 class="iqu-modal-title" id="' . esc_attr($d) . '-t">Refund a payment</h2>'
+            . '<dl class="iqu-refund-facts">'
+            . '<div><dt>Payment</dt><dd>' . esc_html($paid . ' · ' . IQU_Pricing::format((float) $r['amount_paid'])) . '</dd></div>'
+            . '<div><dt>Already refunded</dt><dd>' . esc_html(IQU_Pricing::format((float) $r['amount_refunded'])) . '</dd></div>'
+            . '<div><dt>Refundable</dt><dd>' . esc_html(IQU_Pricing::format($left)) . '</dd></div></dl>'
+            . '<div class="iqu-fld"><label for="' . esc_attr($d) . '-a">Amount to refund (USD) <em>*</em></label>'
+            . '<input type="number" id="' . esc_attr($d) . '-a" name="amount" min="0.01" max="' . esc_attr($amt) . '" step="0.01" value="' . esc_attr($amt) . '" required></div>'
+            . '<div class="iqu-fld"><label for="' . esc_attr($d) . '-r">Reason <em>*</em></label><select id="' . esc_attr($d) . '-r" name="reason" required>' . $opts . '</select></div>'
+            . '<div class="iqu-fld" data-iqu-other><label for="' . esc_attr($d) . '-o">Other reason <em>*</em></label>'
+            . '<input type="text" id="' . esc_attr($d) . '-o" name="reason_other" maxlength="' . IQU_Billing_Refund::OTHER_MAX . '"></div>'
+            . '<p class="iqu-modal-text iqu-refund-confirm" data-iqu-refund-confirm hidden></p>'
+            . '<p class="iqu-refund-status" data-iqu-refund-status role="status" aria-live="polite"></p>'
+            . '<div class="iqu-modal-actions">'
+            . '<button type="button" class="iqu-btn iqu-btn--danger" data-iqu-refund-go>Refund ' . esc_html(IQU_Pricing::format($left)) . '</button>'
+            . '<button type="submit" formmethod="dialog" formnovalidate value="cancel" class="iqu-btn iqu-btn--secondary">Cancel</button>'
+            . '</div></form></dialog>';
     }
 
     /** Plain-English line for a webhook event. */

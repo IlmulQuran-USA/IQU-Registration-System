@@ -38,6 +38,7 @@ add_action('plugins_loaded', function () {
     require_once $inc . 'class-iqu-billing-summary.php';
     require_once $inc . 'class-iqu-billing-portal.php';
     require_once $inc . 'class-iqu-billing-stop.php'; // 3.7.0: stop billing at the end of the paid period
+    require_once $inc . 'class-iqu-billing-refund.php'; // 3.7.0: refunds, for the users in IQU_REFUND_USERS only
     // daily: a student whose billing end date has passed becomes "cancelled" (an ended scholarship, a removed student)
     if (class_exists('IQU_Discount_Ledger')) add_action(IQU_Discount_Ledger::CRON, ['IQU_Billing_Stop', 'finish_due'], 5);
 
@@ -71,5 +72,6 @@ add_action('plugins_loaded', function () {
         IQU_Billing_Reports::init();
         IQU_Billing_Payouts::init();
         IQU_Billing_Stop_Admin::init();
+        IQU_Billing_Refund::init();
     }
 }, 20);

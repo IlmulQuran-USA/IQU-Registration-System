@@ -509,3 +509,55 @@ if (refCtx && IQU_Admin.chart_data && IQU_Admin.chart_data.referral) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();
+// ══════════════════════════════════════════════════
+// REFUND (3.7.0, only for the users in IQU_REFUND_USERS — the server checks every request): "Refund {amount}"
+// asks once more ("Yes, refund {amount}"), then the refund is made (admin-ajax) and the page reloads.
+// ══════════════════════════════════════════════════
+(function () {
+  "use strict";
+
+  function money(v) { var n = parseFloat(v); return isFinite(n) ? "$" + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "$0.00"; }
+  function reset(form) {
+    var go = form.querySelector("[data-iqu-refund-go]"), conf = form.querySelector("[data-iqu-refund-confirm]");
+    form.removeAttribute("data-confirming");
+    if (conf) conf.hidden = true;
+    if (go) go.textContent = "Refund " + money(form.elements.amount.value);
+  }
+
+  document.addEventListener("input", function (e) {
+    var form = e.target && e.target.closest ? e.target.closest("[data-iqu-refund]") : null;
+    if (form) reset(form);
+  });
+  document.addEventListener("change", function (e) {
+    var form = e.target && e.target.closest ? e.target.closest("[data-iqu-refund]") : null;
+    if (form && e.target.name === "reason") reset(form);
+  });
+
+  document.addEventListener("click", function (e) {
+    var go = e.target && e.target.closest ? e.target.closest("[data-iqu-refund-go]") : null;
+    if (!go) return;
+    var form = go.closest("[data-iqu-refund]"), conf = form.querySelector("[data-iqu-refund-confirm]"), status = form.querySelector("[data-iqu-refund-status]");
+    if (!form.reportValidity()) return;
+    var amount = money(form.elements.amount.value);
+    if (!form.hasAttribute("data-confirming")) { // the second step
+      form.setAttribute("data-confirming", "1");
+      conf.textContent = "Refund " + amount + " to the family? This cannot be undone.";
+      conf.hidden = false;
+      go.textContent = "Yes, refund " + amount;
+      return;
+    }
+    go.disabled = true;
+    status.textContent = "Refunding…";
+    var body = new URLSearchParams({ action: "iqu_billing_refund", payment: form.getAttribute("data-payment"), amount: form.elements.amount.value,
+      reason: form.elements.reason.value, reason_other: form.elements.reason_other ? form.elements.reason_other.value : "",
+      op: form.getAttribute("data-op"), _ajax_nonce: form.getAttribute("data-nonce") });
+    fetch(form.getAttribute("data-ajax"), { method: "POST", credentials: "same-origin", body: body })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        status.textContent = (j && j.data && j.data.message) || "The refund could not be made.";
+        if (j && j.success) setTimeout(function () { window.location.reload(); }, 1200);
+        else { go.disabled = false; reset(form); }
+      })
+      .catch(function () { status.textContent = "The refund could not be made. Check Stripe before trying again."; go.disabled = false; });
+  });
+})();

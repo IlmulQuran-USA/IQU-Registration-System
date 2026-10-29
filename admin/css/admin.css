@@ -3311,3 +3311,35 @@ button.iqu-perpage-btn,
     flex: 1 1 100%;
   }
 }
+/* 3.7.0: "Refund…" — a muted text link, and the facts of the payment in its dialog */
+.iqu-refund-link,
+.iqu-refund-link:visited {
+  color: var(--iqu-text2);
+  font-size: 12px;
+  text-decoration: underline;
+}
+.iqu-refund-link:hover {
+  color: var(--iqu-text1);
+}
+.iqu-refund-facts {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+.iqu-refund-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.iqu-refund-facts dt {
+  color: var(--iqu-text2);
+}
+.iqu-refund-facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.iqu-refund-status:empty {
+  display: none;
+}

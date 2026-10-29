@@ -290,6 +290,16 @@ class IQU_Billing_Notify
         ]);
     }
 
+    /** 3.7.0: a refund made from the Billing details page (named users only): amount, payment, reason, who. */
+    public static function refund_issued(array $acc, float $amount, string $reason, array $row, string $user): void
+    {
+        self::send("↩️ Refund issued", [
+            'Refunded: <b>' . self::e(IQU_Pricing::format($amount)) . '</b> of ' . self::e(IQU_Pricing::format((float) $row['amount_paid'])) . ' (' . self::e(IQU_Billing_History::month_label((string) $row['period_month'])) . ' tuition)',
+            'Reason: ' . self::e($reason),
+            'By: ' . self::e($user),
+        ], $acc);
+    }
+
     public static function needs_contact(array $acc, string $status): void
     {
         $label = $status === 'canceled' ? 'Subscription canceled' : 'Automatic attempts finished';
