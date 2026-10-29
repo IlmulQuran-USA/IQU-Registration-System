@@ -2123,7 +2123,7 @@ button.iqu-perpage-btn,
   margin-bottom: 16px;
 }
 
-/* Coupon List: five small cards (Total, Active, Used up, Expired, Times redeemed) and the
+/* Coupon List: five small cards (Total, Active, Special discount, Expired, Times redeemed) and the
    discount card. Cards are as tall as their content.
    ≥1024px: the five cards in one row, the discount card full width below (its four rows side
    by side). 601–1023px: Total full width, then two columns. ≤600px: one column. */

@@ -224,17 +224,36 @@ final class IQU_Discount_Ledger
     /** The current month's rows of every active student with a reduction (daily; idempotent). Returns rows written. */
     public static function run_monthly(): int
     {
-        global $wpdb;
         if (!self::ready() || !class_exists('IQU_Billing_Pricing')) return 0;
         $month = self::current_month();
-        $regs  = $wpdb->get_results('SELECT * FROM ' . $wpdb->prefix . IQU_TABLE_NAME . ' WHERE form_type = \'' . IQU_Database::FORM_FREE . '\' AND ' . IQU_Database::active_student_sql(), ARRAY_A) ?: [];
         $n = 0;
+        foreach (self::current_items() as $reg_id => $item) $n += self::upsert($month, $reg_id, $item, 'monthly');
+        return $n;
+    }
+
+    /** What counts this month: [registration id => item] of every active student past the free first month. */
+    private static function current_items(): array
+    {
+        global $wpdb;
+        $month = self::current_month();
+        $regs  = $wpdb->get_results('SELECT * FROM ' . $wpdb->prefix . IQU_TABLE_NAME . ' WHERE form_type = \'' . IQU_Database::FORM_FREE . '\' AND ' . IQU_Database::active_student_sql() . ' ORDER BY id', ARRAY_A) ?: [];
+        $out = [];
         foreach ($regs as $reg) {
             $item = self::item_for($reg);
             if (!$item || strcmp(self::first_month($reg), $month) > 0) continue; // nothing to count, or still in the free month
-            $n += self::upsert($month, (int) $reg['id'], $item, 'monthly');
+            $out[(int) $reg['id']] = $item;
         }
-        return $n;
+        return $out;
+    }
+
+    /**
+     * Active students currently on a special discount (Coupons page card): the special plan, or an agreed fee /
+     * admin discount with the fund Special — the same students as this month's Special rows of the daily job.
+     */
+    public static function special_students(): array
+    {
+        if (!class_exists('IQU_Billing_Pricing')) return [];
+        return array_keys(array_filter(self::current_items(), fn($item) => $item['kind'] === 'special'));
     }
 
     /** The row of one month: 'monthly' replaces the amount of that month's row; 'backfill' only adds a missing row. */

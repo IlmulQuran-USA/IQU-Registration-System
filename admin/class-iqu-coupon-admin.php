@@ -398,7 +398,7 @@ class IQU_Coupon_Admin
             // key, icon (IQU_Icons), tone, number, label, sub-line
             ['total', 'ticket', 'navy', (int) $stats['total'], 'Total coupons', (int) $stats['total'] . ' created'],
             ['active', 'check-circle', 'blue', (int) $stats['active'], 'Active', 'can be used now'],
-            ['used_up', 'x-circle', 'gold', (int) $stats['used_up'], 'Used up', 'all uses taken — create a new one if needed'],
+            ['special', 'percent', 'gold', count(IQU_Discount_Ledger::special_students()), 'Special discount', 'students on a special discount'],
             ['expired', 'calendar-x', 'orange', (int) $stats['expired'], 'Expired', 'end date has passed'],
             ['redeemed', 'layers', 'purple', (int) $stats['redeemed'], 'Times redeemed',
                 (int) $stats['unlimited'] > 0 || (int) $stats['capacity'] === 0 ? 'across all coupons' : (int) $stats['redeemed'] . ' of ' . (int) $stats['capacity'] . ' uses'],
@@ -407,7 +407,7 @@ class IQU_Coupon_Admin
     <div class="iqu-metrics iqu-metrics--coupons">
         <?php foreach ($cards as [$key, $icon, $tone, $num, $label, $line]): ?>
         <div class="iqu-metric iqu-stat iqu-cpn-card iqu-cpn-card--<?php echo esc_attr($key); ?>">
-            <div class="iqu-metric-accent iqu-metric-accent--<?php echo esc_attr(['total' => 'total', 'active' => 'free', 'used_up' => 'usedup', 'expired' => 'expired', 'redeemed' => 'redeemed'][$key]); ?>"></div>
+            <div class="iqu-metric-accent iqu-metric-accent--<?php echo esc_attr(['total' => 'total', 'active' => 'free', 'special' => 'usedup', 'expired' => 'expired', 'redeemed' => 'redeemed'][$key]); ?>"></div>
             <?php echo IQU_Icons::stat_head($icon, $tone, (string) (int) $num); ?>
             <div class="iqu-metric-lbl" title="<?php echo esc_attr($label); ?>"><?php echo esc_html($label); ?></div>
             <?php if ($key === 'active' && $num === 0): // nothing can be used: say so inside the card, with the way out ?>
