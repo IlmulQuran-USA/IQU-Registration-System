@@ -18,7 +18,7 @@ final class IQU_Discount_Ledger_Admin
     public const A_FUND     = 'iqu_set_agreed_fee_fund';
     private const PAGE      = 'iqu-coupon-list';
     private const LABELS    = ['zakat' => 'Zakat fund', 'special' => 'Special discount'];
-    private const REASONS   = ['coupon' => 'Coupon', 'special_plan' => 'Special plan', 'agreed_fee' => 'Agreed fee'];
+    private const REASONS   = ['coupon' => 'Coupon', 'special_plan' => 'Special plan', 'agreed_fee' => 'Agreed fee', 'admin_discount' => 'Admin discount'];
 
     public static function init(): void
     {
@@ -227,14 +227,15 @@ final class IQU_Discount_Ledger_Admin
             <p class="iqu-card-head-sub">These reductions are not counted as Zakat or Special discount. Choose the fund on each student's page, next to the agreed fee.</p>
         </div></div>
         <div class="iqu-table-wrap"><table class="iqu-tbl">
-            <thead><tr><th>Student</th><th class="is-num">Normal price</th><th class="is-num">Agreed fee</th><th class="is-num">Reduction a month</th></tr></thead>
+            <thead><tr><th>Student</th><th>Why</th><th class="is-num">Normal price</th><th class="is-num">Reduced fee</th><th class="is-num">Reduction a month</th></tr></thead>
             <tbody>
-            <?php if (!$rows): ?><tr><td colspan="4" class="iqu-ledger-empty">Every reduced fee has a fund.</td></tr><?php endif; ?>
+            <?php if (!$rows): ?><tr><td colspan="5" class="iqu-ledger-empty">Every reduced fee has a fund.</td></tr><?php endif; ?>
             <?php foreach ($rows as $r): $pp = IQU_Billing_Pricing::for_registration($r); ?>
                 <tr>
                     <td><a href="<?php echo esc_url(admin_url('admin.php?page=iqu-view-registration&id=' . (int) $r['id'])); ?>"><?php echo esc_html(trim($r['first_name'] . ' ' . $r['last_name'])); ?></a> <span class="iqu-ledger-id">IQU-<?php echo (int) $r['id']; ?></span></td>
-                    <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) ($pp['standard'] ?? 0))); ?></td>
-                    <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) ($pp['agreed'] ?? 0))); ?></td>
+                    <td><?php echo esc_html(self::REASONS[IQU_Discount_Ledger::fund_reason($r) ?? 'agreed_fee']); ?></td>
+                    <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) ($pp['standard'] ?? $pp['gross']))); ?></td>
+                    <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) ($pp['agreed'] ?? $pp['net']))); ?></td>
                     <td class="is-num"><?php echo esc_html(IQU_Pricing::format((float) $pp['discount'])); ?></td>
                 </tr>
             <?php endforeach; ?>
@@ -294,10 +295,10 @@ final class IQU_Discount_Ledger_Admin
     // Student page: "Fund for the reduction"
     // ------------------------------------------------------------
 
-    /** The select next to the agreed fee, only while the agreed fee is below the normal price ('' otherwise). */
+    /** The select next to the agreed fee, while the agreed fee is below the normal price or the student has an admin discount ('' otherwise). */
     public static function fund_select(array $row): string
     {
-        if (!IQU_Database::agreed_fee_fund_ready() || !IQU_Discount_Ledger::has_agreed_reduction($row)) return '';
+        if (!IQU_Database::agreed_fee_fund_ready() || IQU_Discount_Ledger::fund_reason($row) === null) return '';
         $id   = (int) $row['id'];
         $p    = IQU_Billing_Pricing::for_registration($row);
         $fund = in_array((string) ($row['agreed_fee_fund'] ?? ''), IQU_Discount_Ledger::KINDS, true) ? (string) $row['agreed_fee_fund'] : '';
@@ -317,6 +318,7 @@ final class IQU_Discount_Ledger_Admin
     {
         $e = IQU_Discount_Ledger::last_fund_change($id);
         if (!$e) return '';
+        if ((int) $e['user'] === 0) return 'Set by the 3.6.2 update ("paid by the Zakat Fund" was ticked) on ' . wp_date('j M Y', (int) $e['at']);
         $u = get_userdata((int) $e['user']);
         return 'Changed by ' . ($u ? $u->display_name : 'user #' . (int) $e['user']) . ' on ' . wp_date('j M Y', (int) $e['at']);
     }

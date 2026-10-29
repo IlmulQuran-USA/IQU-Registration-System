@@ -145,6 +145,7 @@ function iqu_on_activation(): void
   IQU_Geo::schedule();
   IQU_Enrollment::schedule();
   IQU_Discount_Ledger::maybe_install();
+  IQU_Discount_Ledger::migrate_admin_discounts(); // 3.6.2, once
   IQU_Discount_Ledger::schedule();
 }
 
@@ -176,6 +177,7 @@ add_action('plugins_loaded', function () {
   IQU_Enrollment::init();
   IQU_Summer_Pay::init();
   IQU_Discount_Ledger::maybe_install();
+  IQU_Discount_Ledger::migrate_admin_discounts(); // 3.6.2, once
   IQU_Discount_Ledger::schedule();
   IQU_Discount_Ledger::init();
 
