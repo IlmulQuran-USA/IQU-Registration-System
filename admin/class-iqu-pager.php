@@ -274,10 +274,13 @@ final class IQU_Pager
     // ── Live search (admin/js/pager.js): a list's form[data-iqu-live="ID"] updates [data-iqu-live-region="ID"]
     //    as you type (≈300 ms) or change a filter; without JavaScript the form submits as before. ──
 
-    /** "Searching…" / "12 results" next to the search box, read out by screen readers. */
-    public static function live_status(): string
+    /**
+     * "Searching…" / "12 results" next to the search box, read out by screen readers. $shown false: for screen readers
+     * only (no text appears in the toolbar, so nothing in it moves; the table's empty state says "No results").
+     */
+    public static function live_status(bool $shown = true): string
     {
-        return '<span class="iqu-live-status" data-iqu-live-status aria-live="polite"></span>';
+        return '<span class="iqu-live-status' . ($shown ? '' : ' screen-reader-text') . '" data-iqu-live-status aria-live="polite"></span>';
     }
 
     /** The submit button only without JavaScript (with it, results update as you type). */

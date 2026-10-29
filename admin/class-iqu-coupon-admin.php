@@ -482,7 +482,7 @@ class IQU_Coupon_Admin
             <?php endforeach; ?>
         </select>
         <?php if ($per_page !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $per_page; ?>"><?php endif; ?>
-        <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter'); // results update as you type ?>
+        <?php echo IQU_Pager::live_status(false) . IQU_Pager::noscript_submit('Filter'); // results update as you type; the count for screen readers only (3.6.2: nothing in the toolbar moves) ?>
         <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
         <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_CREATE)); ?>"
             class="button button-primary">+ New Coupon</a>
