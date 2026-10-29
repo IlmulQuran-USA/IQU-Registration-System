@@ -2923,6 +2923,8 @@ button.iqu-perpage-btn,
 .iqu-ledger {
   margin: 4px 0 18px;
 }
+/* 3.6.2 C6: every control one box — the right-side buttons' (.iqu-btn--secondary / Export CSV): 36px high, 1px navy
+   border, --iqu-radius-md, 13px / 600; all on one line (centred), wrapping as groups on small screens */
 .iqu-ledger-bar {
   display: flex;
   flex-wrap: wrap;
@@ -2931,35 +2933,73 @@ button.iqu-perpage-btn,
   margin-bottom: 10px;
   font-size: 13px;
 }
-.iqu-ledger-bar select {
-  min-width: 0;
-}
-.iqu-ledger-presets {
+.iqu-ledger-field {
   display: inline-flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
-.iqu-ledger-preset {
-  padding: 3px 10px;
-  border: 1px solid var(--iqu-bdr);
-  border-radius: 999px;
-  text-decoration: none;
-  font-size: 12px;
+.iqu-admin-wrap .iqu-ledger-bar select {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 26px 0 10px;
+  border: 1px solid var(--iqu-navy);
+  border-radius: var(--iqu-radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 34px;
+  color: var(--iqu-navy);
 }
-.iqu-ledger-preset[aria-current="true"] {
-  background: var(--iqu-blue);
-  border-color: var(--iqu-blue);
-  color: #fff;
+.iqu-admin-wrap .iqu-ledger-bar .iqu-btn {
+  height: 36px;
+}
+/* This year · Last year · All time: one segmented control (joined pill segments, the chosen one filled) */
+.iqu-ledger-presets {
+  display: inline-flex;
+  box-sizing: border-box;
+  height: 36px;
+  border: 1px solid var(--iqu-navy);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--iqu-bg1);
+}
+.iqu-admin-wrap .iqu-ledger-preset {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  color: var(--iqu-navy);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.iqu-admin-wrap .iqu-ledger-preset + .iqu-ledger-preset {
+  border-left: 1px solid var(--iqu-navy);
+}
+.iqu-admin-wrap .iqu-ledger-preset:hover {
+  background: var(--iqu-bg2);
+  color: var(--iqu-navy);
+}
+.iqu-admin-wrap .iqu-ledger-preset[aria-current="true"] {
+  background: var(--iqu-navy);
+  color: var(--iqu-bg1);
+}
+.iqu-admin-wrap .iqu-ledger-preset:focus {
+  outline: none;
+  box-shadow: none;
+}
+.iqu-admin-wrap .iqu-ledger-preset:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--iqu-blue); /* inside: the group clips anything outside */
 }
 .iqu-ledger-actions {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* the two buttons stay together */
   align-items: center;
   gap: 8px;
   margin-left: auto;
-}
-.iqu-ledger-calc {
-  font-size: 12px;
 }
 /* the same size as the filter bar's Export CSV (.iqu-filter-bar .iqu-export-btn) */
 .iqu-ledger-bar .iqu-export-btn {

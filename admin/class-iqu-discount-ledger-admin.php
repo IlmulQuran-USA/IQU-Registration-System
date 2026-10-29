@@ -86,18 +86,18 @@ final class IQU_Discount_Ledger_Admin
         <?php if ($saved !== null): ?><div class="notice notice-success inline"><p><?php echo esc_html($saved . ' past ' . ($saved === 1 ? 'month was' : 'months were') . ' saved.'); ?></p></div><?php endif; ?>
         <form method="GET" class="iqu-ledger-bar">
             <input type="hidden" name="page" value="<?php echo esc_attr(self::PAGE); ?>">
-            <label for="iqu-ledger-from">From</label>
-            <select id="iqu-ledger-from" name="lfrom"><?php foreach ($months as $m): ?><option value="<?php echo esc_attr(substr($m, 0, 7)); ?>"<?php selected($m, $from); ?>><?php echo esc_html(self::month_label($m, 'F Y')); ?></option><?php endforeach; ?></select>
-            <label for="iqu-ledger-to">To</label>
-            <select id="iqu-ledger-to" name="lto"><?php foreach ($months as $m): ?><option value="<?php echo esc_attr(substr($m, 0, 7)); ?>"<?php selected($m, $to); ?>><?php echo esc_html(self::month_label($m, 'F Y')); ?></option><?php endforeach; ?></select>
-            <button type="submit" class="iqu-btn iqu-btn-ghost">Show</button>
-            <span class="iqu-ledger-presets">
+            <span class="iqu-ledger-field"><label for="iqu-ledger-from">From</label>
+            <select id="iqu-ledger-from" name="lfrom"><?php foreach ($months as $m): ?><option value="<?php echo esc_attr(substr($m, 0, 7)); ?>"<?php selected($m, $from); ?>><?php echo esc_html(self::month_label($m, 'F Y')); ?></option><?php endforeach; ?></select></span>
+            <span class="iqu-ledger-field"><label for="iqu-ledger-to">To</label>
+            <select id="iqu-ledger-to" name="lto"><?php foreach ($months as $m): ?><option value="<?php echo esc_attr(substr($m, 0, 7)); ?>"<?php selected($m, $to); ?>><?php echo esc_html(self::month_label($m, 'F Y')); ?></option><?php endforeach; ?></select></span>
+            <button type="submit" class="iqu-btn iqu-btn--secondary">Show</button>
+            <span class="iqu-ledger-presets" role="group" aria-label="Quick ranges">
                 <?php foreach (['year' => 'This year', 'last' => 'Last year', 'all' => 'All time'] as $k => $label): ?>
                 <a class="iqu-ledger-preset" href="<?php echo esc_url(self::page_url(['lp' => $k])); ?>"<?php echo $preset === $k ? ' aria-current="true"' : ''; ?>><?php echo esc_html($label); ?></a>
                 <?php endforeach; ?>
             </span>
             <span class="iqu-ledger-actions">
-                <a class="iqu-btn-ghost iqu-ledger-calc" href="<?php echo esc_url(self::page_url(['ledger' => 'preview'])); ?>">Calculate past discounts</a>
+                <a class="iqu-btn iqu-btn--secondary iqu-ledger-calc" href="<?php echo esc_url(self::page_url(['ledger' => 'preview'])); ?>">Calculate past discounts</a>
                 <a class="iqu-export-btn" href="<?php echo esc_url($csv); ?>"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
             </span>
         </form>
