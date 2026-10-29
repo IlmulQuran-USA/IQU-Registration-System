@@ -440,11 +440,6 @@ class IQU_Summer_Form
                     <!-- Guardian Contact Number -->
                     <div class="iqu-question">
                         <label for="guardian_contact">Guardian's Contact Number <span class="req">*</span></label>
-                        <p class="iqu-help">
-                            <strong>define('IQU_VERSION', '3.0.0');</strong>
-                            Select your flag from the dropdown, then enter your number.<br>
-                            Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
-                        </p>
                         <input type="tel" id="guardian_contact" name="guardian_contact" maxlength="25" required>
                         <span class="iqu-error" data-field="guardian_contact"></span>
                     </div>
@@ -453,11 +448,6 @@ class IQU_Summer_Form
                     <div class="iqu-question">
                         <label for="guardian_whatsapp">Guardian's WhatsApp Contact Number <span
                                 class="req">*</span></label>
-                        <p class="iqu-help">
-                            <strong>define('IQU_VERSION', '3.0.0');</strong>
-                            Select your flag from the dropdown, then enter your number.<br>
-                            Example: 🇺🇸 +1, 🇧🇩 +880, 🇬🇧 +44
-                        </p>
                         <input type="tel" id="guardian_whatsapp" name="guardian_whatsapp" maxlength="25" required>
                         <span class="iqu-error" data-field="guardian_whatsapp"></span>
                     </div>
@@ -528,22 +518,24 @@ class IQU_Summer_Form
                         <div class="iqu-radio-list iqu-radio-fee" id="iqu-admission-options">
                             <label class="iqu-radio-label iqu-radio-card">
                                 <input type="radio" name="admission_fee" value="50" required>
-<?php if ($stripe): ?>
-                                <?php echo esc_html(IQU_Pricing::format(IQU_Enrollment_Settings::summer_fee('standard'))); ?> — Standard Enrollment Fee
+                                <?php if ($stripe): ?>
+                                <?php echo esc_html(IQU_Pricing::format(IQU_Enrollment_Settings::summer_fee('standard'))); ?>
+                                — Standard Enrollment Fee
                                 <em>(Recommended)</em>
-<?php else: ?>
+                                <?php else: ?>
                                 $50 — Standard Enrollment Fee
                                 <em>(Recommended) (Already discounted with 75% subsidy)</em>
-<?php endif; ?>
+                                <?php endif; ?>
                             </label>
 
                             <label class="iqu-radio-label iqu-radio-card">
                                 <input type="radio" name="admission_fee" value="30">
-<?php if ($stripe): ?>
-                                <?php echo esc_html(IQU_Pricing::format(IQU_Enrollment_Settings::summer_fee('supported'))); ?> — Supported Rate
-<?php else: ?>
+                                <?php if ($stripe): ?>
+                                <?php echo esc_html(IQU_Pricing::format(IQU_Enrollment_Settings::summer_fee('supported'))); ?>
+                                — Supported Rate
+                                <?php else: ?>
                                 $30 — Supported Rate
-<?php endif; ?>
+                                <?php endif; ?>
                                 <em>(Available for families who may need some financial assistance)</em>
                             </label>
 
@@ -573,7 +565,7 @@ class IQU_Summer_Form
                             <p class="iqu-help">Select your preferred payment option:</p>
 
                             <fieldset id="iqu-payment-method-fieldset" disabled>
-<?php if ($stripe): ?>
+                                <?php if ($stripe): ?>
                                 <div class="iqu-payment-options">
                                     <label class="iqu-radio-label iqu-payment-option" data-provider="stripe">
                                         <div class="display-flex-payment">
@@ -582,11 +574,12 @@ class IQU_Summer_Form
                                         </div>
                                         <span class="iqu-payment-option-copy">
                                             <strong>Card (secure online payment)</strong>
-                                            <small>Pay once for the whole program on Stripe's secure page. We never see your card details.</small>
+                                            <small>Pay once for the whole program on Stripe's secure page. We never see
+                                                your card details.</small>
                                         </span>
                                     </label>
                                 </div>
-<?php else: ?>
+                                <?php else: ?>
                                 <div class="iqu-payment-options">
                                     <label class="iqu-radio-label iqu-payment-option" data-provider="zelle">
                                         <div class="display-flex-payment">
@@ -616,7 +609,7 @@ class IQU_Summer_Form
                                         </span>
                                     </label>
                                 </div>
-<?php endif; ?>
+                                <?php endif; ?>
                             </fieldset>
 
                             <span class="iqu-error" data-field="payment_method"></span>
@@ -636,7 +629,7 @@ class IQU_Summer_Form
                 <!-- Hidden fields that will be filled by the Zelle modal -->
                 <input type="hidden" name="transaction_id" id="iqu_transaction_id" value="">
                 <input type="hidden" name="payment_amount" id="iqu_payment_amount" value="">
-<?php if (!$stripe): ?>
+                <?php if (!$stripe): ?>
                 <div class="iqu-zeffy-warning" id="iqu-zeffy-warning" style="display:none">
                     <strong>⚠ Please note:</strong> When completing your payment through Zeffy, they may ask for a
                     <em>small
@@ -647,7 +640,7 @@ class IQU_Summer_Form
                     <strong>leave the input field empty</strong>.
                     Your full payment will be processed normally with <em>no extra charge</em>.
                 </div>
-<?php endif; ?>
+                <?php endif; ?>
 
                 <div class="iqu-submit-area">
                     <div class="iqu-alert iqu-server-error" id="iqu-summer-server-error" style="display:none"></div>
