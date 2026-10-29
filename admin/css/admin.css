@@ -2164,54 +2164,6 @@ button.iqu-perpage-btn,
   background: var(--iqu-gold);
 }
 
-/* State tabs above the filter bar: All · Active · Used up · Expired · Disabled, each with its
-   count (the same numbers as the cards). They wrap on narrow screens. */
-.iqu-cpn-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0 0 12px;
-}
-.iqu-cpn-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--iqu-bdr);
-  border-radius: 999px;
-  background: var(--iqu-bg1);
-  color: var(--iqu-text1);
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-}
-.iqu-cpn-tab:hover {
-  border-color: var(--iqu-navy);
-  color: var(--iqu-navy);
-}
-.iqu-cpn-tab:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--iqu-blue);
-}
-.iqu-cpn-tab[aria-current="page"] {
-  background: var(--iqu-navy);
-  border-color: var(--iqu-navy);
-  color: #fff;
-}
-.iqu-cpn-tab-count {
-  min-width: 20px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--iqu-bg2);
-  color: var(--iqu-text1);
-  font-size: 12px;
-  text-align: center;
-}
-.iqu-cpn-tab[aria-current="page"] .iqu-cpn-tab-count {
-  background: rgba(255, 255, 255, .2);
-  color: #fff;
-}
 /* Coupon List cards: the shared stat card (.iqu-stat, IQU_Icons::stat_head). */
 /* Discount card: total up top, then one row per type with its share as a thin bar. */
 .iqu-discount-rows {
@@ -3153,4 +3105,95 @@ button.iqu-perpage-btn,
   color: var(--iqu-text2);
   font-size: 11px;
   font-weight: 400;
+}
+
+/* C5: the filter chips of Student Billing (3.4.0) and the Coupon List — one class, moved here from billing.css */
+.iqu-admin-wrap .iqu-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.iqu-admin-wrap .iqu-seg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-height: 34px;
+  padding: 0 8px 0 12px;
+  border: 1px solid var(--iqu-bdr);
+  border-radius: 999px;
+  background: var(--iqu-bg1);
+  color: var(--iqu-text1);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.iqu-admin-wrap .iqu-seg-pill:hover {
+  background: var(--iqu-bg2);
+  border-color: var(--iqu-navy);
+  color: var(--iqu-text1);
+}
+/* the ring for the keyboard only: after a mouse click no ring (nor WordPress's a:focus one) */
+.iqu-admin-wrap .iqu-seg-pill:focus {
+  outline: none;
+  box-shadow: none;
+}
+.iqu-admin-wrap .iqu-seg-pill:focus-visible {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.iqu-admin-wrap .iqu-seg-pill.is-active {
+  background: var(--iqu-navy);
+  border-color: var(--iqu-navy);
+  color: var(--iqu-bg1);
+}
+.iqu-admin-wrap .iqu-seg-pill .iqu-billing-count {
+  margin-left: 2px;
+  min-width: 22px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--iqu-bg2);
+  color: var(--iqu-text1);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  opacity: 1;
+  box-sizing: border-box;
+}
+.iqu-admin-wrap .iqu-seg-pill.is-active .iqu-billing-count {
+  background: var(--iqu-bg1);
+  color: var(--iqu-navy);
+}
+.iqu-seg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--iqu-text2);
+}
+.iqu-seg-dot--navy { background: var(--iqu-navy); }
+.iqu-seg-dot--neutral { background: var(--iqu-text2); }
+.iqu-seg-dot--muted { background: var(--iqu-bdr); box-shadow: inset 0 0 0 1px var(--iqu-text2); }
+.iqu-seg-dot--blue { background: var(--iqu-blue); }
+.iqu-seg-dot--gold { background: var(--iqu-gold); }
+.iqu-seg-dot--green { background: var(--iqu-green); }
+.iqu-seg-dot--red { background: var(--iqu-red); }
+.iqu-admin-wrap .iqu-seg-pill.is-active .iqu-seg-dot {
+  box-shadow: 0 0 0 2px var(--iqu-bg1);
+}
+@media (max-width: 781px) {
+  .iqu-admin-wrap .iqu-seg {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 2px 2px 6px;
+    scrollbar-width: thin;
+  }
+  .iqu-admin-wrap .iqu-seg-pill {
+    flex: 0 0 auto;
+  }
 }

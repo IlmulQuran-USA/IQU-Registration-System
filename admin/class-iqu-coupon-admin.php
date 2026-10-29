@@ -460,11 +460,10 @@ class IQU_Coupon_Admin
         $tabs = ['' => ['All', (int) $stats['total']]];
         foreach (IQU_Coupon::STATE_LABELS as $k => $label) $tabs[$k] = [$label, (int) $stats[$k]];
     ?>
-    <nav class="iqu-cpn-tabs" aria-label="Filter coupons by state" data-iqu-tabs>
-        <?php foreach ($tabs as $k => [$label, $n]): // with JavaScript a tab filters the list in place (data-iqu-set) ?>
-        <a class="iqu-cpn-tab iqu-cpn-tab--<?php echo esc_attr($k !== '' ? $k : 'all'); ?>" href="<?php echo esc_url($tab_url($k)); ?>"<?php echo $state === $k ? ' aria-current="page"' : ''; ?> data-iqu-set="status=<?php echo esc_attr($k); ?>" data-iqu-set-for="iqu-coupons">
-            <?php echo esc_html($label); ?> <span class="iqu-cpn-tab-count"><?php echo (int) $n; ?></span>
-        </a>
+    <?php $tones = ['' => 'navy', IQU_Coupon::STATE_ACTIVE => 'green', IQU_Coupon::STATE_USED_UP => 'gold', IQU_Coupon::STATE_EXPIRED => 'red', IQU_Coupon::STATE_INACTIVE => 'muted']; ?>
+    <nav class="iqu-seg iqu-cpn-tabs" aria-label="Filter coupons by state" data-iqu-tabs="is-active">
+        <?php foreach ($tabs as $k => [$label, $n]): // the Billing filter chips (.iqu-seg-pill); with JavaScript a chip filters the list in place (data-iqu-set) ?>
+        <a class="iqu-seg-pill iqu-cpn-tab--<?php echo esc_attr($k !== '' ? $k : 'all'); ?><?php echo $state === $k ? ' is-active' : ''; ?>" href="<?php echo esc_url($tab_url($k)); ?>"<?php echo $state === $k ? ' aria-current="page"' : ''; ?> data-iqu-set="status=<?php echo esc_attr($k); ?>" data-iqu-set-for="iqu-coupons"><span class="iqu-seg-dot iqu-seg-dot--<?php echo esc_attr($tones[$k] ?? 'neutral'); ?>" aria-hidden="true"></span><?php echo esc_html($label); ?><span class="iqu-billing-count"><?php echo (int) $n; ?></span></a>
         <?php endforeach; ?>
     </nav>
 
