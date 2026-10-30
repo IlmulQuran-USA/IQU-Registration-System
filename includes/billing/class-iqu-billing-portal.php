@@ -345,7 +345,7 @@ class IQU_Billing_Portal
             . '<li><span class="step-n" aria-hidden="true">2</span><div>'
             . ($soon
                 ? '<strong>Your first payment is taken when you finish setting up.</strong><span class="small muted">After that, the same date every month.</span>'
-                : '<strong>Nothing is charged before ' . esc_html($first) . '</strong><span class="small muted">First payment: ' . esc_html($first) . ($new ? ' (after the free first month)' : '') . '. After that, the same date every month.</span>')
+                : '<strong>Nothing is charged before ' . esc_html($first) . '</strong><span class="small muted">First payment: ' . esc_html($first) . ($new ? ' (after the free first month)' : '') . '. After that, the same date every month.</span><span class="small muted">To stop, tell us at least 7 days before this date.</span>')
             . '</div></li>'
             . '<li><span class="step-n" aria-hidden="true">3</span><div><strong>Receipts arrive by email</strong>'
             . '<span class="small muted">Every payment, to ' . esc_html(self::mask_email((string) $acc['contact_email'])) . '.</span></div></li>'
@@ -365,6 +365,7 @@ class IQU_Billing_Portal
             . '<div class="hero-top"><h2 class="label">Next payment</h2>' . self::pill((string) $acc['status']) . '</div>'
             . '<p class="big">' . esc_html(IQU_Pricing::format((float) $acc['net_amount'])) . '</p>'
             . '<p class="big-sub">' . esc_html(self::nice_date($acc['next_charge_at'])) . '</p>'
+            . (!empty($acc['next_charge_at']) ? '<p class="small muted">To stop, tell us at least 7 days before this date.</p>' : '')
             . '<dl class="facts">'
             . '<div><dt>Paying from</dt><dd>' . esc_html(IQU_Billing_History::method_display((string) $acc['payment_method_label']) ?: '—') . '</dd></div>'
             . ($last === 'processing' ? '<div><dt>Last payment</dt><dd>Payment processing (bank, 3–5 business days)</dd></div>' : '')

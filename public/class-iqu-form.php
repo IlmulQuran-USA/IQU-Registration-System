@@ -517,7 +517,7 @@ class IQU_Form
                                         class="iqu-faq-icon" aria-hidden="true"></span></button></h4>
                             <div class="iqu-faq-a" id="iqu-faq-a4" role="region" aria-labelledby="iqu-faq-q4" hidden>
                                 <p>Message us at <a href="mailto:info@ilmulquranus.org">info@ilmulquranus.org</a> or on
-                                    WhatsApp before your next charge date, and we&#039;ll stop future charges.</p>
+                                    WhatsApp at least 7 days before your next charge date. Classes continue until the end of the month you&#039;ve paid for.</p>
                             </div>
                         </div>
                     </div>
