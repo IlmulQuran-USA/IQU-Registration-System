@@ -203,6 +203,8 @@ add_action('plugins_loaded', function () {
     new IQU_Coupon_Admin();
     require_once IQU_PLUGIN_DIR . 'admin/class-iqu-discount-ledger-admin.php';
     IQU_Discount_Ledger_Admin::init();
+    require_once IQU_PLUGIN_DIR . 'admin/class-iqu-discount-students-admin.php'; // 3.7.0: Zakat & Discount students
+    IQU_Discount_Students_Admin::init();
     require_once IQU_PLUGIN_DIR . 'admin/class-iqu-enrollment-admin.php';
     require_once IQU_PLUGIN_DIR . 'admin/class-iqu-waitlist-admin.php';
     IQU_Enrollment_Admin::init();

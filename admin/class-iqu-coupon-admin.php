@@ -489,6 +489,7 @@ class IQU_Coupon_Admin
     </form>
 
     <?php $this->list_region($c); ?>
+    <?php if (class_exists('IQU_Discount_Students_Admin')) IQU_Discount_Students_Admin::render_section(); // 3.7.0 AL: Zakat & Discount students, below the coupons table ?>
 </div>
 <?php
 

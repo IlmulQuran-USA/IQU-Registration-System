@@ -3359,3 +3359,27 @@ button.iqu-perpage-btn,
 .iqu-archived-filter {
   margin-top: -2px;
 }
+/* 3.7.0 AL: Zakat & Discount students (a section of the Coupons page) — three cards, the title */
+.iqu-metrics.iqu-zd-cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+.iqu-zakat-students {
+  margin-top: 24px;
+}
+.iqu-zd-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--iqu-text1);
+}
+.iqu-zd-tbl td,
+.iqu-zd-tbl th {
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .iqu-metrics.iqu-zd-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+

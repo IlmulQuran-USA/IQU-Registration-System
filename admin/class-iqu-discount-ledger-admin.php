@@ -59,6 +59,12 @@ final class IQU_Discount_Ledger_Admin
         return gmdate($f, strtotime($m . ' 12:00:00 UTC'));
     }
 
+    /** "Jan 2026 – Oct 2026" (one month: "Oct 2026"), as the cards show the range (3.7.0: also the Zakat & Discount students). */
+    public static function month_range_label(string $from, string $to): string
+    {
+        return self::month_label($from) . ($from !== $to ? ' – ' . self::month_label($to) : '');
+    }
+
     private static function page_url(array $q = []): string
     {
         return add_query_arg(array_map('rawurlencode', ['page' => self::PAGE] + $q), admin_url('admin.php'));
