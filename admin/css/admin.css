@@ -3260,6 +3260,7 @@ button.iqu-perpage-btn,
   border-radius: 8px;
   background: var(--iqu-bg1);
   color: var(--iqu-text1);
+  text-align: left; /* the Refund dialog sits in a right-aligned table cell */
   box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25);
 }
 .iqu-modal::backdrop {
@@ -3268,7 +3269,8 @@ button.iqu-perpage-btn,
 .iqu-modal-form {
   padding: 20px 22px;
 }
-.iqu-modal-title {
+.iqu-modal .iqu-modal-title {
+  display: block; /* .iqu-admin-wrap h2 hides WordPress's own titles, not this one */
   margin: 0 0 8px;
   font-size: 16px;
   font-weight: 700;
@@ -3287,6 +3289,14 @@ button.iqu-perpage-btn,
   box-sizing: border-box;
   width: 100%;
   max-width: none;
+}
+/* the same 40px as the text fields: not WordPress's select line-height, not the billing table's small select */
+.iqu-modal .iqu-fld select {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 28px 0 12px;
+  font-size: 13px;
+  line-height: 38px;
 }
 .iqu-modal-actions {
   display: flex;
@@ -3367,7 +3377,8 @@ button.iqu-perpage-btn,
 .iqu-zakat-students {
   margin-top: 24px;
 }
-.iqu-zd-title {
+.iqu-zakat-students .iqu-zd-title {
+  display: block; /* .iqu-admin-wrap h2 hides WordPress's own titles, not this one */
   margin: 0 0 12px;
   font-size: 16px;
   font-weight: 700;
