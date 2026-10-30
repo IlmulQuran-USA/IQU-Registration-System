@@ -346,6 +346,24 @@
       };
     });
 
+    // ── 3.7.1: the memorized answer grows with the text, up to its CSS max-height (4 lines), then scrolls ──
+    function fitMemorized(t) {
+      t.style.height = ""; // back to the CSS height (one line) to measure
+      if (t.value === "") return;
+      const max = parseFloat(getComputedStyle(t).maxHeight) || Infinity;
+      t.style.height = Math.min(t.scrollHeight + t.offsetHeight - t.clientHeight, max) + "px";
+    }
+    $(document).on("input", "#memorized", function () {
+      fitMemorized(this);
+    });
+    $(document).on("reset", "form", function () {
+      const t = this.querySelector("#memorized");
+      if (t) setTimeout(function () { fitMemorized(t); }, 0);
+    });
+    $("#memorized").each(function () {
+      fitMemorized(this);
+    });
+
     const $freeForm = $("#iqu-reg-form");
     if ($freeForm.length) {
       wireFreeForm($freeForm);

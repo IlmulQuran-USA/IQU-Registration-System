@@ -4647,3 +4647,60 @@ html.iqu-kbd .iqu-form-wrapper .iqu-dob-selects select:focus,
 .iqu-existing-options .iqu-radio-card input[type="radio"]:focus-visible {
   outline: none;
 }
+
+/* 3.7.1 F7: last row "memorized" | "already a student" — one label row (the taller label), one control row, one
+   error row, shared by both questions. The memorized card is a subgrid of the row. A <fieldset> lays its content
+   out in an anonymous box, which cannot be a subgrid, so the fieldset gives no box of its own (it has no card
+   style here; it stays the group of the two radios, named by its legend) and its legend, pills and error take the
+   second column's three rows. Stacked below 821px and without the second question, as before. */
+@media (min-width: 821px) {
+  .form-display-flex--last:has(> .iqu-existing-question) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto auto;
+    row-gap: 0;
+  }
+
+  .form-display-flex--last:has(> .iqu-existing-question) > .iqu-question:not(.iqu-existing-question) {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    grid-template-rows: subgrid;
+    row-gap: 0;
+    align-items: start;
+  }
+
+  .form-display-flex--last > .iqu-question.iqu-existing-question {
+    display: contents;
+  }
+
+  .form-display-flex--last > .iqu-existing-question > legend,
+  .form-display-flex--last > .iqu-existing-question > .iqu-existing-options,
+  .form-display-flex--last > .iqu-existing-question > .iqu-error {
+    grid-column: 2;
+    align-self: start;
+  }
+
+  .form-display-flex--last > .iqu-existing-question > legend {
+    grid-row: 1;
+  }
+
+  .form-display-flex--last > .iqu-existing-question > .iqu-existing-options {
+    grid-row: 2;
+  }
+
+  .form-display-flex--last > .iqu-existing-question > .iqu-error {
+    grid-row: 3;
+  }
+}
+
+/* The memorized answer starts at the standard input height (the Yes / No pills: 48px) and grows with the text
+   (form.js) up to 4 lines, then scrolls. No resize handle. */
+.iqu-form #memorized {
+  height: 48px;
+  min-height: 48px;
+  max-height: 108px; /* 4 lines of 20px + 12px + 12px padding + 1px + 3px border */
+  line-height: 20px;
+  resize: none;
+  overflow-y: auto;
+}

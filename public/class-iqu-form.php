@@ -782,8 +782,8 @@ class IQU_Form
                             Juz.
                             <span class="req">*</span></label>
                         <textarea id="memorized" name="memorized"
-                            placeholder="If yes, tell us which Surahs or Juz. If not, just write &quot;No&quot;."
-                            rows="3" maxlength="500" style="height:78px; resize:none; min-height:0; "
+                            placeholder="If not, just write &quot;No&quot;."
+                            rows="3" maxlength="500"
                             required></textarea>
                         <span class="iqu-error" data-field="memorized"></span>
                     </div>
