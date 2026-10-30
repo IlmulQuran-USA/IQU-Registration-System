@@ -91,21 +91,96 @@ final class IQU_Archive
         return $want !== '' && $norm($typed) === $want;
     }
 
-    /** Delete a student allowed by delete_blocker(): its test billing members, then accounts nobody else uses, then the row. */
+    /** Why the last delete() did not delete ('' after a delete, or when delete_blocker() refused). */
+    private static string $error = '';
+
+    public static function last_error(): string
+    {
+        return self::$error;
+    }
+
+    /**
+     * Delete a student allowed by delete_blocker(): its test billing members, then accounts nobody else uses, then the row.
+     * 3.7.2: before any row goes, what those test accounts still run in Stripe is closed — the test subscription cancelled
+     * now, an open Checkout page expired — so nothing keeps running in Stripe with no record left here. If Stripe refuses,
+     * nothing is deleted and last_error() says why.
+     */
     public static function delete(int $id): bool
     {
         global $wpdb;
+        self::$error = '';
         if (self::delete_blocker($id) !== '') return false;
         if (class_exists('IQU_Billing_DB')) {
             $m = IQU_Billing_DB::members_table();
             $accounts = array_map('intval', $wpdb->get_col($wpdb->prepare("SELECT account_id FROM {$m} WHERE registration_id = %d AND mode = 'test'", $id)) ?: []);
-            $wpdb->query($wpdb->prepare("DELETE FROM {$m} WHERE registration_id = %d AND mode = 'test'", $id));
+            // the accounts this delete removes: no member left once this student's test members are gone
+            $gone = [];
             foreach (array_unique($accounts) as $aid) {
-                if ((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$m} WHERE account_id = %d", $aid)) === 0) {
-                    $wpdb->query($wpdb->prepare('DELETE FROM ' . IQU_Billing_DB::accounts_table() . " WHERE id = %d AND mode = 'test'", $aid));
+                if ((int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$m} WHERE account_id = %d AND NOT (registration_id = %d AND mode = 'test')", $aid, $id)) === 0) $gone[] = $aid;
+            }
+            foreach ($gone as $aid) {
+                $acc = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . IQU_Billing_DB::accounts_table() . " WHERE id = %d AND mode = 'test'", $aid), ARRAY_A);
+                $err = $acc ? self::close_test_stripe($acc, $id) : '';
+                if ($err !== '') {
+                    self::$error = $err;
+                    return false;
                 }
+            }
+            $wpdb->query($wpdb->prepare("DELETE FROM {$m} WHERE registration_id = %d AND mode = 'test'", $id));
+            foreach ($gone as $aid) {
+                $wpdb->query($wpdb->prepare('DELETE FROM ' . IQU_Billing_DB::accounts_table() . " WHERE id = %d AND mode = 'test'", $aid));
             }
         }
         return (bool) $wpdb->delete($wpdb->prefix . IQU_TABLE_NAME, ['id' => $id], ['%d']);
+    }
+
+    /**
+     * 3.7.2: a test account about to be deleted — cancel its Stripe test subscription immediately (allowed only here:
+     * this path is test mode only) and expire its open Checkout page (and cancel the subscription a page completed
+     * before its webhook linked it). '' when done, nothing to do, or already canceled / gone; otherwise the error.
+     * Needs the test key: with the live key a test object is "not found", which must not pass for "already gone".
+     */
+    private static function close_test_stripe(array $acc, int $reg_id): string
+    {
+        $sub = (string) ($acc['stripe_subscription_id'] ?? '');
+        $cs  = (string) ($acc['checkout_session_id'] ?? '');
+        $sub = preg_match('/^sub_[A-Za-z0-9_]+$/', $sub) ? $sub : '';
+        $cs  = preg_match('/^cs_[A-Za-z0-9_]+$/', $cs) ? $cs : '';
+        if ($sub === '' && $cs === '') return '';
+        $acct = 'billing account #' . (int) $acc['id'];
+        if (!class_exists('IQU_Stripe') || IQU_Stripe::key_mode() !== 'test' || !IQU_Stripe::is_ready()) {
+            return 'Not deleted: ' . $acct . ' still has a Stripe test ' . ($sub !== '' ? 'subscription' : 'Checkout page')
+                . ', which can only be cancelled with the Stripe test key. Switch Billing to test mode and try again.';
+        }
+        $subs = $sub !== '' ? [$sub] : [];
+        if ($cs !== '') {
+            $r = IQU_Stripe::post('/checkout/sessions/' . $cs . '/expire', []);
+            if (!$r['ok'] && !self::stripe_gone($r)) {
+                // Stripe refuses to expire a page that is not open (expired / complete): only an open one is a problem
+                $g = IQU_Stripe::get('/checkout/sessions/' . $cs);
+                if (!$g['ok'] && !self::stripe_gone($g)) return 'Not deleted: Stripe could not expire the test Checkout page of ' . $acct . ' (' . $r['error'] . ').';
+                if ($g['ok'] && ($g['data']['status'] ?? '') === 'open') return 'Not deleted: Stripe could not expire the test Checkout page of ' . $acct . ' (' . $r['error'] . ').';
+                $made = $g['ok'] ? ($g['data']['subscription'] ?? '') : '';
+                $made = is_array($made) ? (string) ($made['id'] ?? '') : (string) $made;
+                if (preg_match('/^sub_[A-Za-z0-9_]+$/', $made) && !in_array($made, $subs, true)) $subs[] = $made;
+            }
+        }
+        foreach ($subs as $s) {
+            $r = IQU_Stripe::delete('/subscriptions/' . $s);
+            if (!$r['ok'] && !self::stripe_gone($r)) {
+                $g = IQU_Stripe::get('/subscriptions/' . $s);
+                $done = self::stripe_gone($g) || ($g['ok'] && in_array((string) ($g['data']['status'] ?? ''), ['canceled', 'incomplete_expired'], true));
+                if (!$done) return 'Not deleted: Stripe could not cancel the test subscription ' . $s . ' of ' . $acct . ' (' . $r['error'] . ').';
+            }
+            IQU_Billing_DB::log_action(['account_id' => (int) $acc['id'], 'registration_id' => $reg_id, 'action' => 'test_delete_cancel', 'amount' => 0,
+                'reason' => 'Test data deleted: subscription cancelled now', 'stripe_ref' => $s, 'user_id' => get_current_user_id()]);
+        }
+        return '';
+    }
+
+    /** Stripe answered "no such object" (deleted, or never existed in this mode). */
+    private static function stripe_gone(array $r): bool
+    {
+        return !$r['ok'] && ((int) $r['status'] === 404 || $r['code'] === 'resource_missing');
     }
 }

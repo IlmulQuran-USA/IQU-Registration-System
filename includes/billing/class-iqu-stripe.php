@@ -191,6 +191,12 @@ class IQU_Stripe
         return self::request('POST', $path, $params, $idempotency_key);
     }
 
+    /** 3.7.2: only the hard delete of test data uses it (cancel a test subscription now). */
+    public static function delete(string $path, array $params = []): array
+    {
+        return self::request('DELETE', $path, $params);
+    }
+
     /** Lightweight connection check that also works with a restricted key. */
     public static function ping(): array
     {

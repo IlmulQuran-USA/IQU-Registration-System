@@ -2167,7 +2167,7 @@ class IQU_Admin
     if (!IQU_Archive::name_matches($reg, (string) wp_unslash($_POST['confirm_name'] ?? '')))
       wp_send_json_error('Type the student\x27s name exactly to confirm.');
     $deleted = IQU_Archive::delete($id);
-    $deleted ? wp_send_json_success('Registration deleted.') : wp_send_json_error('Delete failed.');
+    $deleted ? wp_send_json_success('Registration deleted.') : wp_send_json_error(IQU_Archive::last_error() ?: 'Delete failed.');
   }
 
   /** 3.7.0 AK: the "Archived" chip of an Enroll list — only when it has archived students (otherwise nothing changes). */
