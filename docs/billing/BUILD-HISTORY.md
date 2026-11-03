@@ -48,4 +48,6 @@ All dates 2026-10-05. Sandbox build, Stripe test mode.
 
 32. 3.7.2 (2026-10-30): Deleting a test-mode student now first cancels, in Stripe, the test subscription of each test account the delete removes (immediately — allowed only here, test mode only) and expires its open Checkout page; then the rows go. If Stripe fails (other than already canceled / not found), nothing is deleted and the admin sees the error; with Billing on the live key the delete is refused ("Switch Billing to test mode"). Live-mode records are still never deleted ("Archive instead").
 
+33. 3.7.3 (2026-11-04): Enroll for Free thank-you screen (no card step / pending review only): the left column ("Unable to Afford the Tuition?" box) is hidden and the layout is one column; the success card is centred and a little larger on desktop (760px wide, slightly larger text; mobile unchanged); the empty details box is hidden. The Stripe redirect path, the other forms, and all wording are unchanged.
+
 Test data to remove before go-live: registrations IQU-159 to IQU-165 (all info@ilmulquranus.org, marked TEST/QA), billing accounts 1 to 6, their Stripe test customers, subscriptions, 2 test clocks and the product "IQU QA tuition (test)". Options iqu_billing_qa_ids and iqu_billing_qa_state.

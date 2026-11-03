@@ -572,6 +572,9 @@
           .find(".iqu-hero, .iqu-intro-card, .iqu-required-note")
           .slideUp(300);
 
+        // 3.7.3: thank-you screen — no left column (form.css .iqu-split-layout--done: one column, card centred)
+        const $layout = $form.closest(".iqu-split-layout");
+
         $form.fadeOut(300, function () {
           $form.replaceWith(
             buildSuccessMarkup({
@@ -581,6 +584,7 @@
               details: [],
             }),
           );
+          $layout.addClass("iqu-split-layout--done");
           window.scrollTo({ top: 0, behavior: "smooth" });
         });
       }

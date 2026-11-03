@@ -4704,3 +4704,48 @@ html.iqu-kbd .iqu-form-wrapper .iqu-dob-selects select:focus,
   resize: none;
   overflow-y: auto;
 }
+
+/* 3.7.3: Enroll for Free thank-you screen (no card step; form.js adds the class). The left column goes, the
+   layout is one column, the card is centred and a little larger on desktop, the empty details box is hidden. */
+.iqu-split-layout.iqu-split-layout--done {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.iqu-split-layout--done > .iqu-split-side,
+.iqu-split-layout--done .iqu-success-details:empty {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .iqu-split-layout--done .iqu-success-card {
+    max-width: 760px;
+    margin: 40px auto;
+    padding: 48px 48px 40px;
+  }
+
+  .iqu-split-layout--done .iqu-success-badge {
+    font-size: 13px;
+  }
+
+  .iqu-split-layout--done .iqu-success-title {
+    font-size: 32px;
+  }
+
+  .iqu-split-layout--done .iqu-success-sub {
+    font-size: 18px;
+  }
+
+  .iqu-split-layout--done .iqu-success-msg {
+    max-width: 600px;
+    font-size: 16px;
+  }
+
+  .iqu-split-layout--done .iqu-success-quote {
+    max-width: 560px;
+    font-size: 15px;
+  }
+
+  .iqu-split-layout--done .iqu-success-contact {
+    font-size: 14px;
+  }
+}
