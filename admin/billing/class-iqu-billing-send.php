@@ -328,8 +328,9 @@ class IQU_Billing_Send
         if ($notice) delete_transient(self::TX . get_current_user_id());
 
         echo '<div class="wrap iqu-admin-wrap iqu-billing">';
+        // at the very top, above the "Billing" header card — as "← Back to list" on the student page
+        echo '<a href="' . esc_url(IQU_Billing_Page::list_url_from_referer()) . '" class="iqu-back-btn iqu-back-top">← Back to Student Billing</a>';
         IQU_Billing_Page::tabs('students');
-        echo '<p class="iqu-back-row"><a href="' . esc_url(IQU_Billing_Page::list_url_from_referer()) . '" class="iqu-back-btn">← Back to Student Billing</a></p>';
         if ($notice) self::print_notice($notice);
         if (!$acc) { echo '<div class="iqu-card"><div class="iqu-empty-state">Billing record not found.</div></div></div>'; return; }
 

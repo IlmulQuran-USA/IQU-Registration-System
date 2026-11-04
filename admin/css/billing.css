@@ -1910,6 +1910,12 @@ th[aria-sort="descending"] .iqu-sort::after {
   margin: 0 0 12px;
 }
 
+/* …now at the very top, above the "Billing" header card: the button's 4px + the 18px the student page's grid
+   leaves under "← Back to list" — the same 22px */
+.iqu-billing > .iqu-back-btn.iqu-back-top {
+  margin-bottom: 22px;
+}
+
 /* ── Student Billing (3.4.0): segmented status filter — moved to admin.css in 3.6.2 (shared with the Coupons page) ── */
 
 /* ── Student Billing table ──────────────────────────────────── */
