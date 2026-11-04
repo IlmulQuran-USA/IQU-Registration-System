@@ -89,6 +89,8 @@ if (!defined('IQU_EMAIL_LOGO_SRC')) {
 // ============================================================
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-schema.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-csv.php';
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-xlsx.php';   // Excel (.xlsx) files: PHP's ZipArchive + XMLReader, no library
+require_once IQU_PLUGIN_DIR . 'includes/class-iqu-export.php'; // CSV or Excel for every export and import, and the button that offers both
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-cdn.php';
 IQU_CDN::init(); // integrity hashes on the version-pinned CDN files
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-submit-guard.php';

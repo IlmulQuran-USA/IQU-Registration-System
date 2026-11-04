@@ -2632,3 +2632,56 @@ p.iqu-card-head-sub {
     width: 100%;
   }
 }
+
+/* Payments tables: "Download" (CSV or Excel) sits where "Download CSV" was */
+.iqu-dt-toolbar .iqu-fmt {
+  margin-left: auto;
+}
+@media (max-width: 600px) {
+  .iqu-dt-toolbar .iqu-fmt {
+    margin-left: 0;
+  }
+}
+/* narrow screens: a page header's form button fills its form (as "Download CSV" did) */
+@media (max-width: 782px) {
+  .iqu-billing .iqu-page-head-actions form .iqu-fmt {
+    width: 100%;
+  }
+}
+
+/* ── Add Student: Date of birth (the website's Month | Day | Year, public/js/dob.js) and the guardian rule ── */
+.iqu-billing .iqu-dob-selects {
+  display: grid;
+  grid-template-columns: 1.45fr 0.9fr 1.1fr;
+  gap: 8px;
+  max-width: 420px; /* its own row under the name: wide enough for "September", never stretched */
+}
+.iqu-billing .iqu-dob-selects select {
+  min-width: 0;
+}
+.iqu-billing .iqu-dob select.iqu-invalid {
+  border-color: var(--iqu-red);
+}
+/* "Under 18 — …" / "18 or older — …": its line kept, so nothing below moves */
+.iqu-billing .iqu-dob-hint {
+  min-height: 1.45em;
+  margin: 6px 0 0;
+}
+.iqu-billing .iqu-dob-hint[data-tone="minor"] {
+  color: #8a6d1f;
+  font-weight: 600;
+}
+/* the date's message (dob.js or the server) shows only when there is one */
+.iqu-billing .iqu-dob-error:has(.iqu-error:empty) {
+  display: none;
+}
+.iqu-guardian-q .iqu-guardian-opt {
+  display: none;
+  margin-left: 4px;
+}
+.iqu-guardian-q[data-state="adult"] .iqu-guardian-opt {
+  display: inline;
+}
+.iqu-guardian-q[data-state="adult"] .iqu-guardian-req {
+  display: none;
+}

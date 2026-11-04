@@ -459,7 +459,8 @@ class IQU_Billing_Payments_Screen
         echo '<div class="iqu-dt-toolbar"><label class="screen-reader-text" for="' . esc_attr($table_id) . '-q">Filter rows</label>'
             . '<input id="' . esc_attr($table_id) . '-q" type="search" placeholder="Filter…" data-filter-for="' . esc_attr($table_id) . '">'
             . '<span class="iqu-dt-count" data-count-for="' . esc_attr($table_id) . '" aria-live="polite"></span>'
-            . '<button type="button" class="iqu-export-btn" data-csv-for="' . esc_attr($table_id) . '" data-csv-name="' . esc_attr($csv_name) . '"><span class="dashicons dashicons-download" aria-hidden="true"></span>Download CSV</button></div>';
+            // CSV or Excel of the rows shown, made in the browser (billing.js)
+            . IQU_Export::choice(['label' => 'Download', 'class' => 'iqu-export-btn', 'icon' => '<span class="dashicons dashicons-download" aria-hidden="true"></span>', 'attrs' => ['data-csv-for' => $table_id, 'data-csv-name' => $csv_name]]) . '</div>';
     }
 
     private static function no_match(int $cols): void

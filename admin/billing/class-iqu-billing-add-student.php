@@ -27,6 +27,9 @@ class IQU_Billing_Add_Student
     private const CAP      = 'manage_options';
     private const ACTION   = 'iqu_billing_add_student';
     private const FORM_TX  = 'iqu_billing_add_form_';
+    /** The Enroll for Free date-of-birth range (IQU_Validator::validate_free): age 4 to 100. */
+    private const DOB_MIN_AGE = 4;
+    private const DOB_MAX_AGE = 100;
 
     public static function init(): void
     {
@@ -80,7 +83,8 @@ class IQU_Billing_Add_Student
             self::flash(['errors' => $prep['errors'], 'warnings' => $prep['warnings'], 'old' => $in]);
             self::back();
         }
-        // Warnings (age under 4, an "Other" answer) can be saved, after the admin confirms them.
+        // Warnings (an "Other" answer) can be saved, after the admin confirms them. (The form's date of birth
+        // follows the website: under 4 is an error there and here; "age under 4" stays a warning for an import's Age column.)
         if ($prep['warnings'] && empty($_POST['confirm_warnings'])) {
             self::flash(['warnings' => $prep['warnings'], 'confirm' => true, 'old' => $in]);
             self::back();
@@ -134,7 +138,8 @@ class IQU_Billing_Add_Student
     {
         $list = fn($k) => array_map('sanitize_text_field', array_map('strval', (array) ($p[$k] ?? [])));
         return [
-            'age'            => sanitize_text_field((string) ($p['age'] ?? '')),
+            // Month | Day | Year → YYYY-MM-DD (public/js/dob.js, as on Enroll for Free). The form has no Age field.
+            'date_of_birth'  => sanitize_text_field((string) ($p['date_of_birth'] ?? '')),
             'country_origin' => (string) ($p['country_origin'] ?? ''),
             'country_res'    => (string) ($p['country_res'] ?? ''),
             'quran_level'    => sanitize_text_field((string) ($p['quran_level'] ?? '')),
@@ -160,9 +165,15 @@ class IQU_Billing_Add_Student
      * Three outcomes per value: fine, a warning (saved, but the admin should look: age under 4,
      * an "Other" answer), or an error (not saved).
      *
+     * Date of birth (the form's Month | Day | Year, or a CSV / Excel cell): the Enroll for Free checks —
+     * a real date, not in the future, age 4 to 100 in the site time zone — and it is stored like a
+     * website enrollment: date_of_birth plus the age worked out from it. When it is given, an Age
+     * value is not used; a file with only an Age column is read as before.
+     *
+     * @param bool $csv the value comes from an import file (the messages name the column)
      * @return array{0:array<string,mixed>,1:string[],2:string[]} [columns, errors, warnings]
      */
-    public static function clean_extra(array $x, int $days): array
+    public static function clean_extra(array $x, int $days, bool $csv = false): array
     {
         $cols = [];
         $e    = [];
@@ -172,8 +183,21 @@ class IQU_Billing_Add_Student
             return array_values(array_filter(array_map(fn($s) => strtolower(trim((string) $s)), $items), fn($s) => $s !== ''));
         };
 
+        $dob_raw = trim((string) ($x['date_of_birth'] ?? ''));
+        if ($dob_raw !== '') {
+            $dob = self::parse_dob($dob_raw);
+            if ($dob === '' || strcmp($dob, IQU_Dob::today()) > 0) {
+                $e[] = $csv ? 'Date of Birth must be a real date in the past, for example 2016-03-04 or 3/4/2016 (month first).' : 'Please choose a valid date of birth.';
+            } elseif (($years = IQU_Dob::age_on($dob)) < self::DOB_MIN_AGE || $years > self::DOB_MAX_AGE) {
+                $e[] = 'Age must be between ' . self::DOB_MIN_AGE . ' and ' . self::DOB_MAX_AGE . '.';
+            } else {
+                $cols['date_of_birth'] = $dob;
+                $cols['age']           = $years;
+            }
+        }
+
         $age = trim((string) ($x['age'] ?? ''));
-        if ($age !== '' && $age !== '0') {
+        if ($dob_raw === '' && $age !== '' && $age !== '0') {
             if (!preg_match('/^\d{1,3}$/', $age) || (int) $age < 1 || (int) $age > 100) {
                 $e[] = 'Age must be a number from 1 to 100.';
             } else {
@@ -302,9 +326,19 @@ class IQU_Billing_Add_Student
             $errors[] = 'The agreed fee must be at most ' . IQU_Pricing::format(IQU_Billing_Pricing::AGREED_MAX) . ' a month — check the amount.';
             $in['use_agreed'] = false;
         }
-        [$extra_cols, $extra_errors, $extra_warnings] = self::clean_extra(is_array($in['extra'] ?? null) ? $in['extra'] : [], (int) ($in['days'] ?? 0));
+        [$extra_cols, $extra_errors, $extra_warnings] = self::clean_extra(is_array($in['extra'] ?? null) ? $in['extra'] : [], (int) ($in['days'] ?? 0), $from_csv);
         $errors   = array_merge($errors, $extra_errors);
         $warnings = array_merge($warnings, $extra_warnings);
+        // The form (not an import row): the Enroll for Free rules — the date of birth is required, and a
+        // guardian's name is required under 18, optional from 18 (as IQU_Validator::validate_free, which
+        // asks for the guardian only once the date itself is fine). Import rows keep their own rules.
+        if (!$from_csv) {
+            if (trim((string) (($in['extra'] ?? [])['date_of_birth'] ?? '')) === '') {
+                $errors[] = 'Please choose a valid date of birth.';
+            } elseif (isset($extra_cols['age']) && $extra_cols['age'] < IQU_Dob::ADULT_AGE && trim((string) ($in['guardian_name'] ?? '')) === '') {
+                $errors[] = "Please add a parent or guardian's name.";
+            }
+        }
         $calc     = null;
         if (!$errors && !$course_missing) {
             $calc = IQU_Pricing::calculate($in['course'], (int) $in['days']);
@@ -394,6 +428,19 @@ class IQU_Billing_Add_Student
     }
 
     /**
+     * A date of birth as YYYY-MM-DD, or '' when it is not a real date. Accepts what the form sends
+     * (2016-03-04), what a spreadsheet usually holds (2016/3/4, 3/4/2016 — month first, as in the US)
+     * and an Excel date cell read with its midnight time (2016-03-04 00:00).
+     */
+    public static function parse_dob(string $value): string
+    {
+        $v = trim($value);
+        if (preg_match('#^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T]00:00(?::00)?)?$#', $v, $m)) return IQU_Dob::clean(sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]));
+        if (preg_match('#^(\d{1,2})/(\d{1,2})/(\d{4})$#', $v, $m)) return IQU_Dob::clean(sprintf('%04d-%02d-%02d', $m[3], $m[1], $m[2]));
+        return '';
+    }
+
+    /**
      * Plain text from a form or spreadsheet cell. Removes the apostrophe our
      * own CSV export adds, and any leading formula characters.
      */
@@ -425,6 +472,11 @@ class IQU_Billing_Add_Student
     public static function error_field(string $msg): string
     {
         $map = [
+            // date of birth / guardian first: "Age must be between" is the date's message, not an Age field
+            'valid date of birth'       => 'date_of_birth',
+            'Date of Birth must'        => 'date_of_birth',
+            'Age must be between'       => 'date_of_birth',
+            "parent or guardian's name" => 'guardian_name',
             'first and last name'       => 'first_name',
             'valid email address'       => 'email',
             'WhatsApp number'           => 'whatsapp',
@@ -525,6 +577,15 @@ class IQU_Billing_Add_Student
         $days_old   = (int) ($old['days'] ?? 0);
         $show_fee   = !empty($old['use_agreed']) || !empty($old['zakat']);
         $students   = admin_url('admin.php?page=' . IQU_Billing_Page::SLUG);
+        // Date of birth: the website's Month | Day | Year (public/js/dob.js), chosen again after an error.
+        $dob_old    = (string) ($x['date_of_birth'] ?? '');
+        $dob_parts  = preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $dob_old, $dm) ? [(int) $dm[2], (int) $dm[3], (int) $dm[1]] : [0, 0, 0];
+        $dob_clean  = IQU_Dob::clean($dob_old);
+        $dob_years  = $dob_clean !== '' && strcmp($dob_clean, IQU_Dob::today()) <= 0 ? IQU_Dob::age_on($dob_clean) : -1;
+        // Guardian name: required (*) while under 18 or the date is not complete, "(optional)" from 18.
+        $g_state    = $dob_years >= self::DOB_MIN_AGE && $dob_years <= self::DOB_MAX_AGE ? ($dob_years < IQU_Dob::ADULT_AGE ? 'minor' : 'adult') : 'pending';
+        $this_year  = (int) wp_date('Y');
+        $dob_msgs   = implode(' ', $field_errors['date_of_birth'] ?? []);
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('add'); ?>
@@ -561,7 +622,8 @@ class IQU_Billing_Add_Student
                             <p class="iqu-add-section-title" id="iqu-sec-1">Student</p>
                             <p class="iqu-fld-hint">Who is joining. Use the name the family uses.</p>
                         </div></div>
-                        <div class="iqu-fld-grid iqu-fld-grid--3">
+                        <!-- First name | Last name, then the Date of birth (Month | Day | Year) below: the grid of section 2 -->
+                        <div class="iqu-fld-grid">
                             <div class="iqu-fld">
                                 <label for="first_name">First name <em>*</em></label>
                                 <input id="first_name" name="first_name" type="text" required autocomplete="off" aria-describedby="iqu-err-first_name" value="<?php echo $v('first_name'); ?>"<?php echo $invalid('first_name'); ?>>
@@ -572,10 +634,16 @@ class IQU_Billing_Add_Student
                                 <input id="last_name" name="last_name" type="text" required autocomplete="off" aria-describedby="iqu-err-last_name" value="<?php echo $v('last_name'); ?>">
                                 <?php echo $err('last_name'); ?>
                             </div>
-                            <div class="iqu-fld">
-                                <label for="age">Age <span class="iqu-fld-optional">(optional)</span></label>
-                                <input id="age" name="age" type="number" min="1" max="100" step="1" inputmode="numeric" aria-describedby="iqu-err-age" value="<?php echo $xv('age'); ?>"<?php echo $invalid('age'); ?>>
-                                <?php echo $err('age'); ?>
+                            <div class="iqu-fld iqu-fld--full iqu-dob" role="group" aria-labelledby="dob-label" data-iqu-dob data-min-age="<?php echo (int) self::DOB_MIN_AGE; ?>" data-max-age="<?php echo (int) self::DOB_MAX_AGE; ?>">
+                                <label id="dob-label" for="dob-month">Date of birth <em>*</em></label>
+                                <div class="iqu-dob-selects">
+                                    <select id="dob-month" class="iqu-dob-month" aria-label="Month" aria-describedby="iqu-err-date_of_birth"<?php echo $invalid('date_of_birth'); ?>><option value="">Month</option><?php foreach (IQU_Dob::MONTHS as $i => $mn): ?><option value="<?php echo (int) ($i + 1); ?>"<?php echo $dob_parts[0] === $i + 1 ? ' selected' : ''; ?>><?php echo esc_html($mn); ?></option><?php endforeach; ?></select>
+                                    <select id="dob-day" class="iqu-dob-day" aria-label="Day" aria-describedby="iqu-err-date_of_birth"<?php echo $invalid('date_of_birth'); ?>><option value="">Day</option><?php for ($dd = 1; $dd <= 31; $dd++): ?><option value="<?php echo (int) $dd; ?>"<?php echo $dob_parts[1] === $dd ? ' selected' : ''; ?>><?php echo (int) $dd; ?></option><?php endfor; ?></select>
+                                    <select id="dob-year" class="iqu-dob-year" aria-label="Year" aria-describedby="iqu-err-date_of_birth"<?php echo $invalid('date_of_birth'); ?>><option value="">Year</option><?php for ($yy = $this_year - self::DOB_MIN_AGE; $yy >= $this_year - self::DOB_MAX_AGE; $yy--): ?><option value="<?php echo (int) $yy; ?>"<?php echo $dob_parts[2] === $yy ? ' selected' : ''; ?>><?php echo (int) $yy; ?></option><?php endfor; ?></select>
+                                </div>
+                                <p class="iqu-fld-hint iqu-dob-hint" aria-live="polite"></p>
+                                <input type="hidden" name="date_of_birth" class="iqu-dob-value" value="<?php echo esc_attr($dob_old); ?>">
+                                <p class="iqu-fld-error iqu-dob-error" id="iqu-err-date_of_birth"><span class="dashicons dashicons-warning" aria-hidden="true"></span><span class="iqu-fld-error-text iqu-error" data-field="date_of_birth"><?php echo esc_html($dob_msgs); ?></span></p>
                             </div>
                         </div>
                     </section>
@@ -586,10 +654,11 @@ class IQU_Billing_Add_Student
                             <p class="iqu-fld-hint">The billing email receives the private payment link and every receipt. Siblings can share one email.</p>
                         </div></div>
                         <div class="iqu-fld-grid">
-                            <div class="iqu-fld">
-                                <label for="guardian_name">Guardian name</label>
-                                <input id="guardian_name" name="guardian_name" type="text" autocomplete="off" aria-describedby="iqu-hint-guardian" value="<?php echo $v('guardian_name'); ?>">
+                            <div class="iqu-fld iqu-guardian-q" data-iqu-guardian data-state="<?php echo esc_attr($g_state); ?>">
+                                <label for="guardian_name">Guardian name <em class="iqu-guardian-req">*</em><span class="iqu-fld-optional iqu-guardian-opt">(optional)</span></label>
+                                <input id="guardian_name" name="guardian_name" type="text" autocomplete="off" aria-required="<?php echo $g_state === 'adult' ? 'false' : 'true'; ?>" aria-describedby="iqu-hint-guardian iqu-err-guardian_name" value="<?php echo $v('guardian_name'); ?>"<?php echo $invalid('guardian_name'); ?>>
                                 <p class="iqu-fld-hint" id="iqu-hint-guardian">Leave empty for adult students.</p>
+                                <?php echo $err('guardian_name'); ?>
                             </div>
                             <div class="iqu-fld">
                                 <label for="email">Billing email <em>*</em></label>

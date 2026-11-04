@@ -565,3 +565,34 @@ if (refCtx && IQU_Admin.chart_data && IQU_Admin.chart_data.referral) {
       .catch(function () { status.textContent = "The refund could not be made. Check Stripe before trying again."; go.disabled = false; });
   });
 })();
+
+/* ── CSV / Excel choice (details.iqu-fmt, IQU_Export::choice) ─────────────────────────
+   One open at a time; Escape (focus back on the button), a click elsewhere, or a choice closes it.
+   Works without this too: it is a <details> menu. */
+(function () {
+  "use strict";
+  function menus() {
+    return document.querySelectorAll("details.iqu-fmt");
+  }
+  document.addEventListener("toggle", function (e) {
+    var d = e.target;
+    if (!d || !d.matches || !d.matches("details.iqu-fmt") || !d.open) return;
+    menus().forEach(function (o) { if (o !== d) o.open = false; });
+  }, true); // toggle does not bubble
+  document.addEventListener("click", function (e) {
+    menus().forEach(function (d) {
+      if (!d.open) return;
+      if (!d.contains(e.target)) d.open = false;
+      else if (e.target.closest && e.target.closest(".iqu-fmt-item")) setTimeout(function () { d.open = false; }, 0); // after the download or submit starts
+    });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    menus().forEach(function (d) {
+      if (!d.open) return;
+      d.open = false;
+      var s = d.querySelector("summary");
+      if (s) s.focus();
+    });
+  });
+})();

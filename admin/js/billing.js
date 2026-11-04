@@ -8,7 +8,7 @@
  *   td[data-sort], td[data-csv]        sort key / CSV value when the visible text differs
  *   input[data-filter-for="ID"]        filter box for table #ID
  *   [data-count-for="ID"]              "N shown" counter for table #ID
- *   button[data-csv-for="ID"]          CSV of the rows currently shown (data-csv-name = file name)
+ *   button[data-csv-for="ID"]          CSV, or Excel with data-format="xlsx", of the rows currently shown (data-csv-name = file name)
  *   button[data-toggle-view="ID"]      switch chart <-> table inside card #ID
  */
 (function (root) {
@@ -30,6 +30,119 @@
 
   B.toCSV = function (rows) {
     return rows.map(function (r) { return r.map(B.csvCell).join(","); }).join("\r\n");
+  };
+
+  /**
+   * Excel (.xlsx) of rows, made in the browser: the same one-sheet workbook IQU_Xlsx::write() makes on the
+   * server. A plain number ("40", "-12.50") is a number cell ("12.50" keeps two decimals); everything else is
+   * text, which a spreadsheet never runs as a formula. The zip is stored, not compressed; no library.
+   */
+  B.xlsxNumber = function (s) {
+    return /^-?(0|[1-9]\d{0,9})(\.\d{1,10})?$/.test(s);
+  };
+
+  B.xlsxText = function (value) {
+    var s = value === null || value === undefined ? "" : String(value);
+    s = s.replace(/\r\n?/g, "\n").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F￾￿]/g, "");
+    return s.length > 32767 ? s.slice(0, 32767) : s;
+  };
+
+  B.xlsxCol = function (i) {
+    var s = "";
+    for (var n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+    return s;
+  };
+
+  B.xlsxCell = function (ref, value) {
+    var v = B.xlsxText(value);
+    if (v === "") return "";
+    if (B.xlsxNumber(v)) return '<c r="' + ref + '"' + (/\.\d\d$/.test(v) ? ' s="1"' : "") + "><v>" + v + "</v></c>";
+    var esc = v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+    return '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' + esc + "</t></is></c>";
+  };
+
+  B.xlsx = function (rows) {
+    var head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+    var main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+    var rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    var pkg = "http://schemas.openxmlformats.org/package/2006/relationships";
+    var ct = "application/vnd.openxmlformats-officedocument.spreadsheetml.";
+    var sheet = [head + '<worksheet xmlns="' + main + '"><sheetData>'];
+    rows.forEach(function (cells, r) {
+      var line = '<row r="' + (r + 1) + '">';
+      cells.forEach(function (v, c) { line += B.xlsxCell(B.xlsxCol(c) + (r + 1), v); });
+      sheet.push(line + "</row>");
+    });
+    sheet.push("</sheetData></worksheet>");
+    return B.zip([
+      { name: "[Content_Types].xml", data: head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        + '<Default Extension="xml" ContentType="application/xml"/>'
+        + '<Override PartName="/xl/workbook.xml" ContentType="' + ct + 'sheet.main+xml"/>'
+        + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="' + ct + 'worksheet+xml"/>'
+        + '<Override PartName="/xl/styles.xml" ContentType="' + ct + 'styles+xml"/></Types>' },
+      { name: "_rels/.rels", data: head + '<Relationships xmlns="' + pkg + '">'
+        + '<Relationship Id="rId1" Type="' + rel + '/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+      { name: "xl/workbook.xml", data: head + '<workbook xmlns="' + main + '" xmlns:r="' + rel + '">'
+        + '<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+      { name: "xl/_rels/workbook.xml.rels", data: head + '<Relationships xmlns="' + pkg + '">'
+        + '<Relationship Id="rId1" Type="' + rel + '/worksheet" Target="worksheets/sheet1.xml"/>'
+        + '<Relationship Id="rId2" Type="' + rel + '/styles" Target="styles.xml"/></Relationships>' },
+      { name: "xl/styles.xml", data: head + '<styleSheet xmlns="' + main + '">'
+        + '<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>'
+        + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+        + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+        + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+        + '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+        + '<xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>'
+        + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' },
+      { name: "xl/worksheets/sheet1.xml", data: sheet.join("") },
+    ]);
+  };
+
+  var crcTable = null;
+  function crc32(bytes) {
+    if (!crcTable) {
+      crcTable = [];
+      for (var n = 0; n < 256; n++) {
+        var c = n;
+        for (var k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        crcTable[n] = c >>> 0;
+      }
+    }
+    var crc = 0xffffffff;
+    for (var i = 0; i < bytes.length; i++) crc = crcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  /** A zip of text files (UTF-8), stored: [{name, data}] → Uint8Array. */
+  B.zip = function (files) {
+    var enc = new TextEncoder(), parts = [], central = [], offset = 0, now = new Date();
+    var time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    var date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    files.forEach(function (f) {
+      var name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+      var h = new DataView(new ArrayBuffer(30));
+      h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true);
+      h.setUint16(10, time, true); h.setUint16(12, date, true); h.setUint32(14, crc, true);
+      h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
+      parts.push(new Uint8Array(h.buffer), name, data);
+      var c = new DataView(new ArrayBuffer(46));
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true);
+      c.setUint16(12, time, true); c.setUint16(14, date, true); c.setUint32(16, crc, true);
+      c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true);
+      c.setUint32(42, offset, true);
+      central.push(new Uint8Array(c.buffer), name);
+      offset += 30 + name.length + data.length;
+    });
+    var size = central.reduce(function (s, p) { return s + p.length; }, 0);
+    var e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+    e.setUint32(12, size, true); e.setUint32(16, offset, true);
+    var all = parts.concat(central, [new Uint8Array(e.buffer)]);
+    var out = new Uint8Array(all.reduce(function (s, p) { return s + p.length; }, 0)), at = 0;
+    all.forEach(function (p) { out.set(p, at); at += p.length; });
+    return out;
   };
 
   /** Compare two sort keys of one column type. */
@@ -171,14 +284,19 @@
     return out;
   };
 
+  /** "Download" → CSV or Excel (data-format="csv|xlsx") of the rows shown: the same rows and values in both. */
   function initCsv(btn) {
     btn.addEventListener("click", function () {
       var table = document.getElementById(btn.getAttribute("data-csv-for"));
       if (!table) return;
-      var blob = new Blob(["﻿" + B.toCSV(B.tableRows(table))], { type: "text/csv;charset=utf-8" });
+      var name = btn.getAttribute("data-csv-name") || "iqu-billing.csv";
+      var xlsx = btn.getAttribute("data-format") === "xlsx";
+      var blob = xlsx
+        ? new Blob([B.xlsx(B.tableRows(table))], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+        : new Blob(["﻿" + B.toCSV(B.tableRows(table))], { type: "text/csv;charset=utf-8" });
       var a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = btn.getAttribute("data-csv-name") || "iqu-billing.csv";
+      a.download = xlsx ? name.replace(/\.csv$/i, "") + ".xlsx" : name;
       document.body.appendChild(a);
       a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
@@ -280,6 +398,12 @@
     var note = form.querySelector("#iqu-family-note");
     var daysHint = form.querySelector("[data-days-hint]");
     var daysHintText = daysHint ? daysHint.textContent : "";
+    // Date of birth: the website's Month | Day | Year (public/js/dob.js, window.IQU_DOB). As on Enroll for Free,
+    // Guardian name is required (*) until a full date gives 18 or older, then "(optional)".
+    var dob = form.querySelector("[data-iqu-dob]");
+    var dobHint = form.querySelector(".iqu-dob-hint");
+    var guardianQ = form.querySelector("[data-iqu-guardian]");
+    var guardian = form.querySelector("#guardian_name");
 
     function val(name) {
       var el = form.querySelector('input[name="' + name + '"]:checked');
@@ -309,6 +433,29 @@
         if (msg) input.setAttribute("aria-invalid", "true");
         else input.removeAttribute("aria-invalid");
       }
+    }
+
+    /** The guardian rule for a date state {iso, age, inRange} (dob.js): minor, adult or pending (no full date yet). */
+    function syncGuardian(s, keepError) {
+      var next = s && s.iso && s.inRange ? (s.age < 18 ? "minor" : "adult") : "pending";
+      if (!guardianQ || !guardian) return;
+      var prev = guardianQ.getAttribute("data-state");
+      guardianQ.setAttribute("data-state", next);
+      guardian.setAttribute("aria-required", next === "adult" ? "false" : "true");
+      if (dobHint) {
+        dobHint.textContent = next === "minor" ? "Under 18 — a guardian's name is required." : next === "adult" ? "18 or older — guardian is optional." : "";
+        dobHint.setAttribute("data-tone", next);
+      }
+      if (next !== prev && !keepError) setError("guardian_name", "");
+    }
+
+    /** dob.js writes the date's message; the three selects carry aria-invalid while there is one. */
+    function syncDobInvalid() {
+      var msg = dob.querySelector('.iqu-error[data-field="date_of_birth"]');
+      var bad = !!(msg && msg.textContent.trim());
+      dob.querySelectorAll("select").forEach(function (s) {
+        if (bad) s.setAttribute("aria-invalid", "true"); else s.removeAttribute("aria-invalid");
+      });
     }
 
     // Only the classes-a-week numbers the chosen course allows (Hifz: at least 3).
@@ -386,6 +533,13 @@
       setError("first_name", names ? "" : "Enter the student's first and last name.");
       if (!last.value.trim()) last.setAttribute("aria-invalid", "true"); else last.removeAttribute("aria-invalid");
       if (!names) bad.push(first.value.trim() ? last : first);
+      // the website's date checks and messages (dob.js), then the guardian rule (under 18 only)
+      if (dob && root.IQU_DOB && !root.IQU_DOB.validate(form)) bad.push(dob.querySelector("select"));
+      if (dob) syncDobInvalid();
+      var minor = guardianQ && guardianQ.getAttribute("data-state") === "minor";
+      var gOk = !minor || guardian.value.trim() !== "";
+      setError("guardian_name", gOk ? "" : "Please add a parent or guardian's name.");
+      if (!gOk) bad.push(guardian);
       var mail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
       setError("email", mail ? "" : "Enter a valid email address. Payment links and receipts go here.");
       if (!mail) bad.push(email);
@@ -426,6 +580,14 @@
       }
     });
 
+    if (dob && root.IQU_DOB) {
+      dob.addEventListener("iqu:dob", function (e) {
+        syncGuardian(e.detail);
+        setTimeout(syncDobInvalid, 0); // dob.js writes its message right after this event
+      });
+      syncGuardian(root.IQU_DOB.state(dob), true); // a date chosen again after a server error: keep that page's messages
+    }
+
     syncDays();
     syncPanel();
     syncFamily();
@@ -443,7 +605,7 @@
   /**
    * Import drop zone ([data-dropzone]): the real file input covers the zone, so clicking,
    * keyboard (Enter / Space on the focused input) and dropping a file all work natively.
-   * Shows the file name and size, warns about a non-.csv or too-large file (the server checks again).
+   * Shows the file name and size, warns about a file that is not .csv or .xlsx, or too large (the server checks again).
    */
   B.importDrop = function (zone) {
     var input = zone.querySelector('input[type="file"]');
@@ -466,7 +628,7 @@
       if (!status) return;
       if (!f) { status.textContent = ""; setStep(1); return; }
       var problem = "";
-      if (!/\.csv$/i.test(f.name)) problem = "This does not look like a .csv file. In Excel or Google Sheets use \"Save as / Download as CSV\", then choose it again.";
+      if (!/\.(csv|xlsx)$/i.test(f.name)) problem = "This does not look like a .csv or .xlsx file. In Excel or Google Sheets use \"Save as / Download as\" CSV or Excel (.xlsx), then choose it again.";
       else if (f.size > 1048576) problem = "This file is larger than 1 MB. Split it into smaller files.";
       zone.classList.toggle("is-warn", !!problem);
       status.textContent = "Chosen: " + f.name + " (" + B.fileSize(f.size) + ")" + (problem ? " — " + problem : "");

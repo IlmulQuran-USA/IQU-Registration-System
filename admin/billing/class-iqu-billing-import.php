@@ -4,14 +4,15 @@ if (!defined('ABSPATH')) exit;
 /**
  * Class IQU_Billing_Import
  *
- * Admin page: IQU Registrations → Import Students (CSV).
+ * Admin page: IQU Registrations → Import Students (CSV or Excel .xlsx).
  * Two steps: upload + preview, then confirm. Nothing is saved until the
  * admin has seen every row and pressed Import.
  *
  * Security:
  * - manage_options only; separate nonce on sample download, upload and confirm.
  * - The upload is read in memory and never moved or kept on the server.
- * - .csv only, 1 MB and 500 rows maximum.
+ * - .csv or .xlsx only, 1 MB and 500 rows maximum. An Excel file is read as the rows a CSV of
+ *   its first sheet would give (IQU_Xlsx) and then goes through exactly the same checks.
  * - Every row goes through IQU_Billing_Add_Student::prepare() — the same
  *   validation and pricing as the single form — and is checked again at confirm.
  * - Fees are always computed by IQU_Pricing; an "Agreed Monthly Fee" cell must be
@@ -57,7 +58,7 @@ class IQU_Billing_Import
         ['Days/Week',          true,  'Classes per week, 1 to 7. Hifz needs at least 3.',     '4'],
         ['Agreed Monthly Fee', false, 'A monthly fee agreed with the family, billed exactly as entered (lower or higher than the standard fee). Number only. 0 means full scholarship. Leave empty for the standard fee. Without a recognised course it is saved with a warning and compared with the standard price once the course is set.', ''],
         ['Zakat',              false, 'Yes if the reduced fee is paid by the Zakat Fund. Otherwise leave empty or No.', 'No'],
-        ['Age',                false, 'Student age, a number up to 100. Under 4 is saved with a warning.', '9'],
+        ['Date of Birth',      false, 'Student date of birth: 2016-03-04 (year-month-day) or 3/4/2016 (month first). Age 4 to 100. A file with an Age column instead still works.', '2016-03-04'],
         ['Country Origin',     false, 'Country the student is from.',                          'Bangladesh'],
         ['Country Residence',  false, 'Country the student lives in.',                         'United States'],
         ['Quran Level',        false, 'Beginner, Intermediate or Advanced.',                   'Beginner'],
@@ -78,7 +79,7 @@ class IQU_Billing_Import
         'email' => 'email', 'whatsapp' => 'whatsapp', 'guardianwhatsapp' => 'guardian_whatsapp',
         'course' => 'course', 'daysweek' => 'days', 'daysperweek' => 'days',
         'agreedmonthlyfee' => 'agreed_fee', 'zakat' => 'zakat', 'zakatsupport' => 'zakat',
-        'declarationsigned' => 'zakat', 'age' => 'age', 'countryresidence' => 'country_res',
+        'declarationsigned' => 'zakat', 'age' => 'age', 'dateofbirth' => 'date_of_birth', 'dob' => 'date_of_birth', 'birthdate' => 'date_of_birth', 'countryresidence' => 'country_res',
         'countryofresidence' => 'country_res', 'countryorigin' => 'country_origin', 'countryoforigin' => 'country_origin',
         'quranlevel' => 'quran_level', 'memorized' => 'memorized', 'memorizedbefore' => 'memorized',
         'preferreddays' => 'preferred_days', 'timeslot' => 'time_slot',
@@ -103,27 +104,20 @@ class IQU_Billing_Import
         add_submenu_page('iqu-registrations', 'Import Students — IQU', 'Import Students', self::CAP, self::PAGE_SLUG, [__CLASS__, 'render']);
     }
 
-    /** Puts an "Import CSV" button beside "Export CSV" on the Enroll for Free list. */
+    /** Puts an "Import" button (CSV or Excel) beside "Export" on the Enroll for Free list. */
     public static function add_button_next_to_export(): void
     {
         if (!current_user_can(self::CAP) || ($_GET['page'] ?? '') !== 'iqu-list-free') return;
-        $url = admin_url('admin.php?page=' . self::PAGE_SLUG);
+        // The same look as Export (its class); each choice opens this page with its file picker set to that type.
+        $html = IQU_Export::choice(['label' => 'Import', 'class' => 'iqu-export-btn', 'id' => 'iqu-import-btn',
+            'icon' => '<span class="dashicons dashicons-upload" aria-hidden="true"></span>', 'href' => admin_url('admin.php?page=' . self::PAGE_SLUG)]);
         ?>
         <script>
         (function () {
-            var exp = document.querySelector('a.iqu-export-btn');
+            var exp = document.querySelector('.iqu-filter-bar details.iqu-fmt');
             if (!exp || document.getElementById('iqu-import-btn')) return;
-            var a = document.createElement('a');
-            a.id = 'iqu-import-btn';
-            a.className = exp.className;
-            a.href = <?php echo wp_json_encode($url); ?>;
-            var icon = document.createElement('span');
-            icon.className = 'dashicons dashicons-upload';
-            icon.setAttribute('aria-hidden', 'true');
-            a.appendChild(icon);
-            a.appendChild(document.createTextNode('Import CSV'));
-            a.style.marginLeft = '6px';
-            exp.parentNode.insertBefore(a, exp.nextSibling);
+            exp.insertAdjacentHTML('afterend', <?php echo wp_json_encode($html); ?>);
+            document.getElementById('iqu-import-btn').style.marginLeft = '6px';
         })();
         </script>
         <?php
@@ -139,16 +133,14 @@ class IQU_Billing_Import
         check_admin_referer(self::A_SAMPLE);
 
         nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="iqu-import-students-sample.csv"');
-        $out = fopen('php://output', 'w');
+        $out = IQU_Export::open('iqu-import-students-sample.csv'); // CSV as before, or Excel (format=xlsx)
         fputs($out, "\xEF\xBB\xBF");
         IQU_CSV::put($out, array_column(self::COLUMNS, 0));
         IQU_CSV::put($out, array_column(self::COLUMNS, 3));
-        // Second example: one value per column of COLUMNS (22), in the same order.
-        IQU_CSV::put($out, ['Omar', 'Rahman', '', 'omar.r@example.com', '+1 469 555 0172', '', 'arabic', '2', '30', 'Yes', '24', '', 'United States', '', '',
+        // Second example: one value per column of COLUMNS (22), in the same order (an adult: date of birth month first).
+        IQU_CSV::put($out, ['Omar', 'Rahman', '', 'omar.r@example.com', '+1 469 555 0172', '', 'arabic', '2', '30', 'Yes', '4/12/2002', '', 'United States', '', '',
             'Sat, Sun', '10:00 AM – 11:00 AM (CST)', '30', 'English, Arabic', 'No preference', '', 'Adult student, reduced fee agreed']);
-        fclose($out);
+        IQU_Export::close($out);
         exit;
     }
 
@@ -166,8 +158,8 @@ class IQU_Billing_Import
 
         if (!$file || !isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) $fail('The file did not upload. Please try again.');
         if (!is_uploaded_file($file['tmp_name'])) $fail('The upload could not be verified.');
-        if ((int) $file['size'] <= 0 || (int) $file['size'] > self::MAX_BYTES) $fail('The file must be a CSV under 1 MB.');
-        if (strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) !== 'csv') $fail('Please upload a .csv file. In Excel or Google Sheets use "Save as / Download as CSV".');
+        if ((int) $file['size'] <= 0 || (int) $file['size'] > self::MAX_BYTES) $fail('The file must be a CSV or Excel (.xlsx) file under 1 MB.');
+        if (!in_array(strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)), ['csv', 'xlsx'], true)) $fail('Please upload a .csv or .xlsx file. In Excel or Google Sheets use "Save as / Download as" CSV or Excel (.xlsx).');
 
         $state = self::check_file($file['tmp_name'], (string) $file['name'], !empty($_POST['dry_run']));
         if (isset($state['error'])) $fail($state['error']);
@@ -176,9 +168,13 @@ class IQU_Billing_Import
     }
 
     /**
-     * Read and check every row of a CSV file. Writes nothing to the database: the result is
-     * the preview (also the "Validate only" result), kept for 30 minutes as the admin's
+     * Read and check every row of a CSV or Excel (.xlsx) file. Writes nothing to the database: the
+     * result is the preview (also the "Validate only" result), kept for 30 minutes as the admin's
      * temporary import state. Rows are saved only by handle_confirm().
+     *
+     * An Excel file (by its name) is read as the rows a CSV of its first sheet would give
+     * (IQU_Xlsx::read: every cell as text, dates as YYYY-MM-DD); from there every row goes
+     * through exactly the same checks as a CSV row. Row numbers are the sheet's own.
      *
      * @return array ['error' => message] or the preview state: preview rows (line, in, cells,
      *               errors, warnings, level, gross, net, course_missing), header, file, key, dry.
@@ -186,14 +182,31 @@ class IQU_Billing_Import
     public static function check_file(string $path, string $name, bool $dry = false): array
     {
         $fail = fn(string $msg) => ['error' => $msg];
-        $fh = fopen($path, 'r');
-        if (!$fh) return $fail('The file could not be read.');
-        // Skip a UTF-8 byte order mark ("CSV UTF-8" from Excel) before parsing, so a quoted
-        // first header is read as First Name, not "First Name" with its quotes.
-        if (fread($fh, 3) !== "\xEF\xBB\xBF") rewind($fh);
+        // One reader for both file types: $next() gives [row number, cells] until the end (null).
+        if (strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'xlsx') {
+            $book = IQU_Xlsx::read($path, self::MAX_ROWS);
+            if (isset($book['error'])) return $fail($book['error']);
+            if (!$book['rows']) return $fail('The file is empty.');
+            // The sheet's first row is the header, as a CSV's first line (an empty first row has no columns).
+            $header = $book['rows'][1] ?? [''];
+            $queue  = [];
+            // A sheet leaves trailing empty cells out; a CSV of it has them: each row padded to the header's width.
+            foreach ($book['rows'] as $n => $cells) if ($n > 1) $queue[] = [$n, array_pad($cells, count($header), '')];
+            $next  = function () use (&$queue) { return array_shift($queue); };
+            $close = function () {};
+        } else {
+            $fh = fopen($path, 'r');
+            if (!$fh) return $fail('The file could not be read.');
+            // Skip a UTF-8 byte order mark ("CSV UTF-8" from Excel) before parsing, so a quoted
+            // first header is read as First Name, not "First Name" with its quotes.
+            if (fread($fh, 3) !== "\xEF\xBB\xBF") rewind($fh);
 
-        $header = fgetcsv($fh, 0, ',', '"', '');
-        if (!$header) { fclose($fh); return $fail('The file is empty.'); }
+            $header = fgetcsv($fh, 0, ',', '"', '');
+            if (!$header) { fclose($fh); return $fail('The file is empty.'); }
+            $line  = 1;
+            $next  = function () use ($fh, &$line) { $c = fgetcsv($fh, 0, ',', '"', ''); return $c === false ? null : [++$line, $c]; };
+            $close = function () use ($fh) { fclose($fh); };
+        }
 
         $map = [];
         foreach ($header as $i => $h) {
@@ -208,16 +221,15 @@ class IQU_Billing_Import
         }
         if (!in_array('whatsapp', $map, true) && !in_array('guardian_whatsapp', $map, true)) $missing[] = 'WhatsApp';
         // Only these columns must be in the file; any optional column may be left out entirely.
-        if ($missing) { fclose($fh); return $fail('These columns are missing: ' . implode(', ', $missing) . '. Use the sample file as a guide.'); }
+        if ($missing) { $close(); return $fail('These columns are missing: ' . implode(', ', $missing) . '. Use the sample file as a guide.'); }
 
         $rows = [];
-        $line = 1;
         $seen = [];
-        while (($cells = fgetcsv($fh, 0, ',', '"', '')) !== false) {
-            $line++;
+        while (($next_row = $next()) !== null) {
+            [$line, $cells] = $next_row;
             if (count(array_filter($cells, fn($c) => trim((string) $c) !== '')) === 0) continue;
             if (count($rows) >= self::MAX_ROWS) {
-                fclose($fh);
+                $close();
                 return $fail('The file has more than ' . self::MAX_ROWS . ' students. Split it into smaller files.');
             }
 
@@ -245,7 +257,7 @@ class IQU_Billing_Import
                 'course_missing' => !empty($prep['course_missing']),
             ];
         }
-        fclose($fh);
+        $close();
 
         if (!$rows) return $fail('No students found in the file.');
 
@@ -277,8 +289,8 @@ class IQU_Billing_Import
     }
 
     /**
-     * The checked file as CSV: every original column as uploaded, then `result`
-     * (OK / WARNING / ERROR) and `messages`. Works for a preview and for "Validate only".
+     * The checked file as CSV or Excel (format=xlsx): every original column as uploaded, then
+     * `result` (OK / WARNING / ERROR) and `messages`. Works for a preview and for "Validate only".
      */
     public static function download_results(): void
     {
@@ -290,11 +302,9 @@ class IQU_Billing_Import
             self::back();
         }
         nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="' . sanitize_file_name(pathinfo((string) $state['file'], PATHINFO_FILENAME) . '-results.csv') . '"');
-        $out = fopen('php://output', 'w');
+        $out = IQU_Export::open(sanitize_file_name(pathinfo((string) $state['file'], PATHINFO_FILENAME) . '-results.csv')); // CSV as before, or Excel (format=xlsx)
         self::write_results($out, $state);
-        fclose($out);
+        IQU_Export::close($out);
         exit;
     }
 
@@ -353,7 +363,8 @@ class IQU_Billing_Import
             'via'           => IQU_Database::VIA_IMPORT,
             // Optional enrollment columns; checked by IQU_Billing_Add_Student::clean_extra() like the form.
             'extra'         => [
-                'age'            => (string) ($r['age'] ?? ''),
+                'date_of_birth'  => (string) ($r['date_of_birth'] ?? ''), // wins over Age when both are given (an Export file has both)
+                'age'            => (string) ($r['age'] ?? ''),           // older files: an Age column, read as before
                 'country_origin' => $r['country_origin'] ?? '',
                 'country_res'    => $r['country_res'] ?? '',
                 'quran_level'    => $r['quran_level'] ?? '',
@@ -499,6 +510,14 @@ class IQU_Billing_Import
         }
         $post = esc_url(admin_url('admin-post.php'));
         $step = !empty($state['done']) ? 4 : (!empty($state['preview']) ? 3 : 1);
+        // "Import → CSV / Excel" elsewhere opens this page with format=csv / format=xlsx: the file picker shows
+        // that type. Without it both. The server accepts either type whatever was chosen.
+        $type = isset($_GET['format']) ? IQU_Export::format($_GET) : '';
+        $pick = [
+            ''                => ['.csv,text/csv,.xlsx,' . IQU_Xlsx::MIME, 'CSV or Excel'],
+            IQU_Export::CSV   => ['.csv,text/csv', 'CSV'],
+            IQU_Export::XLSX  => ['.xlsx,' . IQU_Xlsx::MIME, 'Excel'],
+        ][$type];
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('import'); ?>
@@ -518,11 +537,11 @@ class IQU_Billing_Import
                     <span class="iqu-card-head-title" id="iqu-step1-title">1 · Prepare your file</span>
                 </div>
                 <div class="iqu-billing-body">
-                    <p class="iqu-billing-intro">Fill in the sample with Excel or Google Sheets, one student per row, then save it as CSV. A file from <strong>Export CSV</strong> works too: the column names are the same.</p>
+                    <p class="iqu-billing-intro">Fill in the sample with Excel or Google Sheets, one student per row, then save it as CSV or Excel (.xlsx). A file from <strong>Export</strong> works too: the column names are the same.</p>
                     <form method="post" action="<?php echo $post; ?>" class="iqu-import-sample">
                         <input type="hidden" name="action" value="<?php echo esc_attr(self::A_SAMPLE); ?>">
                         <?php wp_nonce_field(self::A_SAMPLE); ?>
-                        <button type="submit" name="submit" value="Download sample CSV" class="iqu-btn iqu-btn--secondary"><?php echo IQU_Billing_Page::icon('download'); ?>Download sample CSV</button>
+                        <?php echo IQU_Export::choice(['label' => 'Download sample', 'class' => 'iqu-btn iqu-btn--secondary', 'icon' => IQU_Billing_Page::icon('download'), 'submit' => true, 'align' => 'start']); // CSV or Excel; escaped inside ?>
                     </form>
                     <details class="iqu-columns-guide">
                         <summary>Which columns do I need?</summary>
@@ -565,17 +584,17 @@ class IQU_Billing_Import
                     <?php wp_nonce_field(self::A_UPLOAD); ?>
                     <div class="iqu-billing-body">
                         <div class="iqu-dropzone" data-dropzone>
-                            <input id="iqu-csv" class="iqu-dropzone-input" type="file" name="csv" accept=".csv,text/csv" required aria-describedby="iqu-csv-hint iqu-csv-status">
+                            <input id="iqu-csv" class="iqu-dropzone-input" type="file" name="csv" accept="<?php echo esc_attr($pick[0]); ?>" required aria-describedby="iqu-csv-hint iqu-csv-status">
                             <div class="iqu-dropzone-inner" aria-hidden="true">
                                 <span class="dashicons dashicons-upload"></span>
-                                <span class="iqu-dropzone-title">Drag your CSV file here, or <span class="iqu-dropzone-link">choose a file</span></span>
+                                <span class="iqu-dropzone-title">Drag your <?php echo esc_html($pick[1]); ?> file here, or <span class="iqu-dropzone-link">choose a file</span></span>
                             </div>
-                            <label for="iqu-csv" class="screen-reader-text">CSV file (required)</label>
+                            <label for="iqu-csv" class="screen-reader-text"><?php echo esc_html($pick[1]); ?> file (required)</label>
                         </div>
-                        <p class="iqu-fld-hint" id="iqu-csv-hint">CSV only, up to 1 MB and <?php echo (int) self::MAX_ROWS; ?> students. The file is checked and then discarded; it is not stored on the server.</p>
+                        <p class="iqu-fld-hint" id="iqu-csv-hint">CSV or Excel (.xlsx), up to 1 MB and <?php echo (int) self::MAX_ROWS; ?> students. The file is checked and then discarded; it is not stored on the server.</p>
                         <p class="iqu-dropzone-status" id="iqu-csv-status" role="status" aria-live="polite"></p>
                         <label class="iqu-billing-check-label iqu-import-dry"><input type="checkbox" name="dry_run" value="1" aria-describedby="iqu-dry-hint"> Validate only</label>
-                        <p class="iqu-fld-hint" id="iqu-dry-hint">Runs every check and shows the results, which you can download as CSV. Nothing is saved until you press "Import these rows" (within 1 hour).</p>
+                        <p class="iqu-fld-hint" id="iqu-dry-hint">Runs every check and shows the results, which you can download as CSV or Excel. Nothing is saved until you press "Import these rows" (within 1 hour).</p>
                     </div>
                     <div class="iqu-form-actions iqu-btn-group">
                         <button type="submit" name="submit" value="Upload and check" class="iqu-btn iqu-btn--primary"><?php echo IQU_Billing_Page::icon('upload'); ?>Upload and check</button>
@@ -608,7 +627,7 @@ class IQU_Billing_Import
         $labels = [
             'first_name' => 'Student name', 'email' => 'Email', 'whatsapp' => 'WhatsApp',
             'course' => 'Course', 'days' => 'Days/Week', 'agreed_fee' => 'Agreed Monthly Fee',
-            'age' => 'Age', 'quran_level' => 'Quran Level', 'languages' => 'Languages', 'preferred_days' => 'Preferred Days',
+            'age' => 'Age', 'date_of_birth' => 'Date of Birth', 'quran_level' => 'Quran Level', 'languages' => 'Languages', 'preferred_days' => 'Preferred Days',
             'time_slot' => 'Time Slot', 'session_dur' => 'Session Duration', 'teacher_pref' => 'Teacher Pref', 'referral' => 'Referral',
         ];
         if (strpos($msg, "Course '") === 0) return 'Course';
@@ -648,10 +667,16 @@ class IQU_Billing_Import
         $total  = array_sum(array_map(fn($r) => (float) $r['net'], $ok));
         $post   = esc_url(admin_url('admin-post.php'));
         $labels = array_column(self::COLUMNS, 0);
-        $fields = ['first_name', 'last_name', 'guardian_name', 'email', 'whatsapp', 'guardian_whatsapp', 'course', 'days', 'agreed_fee', 'zakat', 'age',
+        $fields = ['first_name', 'last_name', 'guardian_name', 'email', 'whatsapp', 'guardian_whatsapp', 'course', 'days', 'agreed_fee', 'zakat', 'date_of_birth',
                    'country_origin', 'country_res', 'quran_level', 'memorized', 'preferred_days', 'time_slot', 'session_dur', 'languages', 'teacher_pref', 'referral', 'note'];
         $label_of = array_combine($fields, $labels);
         $in_table = ['first_name', 'last_name', 'guardian_name', 'email', 'age', 'course', 'days', 'teacher_pref'];
+        // The table's Age: worked out from a Date of Birth that passed the checks, else an old file's Age cell.
+        $age_of = function (array $raw): string {
+            $dob = IQU_Billing_Add_Student::parse_dob((string) ($raw['date_of_birth'] ?? ''));
+            if ($dob !== '' && strcmp($dob, IQU_Dob::today()) <= 0) return (string) IQU_Dob::age_on($dob);
+            return (string) ($raw['age'] ?? '') !== '' ? (string) $raw['age'] : '—';
+        };
         $result   = [
             self::LEVEL_OK      => ['OK', 'green', $dry ? 'Would be added' : 'Will be added'],
             self::LEVEL_WARNING => ['Warning', 'gold', $dry ? 'Would be added — check the messages' : 'Will be added — check the messages'],
@@ -688,7 +713,7 @@ class IQU_Billing_Import
                     <form method="post" action="<?php echo $post; ?>" class="iqu-import-results-form">
                         <input type="hidden" name="action" value="<?php echo esc_attr(self::A_RESULTS); ?>">
                         <?php wp_nonce_field(self::A_RESULTS); ?>
-                        <button type="submit" name="submit" value="Download results" class="iqu-btn iqu-btn--secondary"><?php echo IQU_Billing_Page::icon('download'); ?>Download results (CSV)</button>
+                        <?php echo IQU_Export::choice(['label' => 'Download results', 'class' => 'iqu-btn iqu-btn--secondary', 'icon' => IQU_Billing_Page::icon('download'), 'submit' => true]); // CSV or Excel; escaped inside ?>
                     </form>
                 </div>
             </div>
@@ -716,7 +741,7 @@ class IQU_Billing_Import
                         <td class="iqu-td-email"><?php echo esc_html($in['email'] !== '' ? $in['email'] : (string) ($raw['email'] ?? '—')); ?></td>
                         <td><?php echo esc_html($in['guardian_name'] !== '' ? $in['guardian_name'] : '—'); ?></td>
                         <td><strong><?php echo esc_html(trim($in['first_name'] . ' ' . $in['last_name']) ?: '—'); ?></strong></td>
-                        <td class="is-num"><?php echo esc_html((string) ($raw['age'] ?? '') !== '' ? (string) $raw['age'] : '—'); ?></td>
+                        <td class="is-num"><?php echo esc_html($age_of($raw)); ?></td>
                         <td>
                             <?php if ($course_ok): echo esc_html(IQU_Pricing::label($in['course']));
                             elseif (!empty($r['course_missing'])): ?><span class="iqu-chip iqu-chip--gold">Course missing</span><?php

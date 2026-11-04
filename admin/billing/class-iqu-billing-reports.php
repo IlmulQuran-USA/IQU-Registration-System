@@ -251,9 +251,9 @@ class IQU_Billing_Reports
         ?>
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php IQU_Billing_Page::tabs('reports'); ?>
-            <?php IQU_Billing_Page::page_header('Reports', 'Pick a month and a report, check it here, then download it as a CSV file.', IQU_Stripe::expected_mode() === 'test' ? IQU_Billing_Page::mode_note('These reports show test data, not real money.') : ''); ?>
+            <?php IQU_Billing_Page::page_header('Reports', 'Pick a month and a report, check it here, then download it as a CSV or Excel file.', IQU_Stripe::expected_mode() === 'test' ? IQU_Billing_Page::mode_note('These reports show test data, not real money.') : ''); ?>
 
-            <!-- ── Toolbar: Month, Report, Show · Import CSV / Download CSV on the right ── -->
+            <!-- ── Toolbar: Month, Report, Show · Import / Download (CSV or Excel) on the right ── -->
             <div class="iqu-toolbar">
             <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="iqu-period-bar" data-iqu-auto>
                 <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
@@ -272,13 +272,13 @@ class IQU_Billing_Reports
                 <?php echo IQU_Pager::noscript_submit('Show', 'iqu-btn iqu-btn--secondary'); // applies as soon as a choice changes ?>
             </form>
             <div class="iqu-toolbar-actions">
-                <a class="iqu-btn iqu-btn--secondary" href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>"><?php echo IQU_Billing_Page::icon('upload'); ?>Import CSV</a>
+                <?php echo IQU_Billing_Page::import_choice(); // Import → CSV or Excel: the Import page, set to that file type ?>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="<?php echo esc_attr(self::A_CSV); ?>">
                     <input type="hidden" name="dataset" value="<?php echo esc_attr($key); ?>">
                     <input type="hidden" name="month" value="<?php echo esc_attr($ym); ?>">
                     <?php wp_nonce_field(self::A_CSV); ?>
-                    <button type="submit" class="iqu-btn iqu-btn--primary"><?php echo IQU_Billing_Page::icon('download'); ?>Download CSV</button>
+                    <?php echo IQU_Export::choice(['label' => 'Download', 'class' => 'iqu-btn iqu-btn--primary', 'icon' => IQU_Billing_Page::icon('download'), 'submit' => true]); // CSV or Excel; escaped inside ?>
                 </form>
             </div>
             </div>
@@ -387,11 +387,9 @@ class IQU_Billing_Reports
         $ds = self::dataset($key, $ym);
 
         nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="iqu-billing-' . str_replace('_', '-', $key) . '-' . $ym . '.csv"');
-        $out = fopen('php://output', 'w');
+        $out = IQU_Export::open('iqu-billing-' . str_replace('_', '-', $key) . '-' . $ym . '.csv'); // CSV as before, or Excel (format=xlsx)
         self::write_csv($out, $ds);
-        fclose($out);
+        IQU_Export::close($out);
         exit;
     }
 

@@ -41,14 +41,20 @@ class IQU_Billing_Page
         IQU_Pager::remote('iqu-students', function () { self::students_region(self::students_context()); }, self::CAP);
     }
 
-    /** Billing screens, plus the Enroll for Free list (Import CSV button). */
+    /** Billing screens, plus the Enroll for Free list (Import button). */
     public static function enqueue_style(string $hook): void
     {
         if (strpos($hook, 'iqu-billing') === false && strpos($hook, 'iqu-list-free') === false) return;
         wp_enqueue_style('iqu-billing-style', IQU_PLUGIN_URL . 'admin/css/billing.css', ['iqu-admin-style'], IQU_VERSION);
         if (strpos($hook, 'iqu-billing') === false) return;
         // Tables, CSV of what is shown, charts. Chart.js ("chartjs") is registered by IQU_Admin on every IQU screen.
-        wp_enqueue_script('iqu-billing-js', IQU_PLUGIN_URL . 'admin/js/billing.js', ['chartjs', 'iqu-chart-defaults', 'iqu-pager'], IQU_VERSION, true);
+        $deps = ['chartjs', 'iqu-chart-defaults', 'iqu-pager'];
+        if (strpos($hook, IQU_Billing_Add_Student::PAGE_SLUG) !== false) {
+            // Add Student: the website's own Date of Birth control (Month | Day | Year), loaded before billing.js
+            wp_enqueue_script('iqu-dob', IQU_PLUGIN_URL . 'public/js/dob.js', [], IQU_VERSION, true);
+            $deps[] = 'iqu-dob';
+        }
+        wp_enqueue_script('iqu-billing-js', IQU_PLUGIN_URL . 'admin/js/billing.js', $deps, IQU_VERSION, true);
     }
 
     /** Hand chart definitions to admin/js/billing.js (call while rendering a billing screen). */
@@ -132,6 +138,15 @@ class IQU_Billing_Page
     public static function icon(string $name): string
     {
         return '<span class="dashicons dashicons-' . esc_attr($name) . '" aria-hidden="true"></span>';
+    }
+
+    /**
+     * "Import" with two choices, CSV or Excel (.xlsx): each opens the Import page with its file picker set to
+     * that type (format=csv / format=xlsx). Student Billing, Reports and the Enroll for Free list.
+     */
+    public static function import_choice(string $class = 'iqu-btn iqu-btn--secondary'): string
+    {
+        return IQU_Export::choice(['label' => 'Import', 'class' => $class, 'icon' => self::icon('upload'), 'href' => admin_url('admin.php?page=' . IQU_Billing_Import::PAGE_SLUG)]);
     }
 
     /** Chip colour for an account status: gold, green, red or neutral (see admin/css/billing.css). */
@@ -327,7 +342,7 @@ class IQU_Billing_Page
                     <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Search', 'iqu-btn iqu-btn--secondary'); // results update as you type ?>
                 </form>
                 <div class="iqu-btn-group iqu-billing-toolbar-actions">
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-import')); ?>" class="iqu-btn iqu-btn--secondary"><?php echo self::icon('upload'); ?>Import CSV</a>
+                    <?php echo self::import_choice(); // Import → CSV or Excel: the Import page, set to that file type ?>
                     <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-reports')); ?>" class="iqu-btn iqu-btn--secondary"><?php echo self::icon('download'); ?>Export</a>
                     <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-add-student')); ?>" class="iqu-btn iqu-btn--primary"><?php echo self::icon('plus-alt2'); ?>Add existing student</a>
                 </div>

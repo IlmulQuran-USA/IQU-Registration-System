@@ -3394,3 +3394,106 @@ button.iqu-perpage-btn,
   }
 }
 
+/* ── CSV / Excel choice (IQU_Export::choice) ─────────────────────────────────
+   One button; clicking it shows two choices, CSV and Excel (.xlsx). The button (the <summary>) keeps the
+   classes, look and size of the one it replaced; the <details> around it takes that button's place. */
+.iqu-fmt {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+.iqu-fmt > summary {
+  box-sizing: border-box; /* as the <button> / <a> it replaced: min-height 36px includes the border */
+  width: 100%; /* fills the wrapper where a toolbar stretches it (narrow screens), else its own width */
+  vertical-align: top;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.iqu-fmt > summary::-webkit-details-marker {
+  display: none;
+}
+.iqu-fmt > summary::marker {
+  content: "";
+}
+.iqu-fmt-caret {
+  flex: none;
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-top: 5px solid currentColor;
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  transition: transform 0.15s;
+}
+.iqu-fmt[open] .iqu-fmt-caret {
+  transform: rotate(180deg);
+}
+.iqu-fmt-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+  padding: 4px;
+  box-sizing: border-box;
+  background: var(--iqu-bg1);
+  border: 1px solid var(--iqu-bdr);
+  border-radius: var(--iqu-radius-lg);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+}
+.iqu-fmt--start .iqu-fmt-list {
+  right: auto;
+  left: 0;
+}
+.iqu-fmt-item {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--iqu-text1);
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  border-radius: var(--iqu-radius-md);
+  box-shadow: none;
+  cursor: pointer;
+}
+.iqu-fmt-item:hover,
+.iqu-fmt-item:focus {
+  color: var(--iqu-text1);
+  background: var(--iqu-bg2);
+  box-shadow: none;
+}
+.iqu-fmt-item:focus-visible {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .iqu-fmt-caret {
+    transition: none;
+  }
+}
+/* where the old button sat in a flex toolbar, the wrapper takes its place */
+.iqu-filter-bar .iqu-wl-clear + .iqu-fmt,
+.iqu-waitlist .iqu-filter-bar .iqu-fmt {
+  margin-left: auto;
+}
+@media (max-width: 600px) {
+  .iqu-filter-bar .iqu-fmt {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .iqu-waitlist .iqu-filter-bar .iqu-fmt {
+    margin-left: 0;
+  }
+}

@@ -1386,7 +1386,7 @@ class IQU_Admin
         </select>
         <?php if ($pager['per'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $pager['per']; ?>"><?php endif; ?>
         <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter'); // results update as you type ?>
-        <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
+        <?php echo IQU_Export::choice(['label' => 'Export', 'class' => 'iqu-export-btn', 'icon' => '<span class="dashicons dashicons-download" aria-hidden="true"></span>', 'href' => $export_url]); // CSV or Excel; escaped inside ?>
     </form>
 <?php echo self::archived_chip($c); // 3.7.0 AK: only when this list has archived students; escaped inside ?>
 
@@ -2072,9 +2072,7 @@ class IQU_Admin
     }
     $rows = IQU_Database::get_registrations($args);
     nocache_headers();
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="iqu-registrations-' . ($form_type ?: 'all') . '-' . date('Y-m-d') . '.csv"');
-    $out = fopen('php://output', 'w');
+    $out = IQU_Export::open('iqu-registrations-' . ($form_type ?: 'all') . '-' . date('Y-m-d') . '.csv'); // CSV as before, or Excel (format=xlsx)
     fputs($out, "\xEF\xBB\xBF");
     IQU_CSV::put($out, [
       'ID', 'Form Type', 'First Name', 'Last Name', 'Email', 'Age', 'Date of Birth',
@@ -2142,7 +2140,7 @@ class IQU_Admin
         ['public' => 'website', 'admin' => 'admin', 'import' => 'import'][IQU_Database::created_via($r)],
       ]);
     }
-    fclose($out);
+    IQU_Export::close($out);
     exit;
   }
 

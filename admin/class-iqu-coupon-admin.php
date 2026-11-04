@@ -483,7 +483,7 @@ class IQU_Coupon_Admin
         </select>
         <?php if ($per_page !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $per_page; ?>"><?php endif; ?>
         <?php echo IQU_Pager::live_status(false) . IQU_Pager::noscript_submit('Filter'); // results update as you type; the count for screen readers only (3.6.2: nothing in the toolbar moves) ?>
-        <a href="<?php echo esc_url($export_url); ?>" class="iqu-export-btn"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
+        <?php echo IQU_Export::choice(['label' => 'Export', 'class' => 'iqu-export-btn', 'icon' => '<span class="dashicons dashicons-download" aria-hidden="true"></span>', 'href' => $export_url]); // CSV or Excel; escaped inside ?>
         <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_CREATE)); ?>"
             class="button button-primary">+ New Coupon</a>
     </form>
@@ -789,11 +789,7 @@ class IQU_Coupon_Admin
         $data = IQU_Coupon_DB::get_coupons(['per_page' => 10000, 'paged' => 1]);
 
         nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename=iqu-coupons-'
-            . current_time('Y-m-d') . '.csv');
-
-        $out = fopen('php://output', 'w');
+        $out = IQU_Export::open('iqu-coupons-' . current_time('Y-m-d') . '.csv'); // CSV as before, or Excel (format=xlsx)
 
         IQU_CSV::put($out, [
             'ID',
@@ -832,7 +828,7 @@ class IQU_Coupon_Admin
             ]);
         }
 
-        fclose($out);
+        IQU_Export::close($out);
         exit;
     }
 

@@ -533,7 +533,7 @@ class IQU_Zeffy_Admin
     <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter', 'iquz-btn'); // results update as you type ?>
     <a href="<?php echo esc_url(admin_url('admin.php?page=' . self::PAGE_SLUG)); ?>" class="iquz-btn
         iquz-btn--ghost" data-iqu-reset="iqu-zeffy">Reset</a>
-    <a href="<?php echo esc_url($export); ?>" class="iquz-btn iquz-btn--export" data-iqu-export="search,status,campaign_id,recurring,date_from,date_to">⬇ Export CSV</a>
+    <?php echo IQU_Export::choice(['label' => '⬇ Export', 'class' => 'iquz-btn iquz-btn--export', 'href' => $export, 'attrs' => ['data-iqu-export' => 'search,status,campaign_id,recurring,date_from,date_to']]); // CSV or Excel, both follow the filters; escaped inside ?>
 </form>
 <?php
     }
@@ -967,10 +967,7 @@ class IQU_Zeffy_Admin
         $rows = IQU_Zeffy_DB::get_payments($args);
 
         nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename=zeffy-donations-' . gmdate('Y-m-d') . '.csv');
-
-        $out = fopen('php://output', 'w');
+        $out = IQU_Export::open('zeffy-donations-' . gmdate('Y-m-d') . '.csv'); // CSV as before, or Excel (format=xlsx)
 
         IQU_CSV::put($out, [
             'Date (UTC)',
@@ -1022,7 +1019,7 @@ class IQU_Zeffy_Admin
             ]);
         }
 
-        fclose($out);
+        IQU_Export::close($out);
         exit;
     }
 }

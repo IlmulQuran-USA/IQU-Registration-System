@@ -104,7 +104,7 @@ final class IQU_Discount_Ledger_Admin
             </span>
             <span class="iqu-ledger-actions">
                 <a class="iqu-btn iqu-btn--secondary iqu-ledger-calc" href="<?php echo esc_url(self::page_url(['ledger' => 'preview'])); ?>">Calculate past discounts</a>
-                <a class="iqu-export-btn" href="<?php echo esc_url($csv); ?>"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
+                <?php echo IQU_Export::choice(['label' => 'Export', 'class' => 'iqu-export-btn', 'icon' => '<span class="dashicons dashicons-download" aria-hidden="true"></span>', 'href' => $csv]); // CSV or Excel; escaped inside ?>
             </span>
         </form>
         <?php if ($nofund > 0): ?>
@@ -271,12 +271,10 @@ final class IQU_Discount_Ledger_Admin
         if (!current_user_can(self::CAP)) wp_die('Permission denied.', 403);
         check_ajax_referer(self::A_CSV);
         [$from, $to] = self::range(wp_unslash($_GET));
-        $out = fopen('php://output', 'w');
         nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="iqu-zakat-special-' . substr($from, 0, 7) . '-to-' . substr($to, 0, 7) . '.csv"');
+        $out = IQU_Export::open('iqu-zakat-special-' . substr($from, 0, 7) . '-to-' . substr($to, 0, 7) . '.csv'); // CSV as before, or Excel (format=xlsx)
         self::write_csv($out, $from, $to);
-        fclose($out);
+        IQU_Export::close($out);
         exit;
     }
 

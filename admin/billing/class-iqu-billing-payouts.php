@@ -181,7 +181,7 @@ class IQU_Billing_Payouts
                 . '<input type="hidden" name="action" value="' . esc_attr(self::A_CSV) . '">'
                 . '<input type="hidden" name="payout" value="' . esc_attr($id) . '">'
                 . wp_nonce_field(self::A_CSV, '_wpnonce', true, false)
-                . '<button type="submit" class="iqu-btn iqu-btn--primary">' . IQU_Billing_Page::icon('download') . 'Download CSV</button></form>';
+                . IQU_Export::choice(['label' => 'Download', 'class' => 'iqu-btn iqu-btn--primary', 'icon' => IQU_Billing_Page::icon('download'), 'submit' => true]) . '</form>'; // CSV or Excel
         }
         echo '<p class="iqu-back-row"><a class="iqu-back-btn" href="' . esc_url(self::url()) . '">← All payouts</a></p>';
         IQU_Billing_Page::page_header($title, 'Every payment, refund, dispute and fee inside this bank deposit.', $actions);
@@ -375,11 +375,9 @@ class IQU_Billing_Payouts
         $day  = $r['payout']['arrival_date'] ? wp_date('Y-m-d', $r['payout']['arrival_date']) : 'payout';
 
         nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="iqu-billing-payout-' . $day . '-' . $id . '.csv"');
-        $out = fopen('php://output', 'w');
+        $out = IQU_Export::open('iqu-billing-payout-' . $day . '-' . $id . '.csv'); // CSV as before, or Excel (format=xlsx)
         self::write_csv($out, $rows);
-        fclose($out);
+        IQU_Export::close($out);
         exit;
     }
 

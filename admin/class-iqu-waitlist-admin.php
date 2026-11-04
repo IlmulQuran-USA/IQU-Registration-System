@@ -109,11 +109,9 @@ class IQU_Waitlist_Admin
         check_admin_referer(self::EXPORT);
         $f = self::filters($_GET);
         nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="iqu-waitlist-' . gmdate('Y-m-d') . '.csv"');
-        $out = fopen('php://output', 'w');
+        $out = IQU_Export::open('iqu-waitlist-' . gmdate('Y-m-d') . '.csv'); // CSV as before, or Excel (format=xlsx)
         self::write_csv($out, IQU_Waitlist::rows($f['country'], $f['program'], 0, 0, $f['more']));
-        fclose($out);
+        IQU_Export::close($out);
         exit;
     }
 
@@ -206,7 +204,7 @@ class IQU_Waitlist_Admin
                 <?php if ($pager['per'] !== IQU_Pager::DEFAULT): ?><input type="hidden" name="per_page" value="<?php echo (int) $pager['per']; ?>"><?php endif; ?>
                 <?php echo IQU_Pager::live_status() . IQU_Pager::noscript_submit('Filter'); // results update as you type ?>
                 <a class="iqu-wl-clear" href="<?php echo esc_url($plain); ?>" data-iqu-clear-all data-iqu-reset="iqu-waitlist"<?php echo $filtered ? '' : ' hidden'; ?>>Clear filters</a>
-                <a href="<?php echo esc_url($export); ?>" class="iqu-export-btn" data-iqu-export="country,program,s,from,to"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
+                <?php echo IQU_Export::choice(['label' => 'Export', 'class' => 'iqu-export-btn', 'icon' => '<span class="dashicons dashicons-download" aria-hidden="true"></span>', 'href' => $export, 'attrs' => ['data-iqu-export' => 'country,program,s,from,to']]); // CSV or Excel, both follow the filters; escaped inside ?>
             </form>
 
             <?php self::list_region($list_ctx); ?>

@@ -187,7 +187,7 @@ final class IQU_Discount_Students_Admin
             </select>
             <?php endforeach; ?>
             <button type="submit" class="iqu-btn iqu-btn--secondary">Filter</button>
-            <a class="iqu-export-btn" href="<?php echo esc_url($csv); ?>"><span class="dashicons dashicons-download" aria-hidden="true"></span>Export CSV</a>
+            <?php echo IQU_Export::choice(['label' => 'Export', 'class' => 'iqu-export-btn', 'icon' => '<span class="dashicons dashicons-download" aria-hidden="true"></span>', 'href' => $csv]); // CSV or Excel; escaped inside ?>
         </form>
 
         <div class="iqu-card iqu-list-card">
@@ -250,11 +250,9 @@ final class IQU_Discount_Students_Admin
         if (!current_user_can(self::CAP)) wp_die('Permission denied.', 403);
         check_ajax_referer(self::A_CSV);
         nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="iqu-zakat-discount-students-' . current_time('Y-m-d') . '.csv"');
-        $out = fopen('php://output', 'w');
+        $out = IQU_Export::open('iqu-zakat-discount-students-' . current_time('Y-m-d') . '.csv'); // CSV as before, or Excel (format=xlsx)
         self::write_csv($out, self::filtered($_GET));
-        fclose($out);
+        IQU_Export::close($out);
         exit;
     }
 
