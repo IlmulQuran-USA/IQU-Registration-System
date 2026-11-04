@@ -4716,11 +4716,249 @@ html.iqu-kbd .iqu-form-wrapper .iqu-dob-selects select:focus,
   display: none;
 }
 
+/* 3.7.4: the thank-you card, redesigned — this screen only (everything is scoped to .iqu-split-layout--done; the
+   Summer / Weekend cards and the Stripe redirect card keep the styles above). Brand navy #1a5276, gold #f0b429,
+   success green; a faint geometric star pattern behind the top; a short staggered entrance, none with reduced motion. */
+.iqu-split-layout--done .iqu-success-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 680px;
+  margin: 20px auto 40px;
+  padding: 44px 24px 28px;
+  text-align: center;
+  color: #1f2d3a;
+  background:
+    radial-gradient(120% 60% at 50% -8%, rgba(39, 174, 96, 0.11) 0%, rgba(39, 174, 96, 0) 62%),
+    #fff;
+  border: 1px solid rgba(26, 82, 118, 0.1);
+  border-radius: 24px;
+  box-shadow:
+    0 1px 2px rgba(16, 42, 66, 0.04),
+    0 20px 48px -14px rgba(26, 82, 118, 0.24);
+  animation: iqu-ty-card 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* top accent: navy → green → gold */
+.iqu-split-layout--done .iqu-success-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #1a5276 0%, #27ae60 55%, #f0b429 100%);
+}
+
+/* faint eight-point star pattern, fading out below the icon */
+.iqu-split-layout--done .iqu-success-card::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 0;
+  right: 0;
+  height: 230px;
+  z-index: -1;
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Cg fill='none' stroke='%231a5276' stroke-width='1' stroke-opacity='.09'%3E%3Crect x='13' y='13' width='18' height='18'/%3E%3Crect x='13' y='13' width='18' height='18' transform='rotate(45 22 22)'/%3E%3C/g%3E%3C/svg%3E") center top / 44px 44px repeat;
+  -webkit-mask-image: linear-gradient(#000 0%, rgba(0, 0, 0, 0.5) 45%, transparent 100%);
+  mask-image: linear-gradient(#000 0%, rgba(0, 0, 0, 0.5) 45%, transparent 100%);
+}
+
+/* check icon: a soft halo ring, the tick draws itself */
+.iqu-split-layout--done .iqu-success-illu {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 0 8px rgba(39, 174, 96, 0.08),
+    0 14px 30px -8px rgba(30, 132, 73, 0.4);
+  animation: iqu-ty-pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.25) 0.1s both;
+}
+
+.iqu-split-layout--done .iqu-success-illu path {
+  stroke-dasharray: 70;
+  stroke-dashoffset: 70;
+  animation: iqu-ty-draw 0.45s ease-out 0.45s forwards;
+}
+
+.iqu-split-layout--done .iqu-success-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 6px 14px 6px 12px;
+  background: #eaf6ec;
+  color: #1e8449;
+  border: 1px solid #cdebd7;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+}
+
+.iqu-split-layout--done .iqu-success-badge::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #27ae60;
+  box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.18);
+}
+
+.iqu-split-layout--done .iqu-success-title {
+  margin: 0;
+  color: #1a5276;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+/* short gold rule under the title */
+.iqu-split-layout--done .iqu-success-title::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 3px;
+  margin: 14px auto 0;
+  border-radius: 3px;
+  background: #f0b429;
+}
+
+.iqu-split-layout--done .iqu-success-sub {
+  margin: 16px 0 8px;
+  color: #12354d;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.iqu-split-layout--done .iqu-success-msg {
+  max-width: 520px;
+  margin: 0 auto 26px;
+  color: #3d4f5f;
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+
+/* the hadith: warm panel with a small gold star on its top edge */
+.iqu-split-layout--done .iqu-success-quote {
+  position: relative;
+  max-width: 520px;
+  margin: 0 auto 22px;
+  padding: 24px 22px 16px;
+  background: #fffaf0;
+  border: 1px solid #f3dfa6;
+  border-radius: 16px;
+  color: #6b5200;
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.65;
+}
+
+.iqu-split-layout--done .iqu-success-quote::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  border-radius: 50%;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cg fill='%23f0b429'%3E%3Crect x='3.5' y='3.5' width='9' height='9'/%3E%3Crect x='3.5' y='3.5' width='9' height='9' transform='rotate(45 8 8)'/%3E%3C/g%3E%3C/svg%3E") center / 16px 16px no-repeat;
+}
+
+.iqu-split-layout--done .iqu-success-quote cite {
+  display: block;
+  margin-top: 8px;
+  color: #8a6a00;
+  font-size: 12.5px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.iqu-split-layout--done .iqu-success-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 8px;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  background: #f4f8fb;
+  border-radius: 12px;
+  color: #1f2d3a;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.iqu-split-layout--done .iqu-success-contact strong {
+  color: #12354d;
+}
+
+.iqu-split-layout--done .iqu-success-contact span {
+  overflow-wrap: anywhere;
+}
+
+.iqu-split-layout--done .iqu-success-contact a {
+  color: #1a5276;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(26, 82, 118, 0.3);
+}
+
+.iqu-split-layout--done .iqu-success-contact a:hover,
+.iqu-split-layout--done .iqu-success-contact a:focus-visible {
+  border-bottom-color: currentColor;
+}
+
+/* entrance: the card rises in, then its lines follow one after another */
+.iqu-split-layout--done .iqu-success-card > :not(svg) {
+  animation: iqu-ty-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.iqu-split-layout--done .iqu-success-card > .iqu-success-badge { animation-delay: 0.18s; }
+.iqu-split-layout--done .iqu-success-card > .iqu-success-title { animation-delay: 0.24s; }
+.iqu-split-layout--done .iqu-success-card > .iqu-success-sub { animation-delay: 0.3s; }
+.iqu-split-layout--done .iqu-success-card > .iqu-success-msg { animation-delay: 0.36s; }
+.iqu-split-layout--done .iqu-success-card > .iqu-success-quote { animation-delay: 0.42s; }
+.iqu-split-layout--done .iqu-success-card > .iqu-success-contact { animation-delay: 0.48s; }
+
+@keyframes iqu-ty-card {
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes iqu-ty-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes iqu-ty-pop {
+  0% { opacity: 0; transform: scale(0.6); }
+  70% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes iqu-ty-draw {
+  to { stroke-dashoffset: 0; }
+}
+
 @media (min-width: 1024px) {
   .iqu-split-layout--done .iqu-success-card {
     max-width: 760px;
-    margin: 40px auto;
-    padding: 48px 48px 40px;
+    margin: 40px auto 56px;
+    padding: 56px 56px 40px;
+  }
+
+  .iqu-split-layout--done .iqu-success-illu {
+    width: 112px;
+    height: 112px;
   }
 
   .iqu-split-layout--done .iqu-success-badge {
@@ -4728,24 +4966,59 @@ html.iqu-kbd .iqu-form-wrapper .iqu-dob-selects select:focus,
   }
 
   .iqu-split-layout--done .iqu-success-title {
-    font-size: 32px;
+    font-size: 36px;
   }
 
   .iqu-split-layout--done .iqu-success-sub {
-    font-size: 18px;
+    font-size: 19px;
   }
 
   .iqu-split-layout--done .iqu-success-msg {
-    max-width: 600px;
-    font-size: 16px;
+    max-width: 580px;
+    font-size: 16.5px;
   }
 
   .iqu-split-layout--done .iqu-success-quote {
     max-width: 560px;
-    font-size: 15px;
+    font-size: 15.5px;
   }
 
   .iqu-split-layout--done .iqu-success-contact {
-    font-size: 14px;
+    max-width: 560px;
+    font-size: 14.5px;
+  }
+}
+
+@media (max-width: 480px) {
+  .iqu-split-layout--done .iqu-success-card {
+    margin: 12px auto 28px;
+    padding: 36px 18px 20px;
+    border-radius: 20px;
+  }
+
+  .iqu-split-layout--done .iqu-success-illu {
+    width: 88px;
+    height: 88px;
+    margin-bottom: 16px;
+  }
+
+  .iqu-split-layout--done .iqu-success-title {
+    font-size: 26px;
+  }
+
+  .iqu-split-layout--done .iqu-success-quote {
+    padding: 22px 16px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iqu-split-layout--done .iqu-success-card,
+  .iqu-split-layout--done .iqu-success-card > *,
+  .iqu-split-layout--done .iqu-success-illu path {
+    animation: none !important;
+  }
+
+  .iqu-split-layout--done .iqu-success-illu path {
+    stroke-dashoffset: 0;
   }
 }

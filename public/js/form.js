@@ -574,6 +574,9 @@
 
         // 3.7.3: thank-you screen — no left column (form.css .iqu-split-layout--done: one column, card centred)
         const $layout = $form.closest(".iqu-split-layout");
+        // 3.7.4: the left column fades out together with the form (same 300ms and easing); it keeps its place until
+        // the class below removes it, in the same step that shows the card, so the switch to one column never jumps.
+        $layout.children(".iqu-split-side").stop(true).animate({ opacity: 0 }, 300);
 
         $form.fadeOut(300, function () {
           $form.replaceWith(
