@@ -318,10 +318,6 @@ class IQU_Form
 
         <div class="iqu-hero-pills">
             <div class="iqu-hero-pill">
-                <span class="iqu-hero-pill-dot iqu-hero-pill-dot--gold"></span>
-                First Month 100% Free
-            </div>
-            <div class="iqu-hero-pill">
                 <span class="iqu-hero-pill-dot iqu-hero-pill-dot--green"></span>
                 Batch &amp; One-to-One Classes
             </div>
@@ -912,7 +908,7 @@ class IQU_Form
                         <span class="btn-loading" style="display:none">Submitting…</span>
                     </button>
                     <p class="iqu-privacy-note">
-                        🔒 Your information is kept private and used only to arrange your child's classes.<br />
+                        🔒 Your information is kept private and used only to arrange the student's classes.<br />
                         This site is protected by reCAPTCHA v3.
                     </p>
                 </div>

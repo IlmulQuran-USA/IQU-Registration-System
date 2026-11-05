@@ -191,6 +191,11 @@ final class IQU_Discount_Ledger
     /** Last month that counts: [Y-m-01, estimated] — null for a student who never started (or is not monthly). */
     public static function last_month(array $reg): ?array
     {
+        // 3.7.7 Part AI: removed from a shared billing account — the last month counted is the last tuition month paid
+        $removed = self::removal_last_month($reg);
+        if ($removed !== null && in_array((string) ($reg['status'] ?? ''), array_merge([IQU_Database::ACTIVE_STATUS], self::ENDED_STATUSES), true)) {
+            return [strcmp($removed, self::current_month()) > 0 ? self::current_month() : $removed, false];
+        }
         // 3.7.0: billing ended (or ends) on a known date: that month is the last one counted — exact, not estimated
         $ended = (string) ($reg['billing_ended_at'] ?? '');
         if ($ended !== '' && in_array((string) ($reg['status'] ?? ''), array_merge([IQU_Database::ACTIVE_STATUS], self::ENDED_STATUSES), true)) {
@@ -203,6 +208,24 @@ final class IQU_Discount_Ledger
             return [wp_date('Y-m-01', $updated ?: time()), true];
         }
         return null;
+    }
+
+    /**
+     * 3.7.7 Part AI: a student removed from a shared billing account ("Remove from billing"): the last month the ledger
+     * counts (Y-m-01), else null. A paid student (their Stripe line deleted, logged with its item id) keeps classes to
+     * the end of the period already paid, which ends in the month after the one it pays for — so the last month is the
+     * month before the month of billing_ended_at. A full-scholarship student ends at the end of a month: that month.
+     */
+    public static function removal_last_month(array $reg): ?string
+    {
+        $ended = (string) ($reg['billing_ended_at'] ?? '');
+        if ($ended === '' || !class_exists('IQU_Billing_DB') || !method_exists('IQU_Billing_DB', 'removal_for_registration')) return null;
+        $a = IQU_Billing_DB::removal_for_registration((int) ($reg['id'] ?? 0));
+        if (!$a) return null;
+        $m = wp_date('Y-m-01', (int) strtotime($ended . ' UTC'));
+        if ((string) $a['stripe_ref'] === '') return $m;
+        $d = DateTimeImmutable::createFromFormat('!Y-m-d', $m, new DateTimeZone('UTC'));
+        return $d ? $d->modify('-1 month')->format('Y-m-01') : $m;
     }
 
     public static function current_month(): string
@@ -247,6 +270,8 @@ final class IQU_Discount_Ledger
         foreach ($regs as $reg) {
             $item = self::item_for($reg);
             if (!$item || strcmp(self::first_month($reg), $month) > 0) continue; // nothing to count, or still in the free month
+            // 3.7.7 Part AI: removed from billing — classes may run into this month, but this month is not paid
+            if ((string) ($reg['billing_ended_at'] ?? '') !== '' && ($last = self::removal_last_month($reg)) !== null && strcmp($month, $last) > 0) continue;
             $out[(int) $reg['id']] = $item;
         }
         return $out;

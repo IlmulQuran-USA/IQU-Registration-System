@@ -369,6 +369,15 @@ class IQU_Billing_DB
         return $wpdb->get_results($action !== '' ? $wpdb->prepare($sql, $account_id, $action) : $wpdb->prepare($sql, $account_id), ARRAY_A) ?: [];
     }
 
+    /** 3.7.7 Part AI: the newest "remove_student" action of a registration (any mode, as billing_ended_at), or null. */
+    public static function removal_for_registration(int $registration_id): ?array
+    {
+        global $wpdb;
+        if (!self::is_installed() || $registration_id <= 0) return null;
+        $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::actions_table() . " WHERE registration_id = %d AND action = 'remove_student' ORDER BY id DESC LIMIT 1", $registration_id), ARRAY_A);
+        return $row ?: null;
+    }
+
     /** True once every billing table and column of this version is in place. */
     public static function is_installed(): bool
     {

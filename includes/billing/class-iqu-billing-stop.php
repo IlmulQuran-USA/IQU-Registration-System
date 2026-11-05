@@ -174,6 +174,114 @@ final class IQU_Billing_Stop
         return ['ok' => true, 'message' => 'The scholarship ends on ' . self::day((int) strtotime($end . ' UTC')) . '. Classes continue until then.'];
     }
 
+    // ------------------------------------------------------------
+    // 3.7.7 Part AI: remove one student from a shared billing account
+    // ------------------------------------------------------------
+
+    /**
+     * Students removed from this account (Part AI): [registration id => the logged remove_student action, newest].
+     * They stay members (their history and the student page link are kept) but are no longer billed.
+     */
+    public static function removed(array $acc): array
+    {
+        $out = [];
+        foreach (IQU_Billing_DB::actions_for_account((int) $acc['id'], 'remove_student') as $a) {
+            $rid = (int) $a['registration_id'];
+            if ($rid && !isset($out[$rid])) $out[$rid] = $a;
+        }
+        return $out;
+    }
+
+    /**
+     * Who "Remove from billing" offers, in member order: [['reg' => …, 'amount' => float, 'paid' => bool, 'last' => bool]].
+     * Only on a running subscription that can be stopped (kind 'stop') with at least two students still billed or on
+     * a scholarship. 'paid': the student has a line on the Stripe subscription (amount > 0); 'last': the only paid
+     * student left — choosing them uses Stop billing for the whole family (Stripe keeps at least one line).
+     */
+    public static function removable(array $acc): array
+    {
+        if (self::kind($acc) !== 'stop') return [];
+        $gone = self::removed($acc);
+        $out = [];
+        foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
+            if (isset($gone[(int) $m['registration_id']])) continue;
+            $reg = IQU_Database::get_registration((int) $m['registration_id']);
+            if (!$reg || !IQU_Database::is_active_student($reg) || (string) ($reg['billing_ended_at'] ?? '') !== '') continue;
+            $amount = (float) $m['amount'];
+            $out[] = ['reg' => $reg, 'amount' => $amount, 'paid' => IQU_Billing_Pricing::to_cents($amount) > 0, 'last' => false];
+        }
+        if (count($out) < 2) return [];
+        $paid = array_keys(array_filter($out, fn($s) => $s['paid']));
+        if (count($paid) === 1) $out[$paid[0]]['last'] = true;
+        return $out;
+    }
+
+    /**
+     * End one student's billing. A paid student: the one Stripe request that deletes their subscription item, with no
+     * proration (this period is already paid, so the next invoice simply leaves them out; the other items and prices
+     * are not touched); their enrollment ends at the end of the period already paid. A full-scholarship student (no
+     * Stripe line): no Stripe call; their classes end at the end of this month. The last paid student: Stop billing.
+     * Stripe refuses or cannot be reached → nothing is changed here. $op: the form's one-time id.
+     */
+    public static function remove_student(array $acc, int $registration_id, string $reason, string $op): array
+    {
+        $pick = null;
+        foreach (self::removable($acc) as $s) if ((int) $s['reg']['id'] === $registration_id) $pick = $s;
+        if (!$pick) return self::fail('This student cannot be removed from billing here.');
+        if ($reason === '') return self::fail('Choose a reason (for "Other", a short text up to 200 characters).');
+        $reg  = $pick['reg'];
+        $name = trim($reg['first_name'] . ' ' . $reg['last_name']);
+
+        if ($pick['last']) { // the last student Stripe charges: the existing Stop billing flow
+            $r = self::stop($acc, $reason, $op);
+            return $r['ok'] ? ['ok' => true, 'message' => $name . ' was the last student billed, so billing stops for the whole family. ' . $r['message']] : $r;
+        }
+
+        $sub  = (string) $acc['stripe_subscription_id'];
+        $item = '';
+        if ($pick['paid']) {
+            // Find the student's line (each line's product carries iqu_registration_id, set at Checkout). A read only.
+            $g = IQU_Stripe::get('/subscriptions/' . rawurlencode($sub), ['expand' => ['items.data.price.product']]);
+            if (!$g['ok']) return self::fail('Stripe could not be read, so nothing was changed: ' . $g['error']);
+            $s     = (array) $g['data'];
+            $lines = (array) ($s['items']['data'] ?? []);
+            foreach ($lines as $it) {
+                if ((string) ($it['price']['product']['metadata']['iqu_registration_id'] ?? '') === (string) $registration_id) $item = (string) ($it['id'] ?? '');
+            }
+            if ($item === '') return self::fail($name . '\'s line was not found on the family\'s Stripe subscription. Nothing was changed.');
+            if (count($lines) < 2) return self::fail('This is the only line on the Stripe subscription. Use Stop billing instead. Nothing was changed.');
+            $end = (string) ($s['status'] ?? '') === 'trialing' && !empty($s['trial_end']) ? (int) $s['trial_end']
+                : (int) ($s['items']['data'][0]['current_period_end'] ?? $s['current_period_end'] ?? 0);
+            if (!$end) $end = self::period_end_ts($acc);
+            if (!$end) return self::fail('The end of the period already paid is not known. Nothing was changed.');
+            // The one change: delete this student's item, no proration.
+            $d = IQU_Stripe::delete('/subscription_items/' . rawurlencode($item), ['proration_behavior' => 'none']);
+            if (!$d['ok'] || empty($d['data']['deleted'])) return self::fail('Stripe did not accept the change, so nothing was changed' . ($d['ok'] ? '.' : ': ' . $d['error']));
+            $ended = gmdate('Y-m-d H:i:s', $end);
+        } else {
+            $ended = self::month_end_utc(); // a full scholarship: classes until the end of this month (as End scholarship)
+        }
+
+        IQU_Database::set_billing_ended((int) $reg['id'], $ended);
+        $p = IQU_Billing_Pricing::for_registration($reg);
+        $net  = max(0, round((float) $acc['net_amount'] - $pick['amount'], 2));
+        $disc = max(0, round((float) $acc['discount_amount'] - (float) $p['discount'], 2));
+        IQU_Billing_DB::update_account((int) $acc['id'], ['net_amount' => $net, 'discount_amount' => $disc, 'monthly_amount' => round($net + $disc, 2)]);
+        IQU_Billing_DB::log_action(['action' => 'remove_student', 'account_id' => (int) $acc['id'], 'registration_id' => (int) $reg['id'],
+            'amount' => $pick['amount'], 'reason' => $reason, 'stripe_ref' => $item]);
+        $day = self::day((int) strtotime($ended . ' UTC'));
+        return ['ok' => true, 'message' => $name . ' was removed from billing and keeps classes until ' . $day . '. The family now pays '
+            . IQU_Pricing::format($net) . ' a month' . ($pick['paid'] ? ' from the next charge' : '') . '. The other students are not changed.'];
+    }
+
+    /** "Removed from billing · classes until Nov 30, 2026" (or "classes ended …" once that day has passed); '' when not removed. */
+    public static function removed_line(array $reg, array $removed): string
+    {
+        if (!isset($removed[(int) $reg['id']])) return '';
+        $ts = !empty($reg['billing_ended_at']) ? (int) strtotime($reg['billing_ended_at'] . ' UTC') : 0;
+        return 'Removed from billing' . ($ts ? ' · classes ' . ($ts > time() ? 'until ' : 'ended ') . self::day($ts) : '');
+    }
+
     private static function fail(string $m): array
     {
         return ['ok' => false, 'message' => $m];

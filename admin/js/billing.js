@@ -474,7 +474,7 @@
         input.disabled = !ok;
         if (!ok && input.checked) input.checked = false;
       });
-      if (daysHint) daysHint.textContent = c ? c.label + ": " + min + (max > min ? "–" + max : "") + " classes a week." : daysHintText;
+      if (daysHint) daysHint.textContent = c ? c.label + ": " + min + (max > min ? "–" + max : "") + (max > 1 ? " classes" : " class") + " a week." : daysHintText;
     }
 
     function syncPanel() {

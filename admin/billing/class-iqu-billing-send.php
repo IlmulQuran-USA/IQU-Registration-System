@@ -471,6 +471,7 @@ class IQU_Billing_Send
     private static function family_students(array $acc): void
     {
         $rows = [];
+        $removed = class_exists('IQU_Billing_Stop') ? IQU_Billing_Stop::removed($acc) : []; // 3.7.7 Part AI
         foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
             $reg = IQU_Database::get_registration((int) $m['registration_id']);
             if ($reg) $rows[] = [$reg, IQU_Billing_Pricing::for_registration($reg), (float) $m['amount']];
@@ -488,13 +489,13 @@ class IQU_Billing_Send
             <table class="iqu-tbl iqu-dt iqu-billing-tbl">
                 <thead><tr><th>Student</th><th>IQU no</th><th>Course</th><th class="is-num">Days/week</th><th class="is-num">Monthly</th><th>Discount / Zakat</th></tr></thead>
                 <tbody>
-                <?php foreach ($rows as [$reg, $p, $amount]): ?>
-                    <tr>
-                        <td class="iqu-td-name"><strong><?php echo esc_html(trim($reg['first_name'] . ' ' . $reg['last_name'])); ?></strong></td>
+                <?php foreach ($rows as [$reg, $p, $amount]): $gone = $removed ? IQU_Billing_Stop::removed_line($reg, $removed) : ''; ?>
+                    <tr<?php echo $gone !== '' ? ' data-iqu-removed' : ''; ?>>
+                        <td class="iqu-td-name"><strong><?php echo esc_html(trim($reg['first_name'] . ' ' . $reg['last_name'])); ?></strong><?php if ($gone !== ''): ?><br><span class="iqu-billing-sub"><?php echo esc_html($gone); ?></span><?php endif; ?></td>
                         <td><a href="<?php echo esc_url(admin_url('admin.php?page=iqu-view-registration&id=' . (int) $reg['id'])); ?>">IQU-<?php echo (int) $reg['id']; ?></a></td>
                         <td><?php echo esc_html($p['course_label'] ?: '—'); ?></td>
                         <td class="is-num"><?php echo (int) $p['days_per_week'] ?: '—'; ?></td>
-                        <td class="is-num"><?php echo esc_html(IQU_Pricing::format($amount)); ?></td>
+                        <td class="is-num"><?php echo $gone !== '' ? '—' : esc_html(IQU_Pricing::format($amount)); // removed: not in the total ?></td>
                         <td class="iqu-billing-wrap"><?php echo (float) $p['discount'] > 0 ? esc_html(($p['discount_label'] ?: 'Discount') . ' −' . IQU_Pricing::format((float) $p['discount'])) : '—'; ?></td>
                     </tr>
                 <?php endforeach; ?>

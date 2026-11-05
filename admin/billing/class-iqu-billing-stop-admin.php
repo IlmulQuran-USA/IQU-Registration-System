@@ -20,6 +20,7 @@ final class IQU_Billing_Stop_Admin
         'stop'              => ['Stop billing', 'Stop billing', 'Stop billing', 'Keep billing'],
         'cancel_enrollment' => ['Cancel enrollment', 'Cancel enrollment', 'Cancel enrollment', 'Keep enrollment'],
         'end_scholarship'   => ['End scholarship', 'End scholarship', 'End scholarship', 'Keep scholarship'],
+        'remove'            => ['Remove from billing', 'Remove one student from billing', 'Remove from billing', 'Keep billing'], // 3.7.7 Part AI
     ];
 
     public static function init(): void
@@ -46,6 +47,10 @@ final class IQU_Billing_Stop_Admin
         } elseif (isset(self::TEXT[$kind])) {
             $html .= self::dialog('acc', $id, $kind, self::text_for($acc, $kind), add_query_arg('iqu_confirm', $kind, IQU_Billing_Page::family_url($id)));
         }
+        // 3.7.7 Part AI: one student of a shared account, next to Stop billing (same dialog, reason and permissions)
+        if ($kind === 'stop' && ($who = IQU_Billing_Stop::removable($acc))) {
+            $html .= self::dialog('acc', $id, 'remove', self::remove_text($acc, $who), add_query_arg('iqu_confirm', 'remove', IQU_Billing_Page::family_url($id)), self::student_field($id, $who));
+        }
         return $html;
     }
 
@@ -58,6 +63,30 @@ final class IQU_Billing_Stop_Admin
         }
         if ($kind === 'cancel_enrollment') return 'No bank or card has been charged. The family\'s payment page is closed and the enrollment is cancelled now. No further charges.';
         return 'The scholarship ends on ' . IQU_Billing_Stop::day((int) strtotime(IQU_Billing_Stop::month_end_utc() . ' UTC')) . ', the end of this month. Classes continue until then.';
+    }
+
+    /** Part AI: the dialog's sentences for the students that can be chosen. */
+    private static function remove_text(array $acc, array $who): string
+    {
+        $day = IQU_Billing_Stop::day(IQU_Billing_Stop::period_end_ts($acc));
+        $t = 'Billing ends only for the student you choose. Their line comes off the family\'s monthly payment with no proration: the period already paid is not changed, and the next charge leaves them out. They keep classes until '
+            . ($day !== '' ? $day : 'the end of the period already paid') . '. The other students are not changed.';
+        if (array_filter($who, fn($s) => !$s['paid'])) $t .= ' A full-scholarship student keeps classes until the end of this month (' . IQU_Billing_Stop::day((int) strtotime(IQU_Billing_Stop::month_end_utc() . ' UTC')) . ').';
+        foreach ($who as $s) if ($s['last']) $t .= ' ' . trim($s['reg']['first_name'] . ' ' . $s['reg']['last_name']) . ' is the last student billed: choosing them stops billing for the whole family (Stop billing).';
+        return $t;
+    }
+
+    /** Part AI: the required Student select. */
+    private static function student_field(int $id, array $who): string
+    {
+        $f = 'iqu-remove-acc-' . $id . '-s';
+        $opts = '<option value="">Choose a student…</option>';
+        foreach ($who as $s) {
+            $name = trim($s['reg']['first_name'] . ' ' . $s['reg']['last_name']);
+            $note = $s['last'] ? 'last student billed — stops billing for the family' : ($s['paid'] ? IQU_Pricing::format($s['amount']) . ' a month' : 'full scholarship');
+            $opts .= '<option value="' . (int) $s['reg']['id'] . '">' . esc_html($name . ' (IQU-' . (int) $s['reg']['id'] . ') — ' . $note) . '</option>';
+        }
+        return '<div class="iqu-fld"><label for="' . esc_attr($f) . '">Student <em>*</em></label><select id="' . esc_attr($f) . '" name="registration" required>' . $opts . '</select></div>';
     }
 
     // ------------------------------------------------------------
@@ -92,7 +121,7 @@ final class IQU_Billing_Stop_Admin
             . wp_nonce_field($action . '_' . $id, '_wpnonce', true, false);
     }
 
-    private static function dialog(string $for, int $id, string $kind, string $sentence, string $fallback): string
+    private static function dialog(string $for, int $id, string $kind, string $sentence, string $fallback, string $fields = ''): string
     {
         [$button, $title, $confirm, $keep] = self::TEXT[$kind];
         $d    = 'iqu-' . $kind . '-' . $for . '-' . $id;
@@ -105,6 +134,7 @@ final class IQU_Billing_Stop_Admin
             . '<h2 class="iqu-modal-title" id="' . esc_attr($d) . '-t">' . esc_html($title) . '</h2>'
             . '<p class="iqu-modal-text">' . esc_html($sentence) . '</p>'
             . self::hidden($id, $kind, $for)
+            . $fields
             . '<div class="iqu-fld"><label for="' . esc_attr($d) . '-r">Reason <em>*</em></label>'
             . '<select id="' . esc_attr($d) . '-r" name="reason" required>' . $opts . '</select></div>'
             . '<div class="iqu-fld" data-iqu-other><label for="' . esc_attr($d) . '-o">Other reason <em>*</em></label>'
@@ -133,8 +163,10 @@ final class IQU_Billing_Stop_Admin
         if (!$acc) wp_die('Billing record not found.', 404);
         $kind = sanitize_key((string) ($_POST['kind'] ?? ''));
         $op   = preg_replace('/[^A-Za-z0-9]/', '', (string) ($_POST['op'] ?? ''));
-        if ($kind !== IQU_Billing_Stop::kind($acc) || $op === '') {
+        if (($kind === 'remove' ? IQU_Billing_Stop::kind($acc) !== 'stop' : $kind !== IQU_Billing_Stop::kind($acc)) || $op === '') {
             $r = ['ok' => false, 'message' => 'This page was out of date, so nothing was changed. Please check the status and try again.'];
+        } elseif ($kind === 'remove') { // 3.7.7 Part AI
+            $r = IQU_Billing_Stop::remove_student($acc, absint($_POST['registration'] ?? 0), self::posted_reason(), $op);
         } elseif ($kind === 'stop') {
             $r = IQU_Billing_Stop::stop($acc, self::posted_reason(), $op);
         } elseif ($kind === 'resume') {

@@ -548,7 +548,7 @@ class IQU_Billing_Service
             $cents = IQU_Billing_Pricing::to_cents((float) $m['amount']);
             if ($cents <= 0) continue;
             $label = ($p['course_label'] ?: 'Tuition') . ' - ' . self::short_name($reg);
-            $desc  = $p['days_per_week'] ? sprintf('%d classes a week (%d a month)', $p['days_per_week'], $p['classes_per_month']) : 'Monthly tuition';
+            $desc  = $p['days_per_week'] ? sprintf('%d %s a week (%d a month)', $p['days_per_week'], (int) $p['days_per_week'] === 1 ? 'class' : 'classes', $p['classes_per_month']) : 'Monthly tuition';
             $items[] = [
                 'quantity'   => 1,
                 'price_data' => [

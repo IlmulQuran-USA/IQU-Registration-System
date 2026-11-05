@@ -430,12 +430,17 @@ class IQU_Billing_Portal
     private static function students_card(array $students, array $acc): string
     {
         $h = '<section class="card"><h2 class="label">' . (count($students) === 1 ? 'Your student' : 'Your students') . '</h2><div class="students">';
+        $removed = class_exists('IQU_Billing_Stop') ? IQU_Billing_Stop::removed($acc) : []; // 3.7.7 Part AI
         foreach ($students as $s) {
             $reg = $s['reg']; $p = $s['p'];
-            $h .= '<div class="student"><div class="student-top"><strong>' . esc_html($reg['first_name'] . ' ' . $reg['last_name']) . '</strong><span class="amt">'
+            $gone = $removed ? IQU_Billing_Stop::removed_line($reg, $removed) : '';
+            $days = (int) $p['days_per_week'];
+            $h .= '<div class="student"><div class="student-top"><strong>' . esc_html($reg['first_name'] . ' ' . $reg['last_name']) . '</strong>'
+                . ($gone !== '' ? '' : '<span class="amt">' // removed: no amount, not in the monthly total
                 . ($p['discount'] > 0 ? '<span class="strike">' . esc_html(IQU_Pricing::format($p['gross'])) . '</span> ' : '')
-                . esc_html(IQU_Pricing::format($s['amount'])) . '</span></div>'
-                . '<span class="muted small">' . esc_html(trim(($p['course_label'] ?: 'Monthly tuition') . ($p['days_per_week'] ? ' · ' . $p['days_per_week'] . ' classes a week' : ''))) . ' · IQU-' . (int) $reg['id'] . '</span>'
+                . esc_html(IQU_Pricing::format($s['amount'])) . '</span>') . '</div>'
+                . '<span class="muted small">' . esc_html(trim(($p['course_label'] ?: 'Monthly tuition') . ($days ? ' · ' . $days . ' ' . ($days === 1 ? 'class' : 'classes') . ' a week' : ''))) . ' · IQU-' . (int) $reg['id'] . '</span>'
+                . ($gone !== '' ? '<span class="muted small">' . esc_html($gone) . '</span>' : '')
                 . (($p['discount'] > 0 && $p['discount_label']) ? '<span class="small discount">' . esc_html($p['discount_label']) . ' −' . esc_html(IQU_Pricing::format($p['discount'])) . '</span>' : '')
                 . '</div>';
         }
