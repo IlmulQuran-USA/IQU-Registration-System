@@ -419,6 +419,13 @@ class IQU_Billing_Add_Student
         if (IQU_Database::created_via_ready()) $row['created_via'] = $via;
         // The agreed monthly fee as given (NULL = none agreed); see IQU_Billing_Pricing.
         if ($agreed !== null && IQU_Database::student_fee_columns_ready()) $row['agreed_fee'] = $agreed;
+        // 3.7.8: "The reduction is paid by the Zakat Fund" (Import: Zakat = Yes) on a reduction (an agreed fee below the
+        // standard price, $0 included) also sets the reduction's fund to Zakat — the value the ledger's fund select saves
+        // (the ledger reads agreed_fee_fund, not the tick). Import, no course yet: saved too; the ledger counts it only
+        // once a course is set and the fee is below its price. No tick: no fund, as before.
+        if (!empty($in['zakat']) && $agreed !== null && ($course_missing || $discount > 0) && IQU_Database::agreed_fee_fund_ready()) {
+            $row['agreed_fee_fund'] = 'zakat';
+        }
 
         foreach ($extra_cols as $col => $value) {
             if ($col !== 'referral') $row[$col] = $value;
