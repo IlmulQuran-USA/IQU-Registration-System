@@ -136,7 +136,7 @@ class IQU_Billing_Service
         if (self::is_free_month_eligible($reg)) return '';
         $via = IQU_Database::created_via($reg);
         if ($via === IQU_Database::VIA_ADMIN) return 'added by an admin';
-        if ($via === IQU_Database::VIA_IMPORT) return 'imported from CSV';
+        if ($via === IQU_Database::VIA_IMPORT) return 'imported from CSV/Excel';
         return in_array('existing_student', explode(',', (string) ($reg['review_reason'] ?? '')), true)
             ? 'existing student (answered Yes on the website form)'
             : 'existing student (marked by an admin)';

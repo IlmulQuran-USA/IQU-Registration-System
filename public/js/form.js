@@ -992,14 +992,21 @@
         couponLoading(true);
         setCouponMsg("", "warn");
 
+        // 3.7.6: each check carries a fresh reCAPTCHA v3 token (a token works once, so the nonce retry gets its own);
+        // no token (reCAPTCHA blocked or not loaded) → "Could not verify the coupon right now" (.fail below).
         const checkCoupon = function () {
-          return $.post(IQU_AJAX.ajax_url, {
-            action: "iqu_apply_coupon",
-            _iqu_nonce: IQU_AJAX.nonce,
-            coupon_code: code,
-            course_type: quote.course,
-            days_per_week: quote.days,
-          });
+          const d = $.Deferred();
+          getRecaptchaToken("iqu_apply_coupon").then(function (token) {
+            $.post(IQU_AJAX.ajax_url, {
+              action: "iqu_apply_coupon",
+              _iqu_nonce: IQU_AJAX.nonce,
+              coupon_code: code,
+              course_type: quote.course,
+              days_per_week: quote.days,
+              iqu_recaptcha_token: token,
+            }).then(d.resolve, d.reject);
+          }, function () { d.reject(); });
+          return d.promise();
         };
         checkCoupon()
           .then(function (res) {

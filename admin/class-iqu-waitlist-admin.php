@@ -95,11 +95,12 @@ class IQU_Waitlist_Admin
     public static function write_csv($out, array $rows): void
     {
         fputs($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['Email', 'Name', 'Country', 'Program', 'Source', 'Joined (UTC)'], ',', '"', '');
+        // 3.7.6: through IQU_CSV::put (the one writer: formula guard, and a cell holding ";" quoted)
+        IQU_CSV::put($out, ['Email', 'Name', 'Country', 'Program', 'Source', 'Joined (UTC)']);
         foreach ($rows as $r) {
-            fputcsv($out, array_map(fn($v) => self::csv_safe((string) $v), [
+            IQU_CSV::put($out, array_map(fn($v) => self::csv_safe((string) $v), [
                 $r['email'], $r['name'], $r['country'], self::PROGRAM_LABELS[$r['program']] ?? $r['program'], $r['source'], $r['created_at'],
-            ]), ',', '"', '');
+            ]));
         }
     }
 

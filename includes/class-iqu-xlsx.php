@@ -121,13 +121,18 @@ final class IQU_Xlsx
 
     /**
      * The text of a cell as it goes into the sheet: valid UTF-8, no characters XML cannot hold, line breaks
-     * as \n, at most 32,767 characters (Excel's limit). The apostrophe IQU_CSV::safe() puts before a
-     * formula-like value is taken off again: a text cell is never run as a formula.
+     * as \n, at most 32,767 characters (Excel's limit). The apostrophes IQU_CSV::safe() puts before a
+     * formula-like value (at the start, and after a ";" since 3.7.6) are taken off again: a text cell is never
+     * run as a formula. Only marks safe() itself would have added are taken off.
      */
     public static function text($value): string
     {
         $v = is_scalar($value) ? (string) $value : '';
-        if (strlen($v) > 1 && $v[0] === "'" && IQU_CSV::safe(substr($v, 1)) === $v) $v = substr($v, 1);
+        $lead  = fn(string $s) => strlen($s) > 1 && $s[0] === "'" ? substr($s, 1) : $s;
+        $inner = fn(string $s) => (string) preg_replace("/;'([=+\\-@\\t\\r])/", ';$1', $s);
+        foreach ([$inner($lead($v)), $lead($v), $inner($v)] as $orig) {
+            if ($orig !== $v && IQU_CSV::safe($orig) === $v) { $v = $orig; break; }
+        }
         if (!preg_match('//u', $v)) $v = function_exists('mb_convert_encoding') ? mb_convert_encoding($v, 'UTF-8', 'UTF-8') : wp_check_invalid_utf8($v, true);
         $v = str_replace(["\r\n", "\r"], "\n", $v);
         $v = (string) preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]|\x{FFFE}|\x{FFFF}/u', '', $v);

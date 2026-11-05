@@ -1128,7 +1128,7 @@ class IQU_Admin
             <?php $via = IQU_Database::created_via_counts(); if ($via[IQU_Database::VIA_ADMIN] + $via[IQU_Database::VIA_IMPORT] > 0): ?>
             <p class="iqu-chart-note" data-created-via>
                 Added by admin: <strong><?php echo (int) $via[IQU_Database::VIA_ADMIN]; ?></strong>
-                · Imported from CSV: <strong><?php echo (int) $via[IQU_Database::VIA_IMPORT]; ?></strong>
+                · Imported from CSV/Excel: <strong><?php echo (int) $via[IQU_Database::VIA_IMPORT]; ?></strong>
                 · From the website: <strong><?php echo (int) $via[IQU_Database::VIA_PUBLIC]; ?></strong>
             </p>
             <?php endif; ?>
@@ -1725,7 +1725,7 @@ class IQU_Admin
                         echo esc_html([
                             IQU_Database::VIA_PUBLIC => 'Website form',
                             IQU_Database::VIA_ADMIN  => 'Admin (Add existing student)',
-                            IQU_Database::VIA_IMPORT => 'CSV import',
+                            IQU_Database::VIA_IMPORT => 'CSV/Excel Import',
                         ][IQU_Database::created_via($row)]); ?></div>
                 </div>
                 <div class="iqu-detail-item iqu-detail-full">

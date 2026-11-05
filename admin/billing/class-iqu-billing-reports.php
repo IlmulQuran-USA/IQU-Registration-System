@@ -397,7 +397,8 @@ class IQU_Billing_Reports
     public static function write_csv($out, array $ds): void
     {
         fputs($out, "\xEF\xBB\xBF");
-        fputcsv($out, array_map(fn($c) => self::csv_safe($c[0]), $ds['columns']), ',', '"', '');
+        // 3.7.6: through IQU_CSV::put (the one writer: formula guard, and a cell holding ";" quoted)
+        IQU_CSV::put($out, array_map(fn($c) => self::csv_safe($c[0]), $ds['columns']));
         foreach ($ds['rows'] as $r) {
             $line = [];
             foreach ($ds['columns'] as $c => [$label, $type]) {
@@ -406,7 +407,7 @@ class IQU_Billing_Reports
                 elseif ($type === 'date') $v = self::iso_day((string) $v);
                 $line[] = self::csv_safe((string) $v);
             }
-            fputcsv($out, $line, ',', '"', '');
+            IQU_CSV::put($out, $line);
         }
     }
 

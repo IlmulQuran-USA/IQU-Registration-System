@@ -384,7 +384,7 @@ class IQU_Billing_Add_Student
         // How the row is created: this form (admin) or the CSV import (import).
         $via  = ($in['via'] ?? '') === IQU_Database::VIA_IMPORT ? IQU_Database::VIA_IMPORT : IQU_Database::VIA_ADMIN;
         $user = wp_get_current_user();
-        $note = trim(($via === IQU_Database::VIA_IMPORT ? 'Imported from CSV' : 'Added from Billing as an existing student')
+        $note = trim(($via === IQU_Database::VIA_IMPORT ? 'Imported from CSV/Excel' : 'Added from Billing as an existing student')
             . ' by ' . $user->user_login . '. ' . ($in['note'] ?? ''));
         $now  = gmdate('Y-m-d H:i:s');
 

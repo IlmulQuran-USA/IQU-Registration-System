@@ -19,11 +19,14 @@
   /**
    * One CSV cell: a cell starting with = + - @ tab or CR gets a leading apostrophe so a
    * spreadsheet never runs it as a formula — except a plain number such as -30.00, which
-   * cannot be a formula and must stay a number. Quoted when needed.
+   * cannot be a formula and must stay a number. Quoted when needed. 3.7.6: the same guard after every ";"
+   * (Excel with ";" as list separator starts a new cell there), as IQU_CSV::safe() on the server.
    */
   B.csvCell = function (value) {
     var s = value === null || value === undefined ? "" : String(value);
-    if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s;
+    var num = function (x) { return /^-?\d+(\.\d+)?$/.test(x); };
+    if (/^[=+\-@\t\r]/.test(s) && !num(s)) s = "'" + s;
+    s = s.replace(/;([=+\-@\t\r][^;]*)/g, function (m, part) { return ";" + (num(part) ? "" : "'") + part; });
     if (/[",;\t\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"'; // ; and tab too (other spreadsheet locales)
     return s;
   };

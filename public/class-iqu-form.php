@@ -1164,6 +1164,14 @@ class IQU_Form
             wp_send_json_error(['message' => $guard]);
         }
         self::count_coupon_try();
+
+        // 3.7.6: reCAPTCHA v3, as on the form's submit. A request without a valid token stops here: it counts as a
+        // try for its IP (above) but never reaches the site-wide failure count below, so bots cannot pause coupon
+        // checks for everyone by sending wrong codes.
+        $verify = IQU_Recaptcha::verify(sanitize_text_field($_POST['iqu_recaptcha_token'] ?? ''), 'iqu_apply_coupon');
+        if (!$verify['success']) {
+            wp_send_json_error(['message' => 'Verification failed. Please try again.', 'code' => 'recaptcha_failed']);
+        }
         $fail_key = 'iqu_coupon_fail_' . gmdate('YmdH');
 
         $code   = sanitize_text_field($_POST['coupon_code'] ?? '');
