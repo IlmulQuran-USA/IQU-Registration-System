@@ -612,6 +612,16 @@ class IQU_Billing_DB
         ], ['%d', '%d', '%s', '%f', '%s', '%s']);
     }
 
+    /**
+     * 3.7.9: take one student off an account that has no subscription yet ("Left" while the payment link is unused, or a
+     * returning student on an ended account). Current mode only. The account itself is kept.
+     */
+    public static function remove_member(int $account_id, int $registration_id): bool
+    {
+        global $wpdb;
+        return false !== $wpdb->delete(self::members_table(), ['account_id' => $account_id, 'registration_id' => $registration_id, 'mode' => IQU_Stripe::expected_mode()], ['%d', '%d', '%s']);
+    }
+
     /** The monthly amount of one student inside an account (used before the subscription exists). */
     public static function set_member_amount(int $account_id, int $registration_id, float $amount): bool
     {

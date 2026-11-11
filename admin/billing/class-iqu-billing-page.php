@@ -167,6 +167,7 @@ class IQU_Billing_Page
         $table = $wpdb->prefix . IQU_TABLE_NAME;
         $in    = implode(',', array_fill(0, count(self::MONTHLY_FORMS), '%s'));
         $arch  = IQU_Database::archive_ready() ? ' AND archived_at IS NULL' : ''; // 3.7.0 AK: archived students leave the list
+        $arch .= IQU_Database::not_left_sql(); // 3.7.9: students marked Left leave every billing list
         $regs  = $wpdb->get_results($wpdb->prepare("SELECT * FROM `{$table}` WHERE form_type IN ({$in}){$arch} ORDER BY id DESC", ...self::MONTHLY_FORMS), ARRAY_A) ?: [];
 
         $mode = IQU_Stripe::expected_mode();
@@ -289,6 +290,7 @@ class IQU_Billing_Page
         <div class="wrap iqu-admin-wrap iqu-billing">
             <?php self::tabs('students'); ?>
             <?php self::page_header('Student Billing', 'Everyone on monthly tuition. Send payment links to families who are not set up yet, and follow up on payment problems.'); ?>
+            <?php echo class_exists('IQU_Billing_Stop_Admin') ? IQU_Billing_Stop_Admin::left_notice() : ''; // 3.7.9; escaped inside ?>
 
             <?php $missing = count(array_filter($rows, fn($r) => !$r['acc'] && IQU_Billing_Pricing::course_missing($r['reg']))); if ($missing): ?>
                 <div class="notice notice-warning inline" data-course-missing-notice><p>
@@ -349,6 +351,7 @@ class IQU_Billing_Page
             </div>
 
             <?php self::students_region($c); ?>
+            <?php echo class_exists('IQU_Billing_Stop_Admin') ? IQU_Billing_Stop_Admin::left_dialog() : ''; // 3.7.9: the Left dialog, once; escaped inside ?>
         </div>
         <script>
         (function () {
@@ -522,6 +525,7 @@ class IQU_Billing_Page
                 <?php elseif ($r['group'] === 'needs_course'): ?>
                     <a class="iqu-action-btn iqu-action-btn--view" href="<?php echo esc_url($send); ?>">Choose course</a>
                 <?php endif; ?>
+                <?php echo class_exists('IQU_Billing_Stop_Admin') ? IQU_Billing_Stop_Admin::left_button($reg) : ''; // 3.7.9: on every row; escaped inside ?>
                 </div>
             </td>
         </tr>
@@ -622,6 +626,7 @@ class IQU_Billing_Page
         foreach ($ids as $id) {
             $reg = IQU_Database::get_registration($id);
             if (!$reg || !in_array($reg['form_type'], self::MONTHLY_FORMS, true)) continue;
+            if ((string) ($reg['left_at'] ?? '') !== '') continue; // 3.7.9: Left
             if (IQU_Billing_DB::account_for_registration($id)) continue;
             $p = IQU_Billing_Pricing::for_registration($reg);
             if (!$p['billable']) continue;

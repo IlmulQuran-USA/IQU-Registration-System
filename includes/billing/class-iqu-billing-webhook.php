@@ -133,6 +133,12 @@ class IQU_Billing_Webhook
             return IQU_Summer_Pay::on_session_completed((string) ($obj['id'] ?? ''));
         }
 
+        // 3.7.9: a refund on a Summer payment (no billing account): its refunded total is recorded on the registration.
+        if ($event['type'] === 'charge.refunded' && class_exists('IQU_Summer_Pay') && method_exists('IQU_Summer_Pay', 'on_charge_refunded')) {
+            $summer = IQU_Summer_Pay::on_charge_refunded($obj);
+            if ($summer !== null) return $summer;
+        }
+
         // Payouts (no billing account): about the whole Stripe account.
         if (strpos((string) $event['type'], 'payout.') === 0) {
             return self::payout_event((string) $event['type'], $obj);

@@ -1072,10 +1072,20 @@ class IQU_Form
 
         $clean['payment_status'] = 'pending';
 
+        // 3.7.9: the same student (name + email) in this program already has a record → it is updated, never doubled.
+        // Still active (billing running): details only, no payment step. Otherwise: an existing student, Pending review.
+        $match  = class_exists('IQU_Reenroll') ? IQU_Reenroll::find($clean) : null;
+        $active = $match && IQU_Reenroll::is_active($match);
+        $post   = $_POST;
+        if ($match && !$active) {
+            $clean = IQU_Reenroll::as_returning($clean);
+            $post['is_existing_student'] = 'yes'; // the Stripe step never runs for a returning student (no second free month)
+        }
+
         // Enroll for Free → Stripe (Billing Settings → Enrollment). When Off, nothing here runs.
         $enroll = null;
-        if (IQU_Enrollment_Settings::free_payment_active()) {
-            $enroll = IQU_Enrollment::prepare_free($clean, $_POST);
+        if (!$active && IQU_Enrollment_Settings::free_payment_active()) {
+            $enroll = IQU_Enrollment::prepare_free($clean, $post);
             if (!empty($enroll['error'])) {
                 wp_send_json_error($enroll['error']);
             }
@@ -1084,7 +1094,8 @@ class IQU_Form
         // Insert (with the visitor's marketing-cookie choice, for Meta server events)
         IQU_Submit_Guard::check_rate((string) $clean['email']);
         IQU_Pixel::record_consent($clean);
-        $reg_id = IQU_Database::insert_registration($clean);
+        $saved  = class_exists('IQU_Reenroll') ? IQU_Reenroll::save($clean, $match) : ['id' => (int) IQU_Database::insert_registration($clean), 'mode' => 'new'];
+        $reg_id = $saved['id'];
         if (!$reg_id) {
             error_log('[IQU] Free registration DB insert failed.');
             wp_send_json_error(['message' => 'Registration failed due to a server error. Please try again or contact us.', 'code' => 'db_error']);
@@ -1093,7 +1104,7 @@ class IQU_Form
 
         // ── 🎟️ কুপন রিডিম — রেজিস্ট্রেশন সেভ হওয়ার পরেই ──
         // insert ব্যর্থ হলে কুপন যেন নষ্ট না হয়, তাই ক্রমটা এই।
-        if (!empty($clean['coupon_id'])) {
+        if (!empty($clean['coupon_id']) && $saved['mode'] !== 'details') { // (an active record keeps its fee: nothing is redeemed)
             $redeemed = IQU_Coupon_DB::redeem((int) $clean['coupon_id']);
 
             if (!$redeemed) {

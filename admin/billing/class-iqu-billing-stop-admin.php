@@ -27,6 +27,7 @@ final class IQU_Billing_Stop_Admin
     {
         add_action('admin_post_' . self::A_STOP, [__CLASS__, 'handle']);
         add_action('admin_post_' . self::A_REG, [__CLASS__, 'handle_registration']);
+        add_action('admin_post_' . self::A_LEFT, [__CLASS__, 'handle_left']); // 3.7.9
     }
 
     // ------------------------------------------------------------
@@ -146,9 +147,73 @@ final class IQU_Billing_Stop_Admin
     }
 
     // ------------------------------------------------------------
-    // Actions
+    // 3.7.9: "Left" on Student Billing (every row) — one shared dialog
     // ------------------------------------------------------------
 
+    public const A_LEFT = 'iqu_billing_left';
+    private const LEFT_DIALOG = 'iqu-left-dialog';
+
+    /** The red "Left" button of a Student Billing row (opens the shared dialog; without JavaScript, the page with it open). */
+    public static function left_button(array $reg): string
+    {
+        if (!current_user_can(self::CAP) || !IQU_Database::left_ready()) return '';
+        $id = (int) $reg['id'];
+        return '<a class="iqu-action-btn iqu-action-btn--delete" href="' . esc_url(add_query_arg(['page' => IQU_Billing_Page::SLUG, 'iqu_left' => $id], admin_url('admin.php')))
+            . '" data-iqu-dialog="' . self::LEFT_DIALOG . '" data-iqu-left="' . $id . '" data-iqu-left-name="' . esc_attr(trim($reg['first_name'] . ' ' . $reg['last_name'])) . '">Left</a>';
+    }
+
+    /** The shared confirm dialog (once per page, outside the live-search region). Open, filled in, with ?iqu_left=<id>. */
+    public static function left_dialog(): string
+    {
+        if (!current_user_can(self::CAP) || !IQU_Database::left_ready()) return '';
+        $open = absint($_GET['iqu_left'] ?? 0);
+        $reg  = $open ? IQU_Database::get_registration($open) : null;
+        if ($reg && (string) ($reg['left_at'] ?? '') !== '') $reg = null;
+        $d    = self::LEFT_DIALOG;
+        $opts = '<option value="">Choose a reason…</option>';
+        foreach (IQU_Billing_Stop::REASONS as $k => $label) $opts .= '<option value="' . esc_attr($k) . '">' . esc_html($label) . '</option>';
+        return '<dialog class="iqu-modal" id="' . $d . '" aria-labelledby="' . $d . '-t"' . ($reg ? ' open' : '') . '>'
+            . '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" class="iqu-modal-form" data-iqu-reason-form>'
+            . '<h2 class="iqu-modal-title" id="' . $d . '-t">Mark <span data-iqu-left-name>' . esc_html($reg ? trim($reg['first_name'] . ' ' . $reg['last_name']) : 'this student') . '</span> as Left</h2>'
+            . '<p class="iqu-modal-text">They leave every billing place (Student Billing, payment links, billing exports) and stay in their course list; their student page shows the date. Running monthly billing ends at the end of the period already paid, never now: through Remove from billing when brothers or sisters stay, or Stop billing for the last student. An unused payment link is closed. Payments already received are kept.</p>'
+            . '<input type="hidden" name="action" value="' . self::A_LEFT . '">'
+            . '<input type="hidden" name="registration" value="' . ($reg ? (int) $reg['id'] : '') . '">'
+            . '<input type="hidden" name="op" value="' . esc_attr(str_replace('-', '', wp_generate_uuid4())) . '">'
+            . wp_nonce_field(self::A_LEFT, '_wpnonce', true, false)
+            . '<div class="iqu-fld"><label for="' . $d . '-r">Reason <em>*</em></label><select id="' . $d . '-r" name="reason" required>' . $opts . '</select></div>'
+            . '<div class="iqu-fld" data-iqu-other><label for="' . $d . '-o">Other reason <em>*</em></label><input type="text" id="' . $d . '-o" name="reason_other" maxlength="' . IQU_Billing_Stop::OTHER_MAX . '"></div>'
+            . '<div class="iqu-modal-actions">'
+            . '<button type="submit" class="iqu-btn iqu-btn--danger">Mark as Left</button>'
+            . '<button type="submit" formmethod="dialog" formnovalidate value="cancel" class="iqu-btn iqu-btn--secondary">Keep</button>'
+            . '</div></form></dialog>';
+    }
+
+    /** The result of the last Left action (once), for Student Billing. */
+    public static function left_notice(): string
+    {
+        $n = get_transient('iqu_left_notice_' . get_current_user_id());
+        if (!$n) return '';
+        delete_transient('iqu_left_notice_' . get_current_user_id());
+        return '<div class="notice notice-' . (!empty($n['ok']) ? 'success' : 'error') . ' inline" data-iqu-left-notice><p>' . esc_html((string) $n['message']) . '</p></div>';
+    }
+
+    public static function handle_left(): void
+    {
+        if (!current_user_can(self::CAP)) wp_die('You do not have permission to do this.', 403);
+        check_admin_referer(self::A_LEFT);
+        $id  = absint($_POST['registration'] ?? 0);
+        $reg = $id ? IQU_Database::get_registration($id) : null;
+        $op  = preg_replace('/[^A-Za-z0-9]/', '', (string) ($_POST['op'] ?? ''));
+        $r   = !$reg ? ['ok' => false, 'message' => 'Student not found.']
+            : ($op === '' ? ['ok' => false, 'message' => 'This page was out of date, so nothing was changed.'] : IQU_Billing_Stop::left($reg, self::posted_reason(), $op));
+        set_transient('iqu_left_notice_' . get_current_user_id(), $r, 120);
+        wp_safe_redirect(admin_url('admin.php?page=' . IQU_Billing_Page::SLUG));
+        exit;
+    }
+
+    // ------------------------------------------------------------
+    // Actions
+    // ------------------------------------------------------------
     private static function posted_reason(): string
     {
         return IQU_Billing_Stop::reason(sanitize_key(wp_unslash($_POST['reason'] ?? '')), sanitize_text_field(wp_unslash($_POST['reason_other'] ?? '')));

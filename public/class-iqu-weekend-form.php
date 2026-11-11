@@ -467,7 +467,9 @@ class IQU_Weekend_Form
         // 5. Insert (with the visitor's marketing-cookie choice, for Meta server events)
         IQU_Submit_Guard::check_rate((string) $clean['email']);
         IQU_Pixel::record_consent($clean);
-        $reg_id = IQU_Database::insert_registration($clean);
+        // 3.7.9: the same student (name + email) in this program already has a record → it is updated, never doubled.
+        $saved  = class_exists('IQU_Reenroll') ? IQU_Reenroll::save($clean, IQU_Reenroll::find($clean)) : ['id' => (int) IQU_Database::insert_registration($clean), 'mode' => 'new'];
+        $reg_id = $saved['id'];
         if (!$reg_id) {
             error_log('[IQU] Weekend registration DB insert failed.');
             wp_send_json_error([

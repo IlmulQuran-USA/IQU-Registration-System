@@ -89,9 +89,9 @@ class IQU_Billing_Reports
             if ((string) $a['created_at'] > $end) continue; // added after this month
             foreach (IQU_Billing_DB::get_members((int) $a['id']) as $m) {
                 $reg = IQU_Database::get_registration((int) $m['registration_id']);
-                if (!$reg) continue;
+                if (!$reg || (string) ($reg['left_at'] ?? '') !== '') continue; // 3.7.9: Left students leave billing exports
                 $p = IQU_Billing_Pricing::for_registration($reg);
-                $disc = (float) $p['discount'] > 0 ? trim(($p['discount_label'] ?: 'Discount') . ' −' . IQU_Pricing::format((float) $p['discount'])) : ($p['net'] <= 0 ? 'Full scholarship' : '');
+                $disc =(float) $p['discount'] > 0 ? trim(($p['discount_label'] ?: 'Discount') . ' −' . IQU_Pricing::format((float) $p['discount'])) : ($p['net'] <= 0 ? 'Full scholarship' : '');
                 $rows[] = [
                     '_account'    => (int) $a['id'],
                     'iqu'         => 'IQU-' . (int) $reg['id'],

@@ -100,10 +100,22 @@ class IQU_Admin
     $row    = $id ? IQU_Database::get_registration($id) : null;
     $course = sanitize_key($_POST['course'] ?? '');
     $msg    = 'course_failed';
-    if ($row && class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::course_missing($row) && IQU_Pricing::is_valid_course($course)) {
-      $days = (int) $row['days_per_week'] > 0 ? (int) $row['days_per_week'] : absint($_POST['days'] ?? 0);
+    // 3.7.9: a legacy record (no course, billed at the old form's fee) can get a course too — not while its billing runs in Stripe
+    $legacy = $row && class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::is_legacy($row);
+    if ($legacy && self::billing_running($id)) {
+      $msg = 'course_locked';
+    } elseif ($row && class_exists('IQU_Billing_Pricing') && (IQU_Billing_Pricing::course_missing($row) || $legacy) && IQU_Pricing::is_valid_course($course)) {
+      // legacy: the days chosen in the form (pre-selected from the record); otherwise the record's days, else the form's
+      $days = !$legacy && (int) $row['days_per_week'] > 0 ? (int) $row['days_per_week'] : absint($_POST['days'] ?? 0);
       $calc = IQU_Pricing::calculate($course, $days);
-      $fill = fn() => IQU_Database::fill_course($id, $course, $days, (float) $calc['per_class_rate'], (float) $calc['monthly_amount']);
+      $old  = $legacy && IQU_Billing_Pricing::agreed_fee($row) === null ? IQU_Billing_Pricing::legacy_amount($row) : null; // the old fee is kept as the agreed fee
+      $fill = function () use ($id, $course, $days, $calc, $legacy, $old) {
+        $ok = IQU_Database::fill_course($id, $course, $days, (float) $calc['per_class_rate'], (float) $calc['monthly_amount'], $legacy);
+        if ($ok && $old !== null) $ok = IQU_Database::set_agreed_fee($id, $old);
+        // legacy: the page and the lists show the amount now billed (as for a student from the form)
+        if ($ok && $legacy && ($now = IQU_Database::get_registration($id))) IQU_Database::set_quoted_amount($id, (float) IQU_Billing_Pricing::for_registration($now)['net']);
+        return $ok;
+      };
       if (!empty($calc['valid']) && (class_exists('IQU_Billing_Service') ? IQU_Billing_Service::change_amount($id, $fill) : $fill())) {
         $msg = 'course_set';
       }
@@ -141,13 +153,20 @@ class IQU_Admin
     exit;
   }
 
+  /** 3.7.9: monthly billing of this student already runs in Stripe (a subscription exists). */
+  private static function billing_running(int $id): bool
+  {
+    $acc = class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
+    return $acc && !empty($acc['stripe_subscription_id']);
+  }
+
   /** The "Agreed fee" line on the student page: the fee, the note against the standard price, the editor. */
   private static function render_agreed_fee_item(array $row): void
   {
     if ($row['form_type'] !== IQU_Database::FORM_FREE || !class_exists('IQU_Billing_Pricing') || !IQU_Database::student_fee_columns_ready()) return;
     $id     = (int) $row['id'];
     $p      = IQU_Billing_Pricing::for_registration($row);
-    if (!empty($p['legacy'])) return; // older enrollment, billed at the fee chosen then
+    // (3.7.9: legacy records — billed at the old form's fee — get the editor too; locked while billing runs, as for everyone)
     $agreed = IQU_Billing_Pricing::agreed_fee($row);
     $note   = IQU_Billing_Pricing::agreed_note($row, $p);
     $acc    = class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
@@ -239,6 +258,18 @@ class IQU_Admin
                     </div>
                 </div>
     <?php endif;
+  }
+
+  /** 3.7.9: "Left on <date>" on the student page of a student marked Left on Student Billing; nothing otherwise. */
+  private static function render_left_item(array $row): void
+  {
+    if ((string) ($row['left_at'] ?? '') === '') return;
+    ?>
+                <div class="iqu-detail-item iqu-detail-full" data-iqu-left-on>
+                    <div class="iqu-detail-lbl">Billing</div>
+                    <div class="iqu-detail-val"><span class="iqu-status-badge iqu-sb-cancelled">Left on <?php echo esc_html(wp_date('M j, Y', (int) strtotime($row['left_at'] . ' UTC'))); ?></span></div>
+                </div>
+    <?php
   }
 
   /** The "Free first month" line on the student page, with the admin override. */
@@ -368,6 +399,33 @@ class IQU_Admin
       $type
     ));
     return [round($free, 2), $summer(IQU_Database::FORM_SUMMER_LEVEL1), $summer(IQU_Database::FORM_SUMMER_LEVEL2)];
+  }
+
+  /**
+   * 3.7.9: "Collected via Stripe" — money received through Stripe since the start, LIVE mode only, from the plugin's own
+   * records (so it moves as soon as a payment or refund webhook is processed): paid monthly tuition invoices (amount paid
+   * minus refunded; a dispute counts as refunded, as in Reports) plus Summer Stripe payments made on a live Checkout page
+   * (cs_live_…) minus their recorded refunds. Stripe fees are not subtracted. Manually confirmed amounts (Zelle, Zeffy) are
+   * not part of it.
+   */
+  public static function collected_via_stripe(): float
+  {
+    global $wpdb;
+    $sum = 0.0;
+    if (class_exists('IQU_Billing_DB')) {
+      foreach ((array) $wpdb->get_results("SELECT amount_paid, amount_refunded FROM " . IQU_Billing_DB::payments_table()
+        . " WHERE mode = 'live' AND status IN ('paid', 'refunded', 'disputed')", ARRAY_A) as $r) {
+        $sum += max(0.0, (float) $r['amount_paid'] - (float) $r['amount_refunded']);
+      }
+    }
+    $cols = 'payment_amount' . (IQU_Database::refunded_amount_ready() ? ', refunded_amount' : '');
+    foreach ((array) $wpdb->get_results($wpdb->prepare(
+      "SELECT {$cols} FROM `" . $wpdb->prefix . IQU_TABLE_NAME . "` WHERE form_type IN (%s, %s) AND payment_method = 'stripe' AND payment_status = 'paid' AND SUBSTR(pay_session_id, 1, 8) = %s",
+      IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2, 'cs_live_'
+    ), ARRAY_A) as $r) {
+      $sum += max(0.0, (float) $r['payment_amount'] - (float) ($r['refunded_amount'] ?? 0));
+    }
+    return round($sum, 2);
   }
 
   /**
@@ -972,6 +1030,7 @@ class IQU_Admin
     global $wpdb;
     $table = $wpdb->prefix . IQU_TABLE_NAME;
     $total_revenue = array_sum(self::revenue_by_program());
+    $stripe_total  = self::collected_via_stripe(); // 3.7.9: the "Collected via Stripe" card (live money only)
   ?>
 <div class="wrap iqu-admin-wrap">
 
@@ -1018,9 +1077,9 @@ class IQU_Admin
         </div>
         <div class="iqu-metric iqu-stat">
             <div class="iqu-metric-accent iqu-metric-accent--revenue"></div>
-            <?php echo IQU_Icons::stat_head('banknote', 'purple', '$' . esc_html(number_format($total_revenue, 0))); ?>
-            <div class="iqu-metric-lbl">Payment Collected</div>
-            <div class="iqu-metric-sub">Student Confirmed Amount</div>
+            <?php echo IQU_Icons::stat_head('banknote', 'purple', '$' . esc_html(number_format($stripe_total, 0))); ?>
+            <div class="iqu-metric-lbl" data-collected-via-stripe>Collected via Stripe</div>
+            <div class="iqu-metric-sub">Since the start, live payments: monthly tuition and Summer, minus refunds</div>
         </div>
     </div>
 
@@ -1765,16 +1824,27 @@ class IQU_Admin
                 $d_days     = (int) ($row['days_per_week'] ?? 0);
                 ?>
 
-                <?php self::render_billing_alerts($row); ?>
+                <?php self::render_billing_alerts($row); self::render_left_item($row); // 3.7.9: "Left on <date>" (nothing otherwise) ?>
                 <?php self::render_free_month_item($row); ?>
 
-                <?php if (class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::course_missing($row)): $cmsg = sanitize_key($_GET['iqu_msg'] ?? ''); ?>
-                <div class="iqu-detail-item iqu-detail-full">
+                <?php
+                // 3.7.9: a legacy record (no course, billed at the old form's fee) gets the same form; locked while its billing runs
+                $c_legacy = class_exists('IQU_Billing_Pricing') && IQU_Billing_Pricing::is_legacy($row);
+                if (class_exists('IQU_Billing_Pricing') && (IQU_Billing_Pricing::course_missing($row) || $c_legacy)): $cmsg = sanitize_key($_GET['iqu_msg'] ?? ''); ?>
+                <div class="iqu-detail-item iqu-detail-full"<?php echo $c_legacy ? ' data-legacy-course' : ''; ?>>
                     <div class="iqu-detail-lbl">Course</div>
                     <div class="iqu-detail-val">
+                        <?php if ($c_legacy): $c_old = (float) IQU_Billing_Pricing::legacy_amount($row); ?>
+                        <span class="iqu-status-badge iqu-sb-pending">Legacy record</span>
+                        <small>Billed at the fee chosen at enrollment (<?php echo esc_html(IQU_Pricing::format($c_old)); ?> a month). Set the course to price it like other students; that fee is kept as the agreed fee.</small>
+                        <?php else: ?>
                         <span class="iqu-status-badge iqu-sb-pending" data-course-missing>Course missing</span>
                         <small>Billing cannot start until a course is set. Set it here, or choose it in Student Billing → Check and send.</small>
+                        <?php endif; ?>
                         <?php if ($cmsg === 'course_failed'): ?><p class="iqu-free-month-note" role="alert">The course could not be set. Choose a course and the classes a week.</p><?php endif; ?>
+                        <?php if ($c_legacy && self::billing_running((int) $row['id'])): ?>
+                        <p class="iqu-free-month-note"<?php echo $cmsg === 'course_locked' ? ' role="alert"' : ''; ?>>Monthly billing is already running in Stripe, so the course cannot be changed here.</p>
+                        <?php else: ?>
                         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-set-course-form">
                             <input type="hidden" name="action" value="iqu_set_course">
                             <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
@@ -1784,12 +1854,13 @@ class IQU_Admin
                                 <option value="">Choose course…</option>
                                 <?php foreach (IQU_Pricing::course_keys() as $ck): ?><option value="<?php echo esc_attr($ck); ?>"><?php echo esc_html(IQU_Pricing::label($ck)); ?></option><?php endforeach; ?>
                             </select>
-                            <?php if ((int) $row['days_per_week'] <= 0): ?>
+                            <?php if ($c_legacy || (int) $row['days_per_week'] <= 0): $c_days = $c_legacy ? (int) $row['days_per_week'] : 0; ?>
                                 <label class="screen-reader-text" for="iqu-set-days">Classes a week</label>
-                                <select id="iqu-set-days" name="days" required><option value="">Days…</option><?php for ($i = 1; $i <= 7; $i++): ?><option value="<?php echo $i; ?>"><?php echo $i; ?></option><?php endfor; ?></select>
+                                <select id="iqu-set-days" name="days" required><option value="">Days…</option><?php for ($i = 1; $i <= 7; $i++): ?><option value="<?php echo $i; ?>"<?php selected($c_days, $i); ?>><?php echo $i; ?></option><?php endfor; ?></select>
                             <?php endif; ?>
                             <button type="submit" class="iqu-action-btn iqu-action-btn--view">Set course</button>
                         </form>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php elseif (sanitize_key($_GET['iqu_msg'] ?? '') === 'course_set'): ?>

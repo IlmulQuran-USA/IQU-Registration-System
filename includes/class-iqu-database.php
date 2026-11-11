@@ -167,6 +167,9 @@ class IQU_Database
             billing_ended_at   DATETIME            NULL DEFAULT NULL,
             archived_at        DATETIME            NULL DEFAULT NULL,
             archived_by        BIGINT(20) UNSIGNED NULL DEFAULT NULL,
+            left_at            DATETIME            NULL DEFAULT NULL,
+            reenrolled_at      DATETIME            NULL DEFAULT NULL,
+            refunded_amount    DECIMAL(8,2)        NULL DEFAULT NULL,
             PRIMARY KEY        (id),
             KEY                email (email),
             KEY                form_type (form_type),
@@ -230,6 +233,9 @@ class IQU_Database
         self::maybe_migrate_column('billing_ended_at', 'DATETIME NULL DEFAULT NULL', self::OPT_BILLING_ENDED_AT);
         self::maybe_migrate_column('archived_at', 'DATETIME NULL DEFAULT NULL', self::OPT_ARCHIVED_AT);
         self::maybe_migrate_column('archived_by', 'BIGINT(20) UNSIGNED NULL DEFAULT NULL', self::OPT_ARCHIVED_BY);
+        self::maybe_migrate_column('left_at', 'DATETIME NULL DEFAULT NULL', self::OPT_LEFT_AT);                 // 3.7.9
+        self::maybe_migrate_column('reenrolled_at', 'DATETIME NULL DEFAULT NULL', self::OPT_REENROLLED_AT);     // 3.7.9
+        self::maybe_migrate_column('refunded_amount', 'DECIMAL(8,2) NULL DEFAULT NULL', self::OPT_REFUNDED_AMOUNT); // 3.7.9
     }
 
     /** Registration columns added in 3.3.0, with the definition used if dbDelta did not add one. */
@@ -567,6 +573,43 @@ class IQU_Database
         return $archived === true ? ' AND archived_at IS NOT NULL' : ' AND archived_at IS NULL';
     }
 
+    /** 3.7.9: set once left_at / reenrolled_at / refunded_amount exist: ['at', 'rows'] */
+    private const OPT_LEFT_AT         = 'iqu_left_at_migrated';
+    private const OPT_REENROLLED_AT   = 'iqu_reenrolled_at_migrated';
+    private const OPT_REFUNDED_AMOUNT = 'iqu_refunded_amount_migrated';
+
+    /** 3.7.9: "Left" (Student Billing) can be stored and read. */
+    public static function left_ready(): bool
+    {
+        return is_array(get_option(self::OPT_LEFT_AT));
+    }
+
+    /** 3.7.9: the re-enrollment date can be stored. */
+    public static function reenrolled_ready(): bool
+    {
+        return is_array(get_option(self::OPT_REENROLLED_AT));
+    }
+
+    /** 3.7.9: the amount refunded on a Summer Stripe payment can be stored. */
+    public static function refunded_amount_ready(): bool
+    {
+        return is_array(get_option(self::OPT_REFUNDED_AMOUNT));
+    }
+
+    /** 3.7.9: mark a registration Left (UTC 'Y-m-d H:i:s') or clear it (null). Nothing else changes. */
+    public static function set_left(int $id, ?string $utc): bool
+    {
+        global $wpdb;
+        if (!self::left_ready()) return false;
+        return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, ['left_at' => $utc], ['id' => $id], ['%s'], ['%d']);
+    }
+
+    /** 3.7.9: " AND left_at IS NULL" (alias optional) once the column exists, else ''. Constants only. */
+    public static function not_left_sql(string $alias = ''): string
+    {
+        return self::left_ready() ? ' AND ' . ($alias !== '' ? $alias . '.' : '') . 'left_at IS NULL' : '';
+    }
+
     /** Set once billing_ended_at exists (3.7.0): ['at', 'rows'] */
     private const OPT_BILLING_ENDED_AT = 'iqu_billing_ended_at_migrated';
 
@@ -861,19 +904,27 @@ class IQU_Database
      * with its price at that time. Days are set only when the record has none. Used when an
      * admin chooses the course while setting up billing. A record with a course is not changed.
      */
-    public static function fill_course(int $id, string $course, int $days, float $rate, float $amount): bool
+    public static function fill_course(int $id, string $course, int $days, float $rate, float $amount, bool $replace_days = false): bool
     {
         global $wpdb;
         $row = self::get_registration($id);
         if (!$row || !IQU_Pricing::is_valid_course($course) || IQU_Pricing::is_valid_course((string) $row['course_type'])) return false;
         $set = ['course_type' => $course, 'per_class_rate' => round($rate, 2), 'calculated_amount' => round($amount, 2)];
-        if ((int) $row['days_per_week'] <= 0 && $days > 0) $set['days_per_week'] = (string) $days;
+        // 3.7.9: a legacy record's days are chosen again with its course ($replace_days); otherwise only missing days are filled
+        if (($replace_days || (int) $row['days_per_week'] <= 0) && $days > 0) $set['days_per_week'] = (string) $days;
         // A fee agreed before the course was known becomes the reduction from the standard price
         // (never an increase), so the record prices the same way as Add existing student.
         if (isset($row['agreed_fee']) && $row['agreed_fee'] !== null && (float) $row['discount_amount'] <= 0) {
             $set['discount_amount'] = max(0.0, round($amount - (float) $row['agreed_fee'], 2));
         }
         return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, $set, ['id' => $id]);
+    }
+
+    /** 3.7.9: the monthly amount shown on the page and the lists (payment_amount), e.g. after a legacy record gets a course. */
+    public static function set_quoted_amount(int $id, float $amount): bool
+    {
+        global $wpdb;
+        return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, ['payment_amount' => round(max(0.0, $amount), 2)], ['id' => $id], ['%f'], ['%d']);
     }
 
     /** Add a review reason to a registration, keeping the ones it already has. */
@@ -907,6 +958,9 @@ class IQU_Database
         self::maybe_migrate_column('billing_ended_at', 'DATETIME NULL DEFAULT NULL', self::OPT_BILLING_ENDED_AT);
         self::maybe_migrate_column('archived_at', 'DATETIME NULL DEFAULT NULL', self::OPT_ARCHIVED_AT);
         self::maybe_migrate_column('archived_by', 'BIGINT(20) UNSIGNED NULL DEFAULT NULL', self::OPT_ARCHIVED_BY);
+        self::maybe_migrate_column('left_at', 'DATETIME NULL DEFAULT NULL', self::OPT_LEFT_AT);                 // 3.7.9
+        self::maybe_migrate_column('reenrolled_at', 'DATETIME NULL DEFAULT NULL', self::OPT_REENROLLED_AT);     // 3.7.9
+        self::maybe_migrate_column('refunded_amount', 'DECIMAL(8,2) NULL DEFAULT NULL', self::OPT_REFUNDED_AMOUNT); // 3.7.9
         // The forms ask for a date of birth from this version on; pages opened before it still send an age
         // (IQU_Validator::v_dob). The moment this version first ran, stored once.
         if (get_option(self::OPT_DOB_FORMS_SINCE) === false) add_option(self::OPT_DOB_FORMS_SINCE, time(), '', false);

@@ -282,6 +282,67 @@ final class IQU_Billing_Stop
         return 'Removed from billing' . ($ts ? ' · classes ' . ($ts > time() ? 'until ' : 'ended ') . self::day($ts) : '');
     }
 
+    // ------------------------------------------------------------
+    // 3.7.9: "Left" on Student Billing
+    // ------------------------------------------------------------
+
+    /**
+     * Mark a monthly student Left: they leave every billing place (Student Billing, Check and send, payment links, billing
+     * exports) and stay in their course list; their student page shows "Left on <date>". Their billing ends the existing
+     * way, never immediately:
+     *   - running Stripe billing: Remove from billing (other students stay billed) or Stop billing (the last student billed),
+     *     both at the end of the period already paid;
+     *   - a payment link sent but not used: alone on it → Cancel enrollment (the open Stripe page closed); with siblings →
+     *     the page closed, the student taken off the family's account, the amount priced again (the family needs the link again);
+     *   - not on billing: billing ends at the end of this month (as End scholarship), so the ledger stops from next month.
+     * If any of that fails, nothing is marked. Payments already received are not touched. $op: the form's one-time id.
+     */
+    public static function left(array $reg, string $reason, string $op): array
+    {
+        $id   = (int) $reg['id'];
+        $name = trim($reg['first_name'] . ' ' . $reg['last_name']);
+        if (!IQU_Database::left_ready()) return self::fail('Left cannot be saved yet (the database update is still running). Nothing was changed.');
+        if ((string) ($reg['left_at'] ?? '') !== '') return self::fail($name . ' is already marked Left.');
+        if ((string) ($reg['form_type'] ?? '') !== IQU_Database::FORM_FREE) return self::fail('Only monthly students can be marked Left here.');
+        if ($reason === '') return self::fail('Choose a reason (for "Other", a short text up to 200 characters).');
+
+        $acc   = IQU_Billing_DB::account_for_registration($id);
+        $ended = (string) ($reg['billing_ended_at'] ?? '') !== '';
+        $note  = '';
+        if ($acc && !$ended) {
+            if ((string) $acc['stripe_subscription_id'] !== '') {
+                $kind = self::kind($acc);
+                if ($kind === 'stop') {
+                    $pick = null;
+                    foreach (self::removable($acc) as $s) if ((int) $s['reg']['id'] === $id) $pick = $s;
+                    $r = $pick && !$pick['last'] ? self::remove_student($acc, $id, $reason, $op) : self::stop($acc, $reason, $op);
+                    if (!$r['ok']) return $r;
+                    $note = $r['message'];
+                } elseif ($kind === '' && !in_array((string) $acc['status'], ['canceled', 'ending'], true)) {
+                    return self::fail('The family\'s billing cannot be stopped from here in its current state. Nothing was changed.');
+                } // 'resume' (already set to stop) or ended: billing already ends at the period end
+            } elseif ((string) $acc['status'] !== 'canceled') {
+                $others = array_filter(self::open_members($acc), fn($r) => (int) $r['id'] !== $id);
+                if (!$others && self::kind($acc) === 'cancel_enrollment') {
+                    $r = self::cancel_enrollment($acc, $reason);
+                    if (!$r['ok']) return $r;
+                    $note = 'The unused payment link was closed. Nothing was charged.';
+                } else {
+                    if (!IQU_Billing_Service::expire_open_session($acc)) return self::fail('The family\'s payment page could not be closed. Nothing was changed; please try again in a minute.');
+                    IQU_Billing_DB::remove_member((int) $acc['id'], $id);
+                    IQU_Billing_Service::reprice_account((int) $acc['id']);
+                    IQU_Database::set_billing_ended($id, self::month_end_utc());
+                    $note = $others ? 'They were taken off the family\'s payment link and the amount was updated: send the family the payment link again.' : 'The unused payment link was closed.';
+                }
+            }
+        } elseif (!$acc && !$ended && IQU_Database::is_active_student($reg)) {
+            IQU_Database::set_billing_ended($id, self::month_end_utc()); // not on billing: ends with this month, as End scholarship
+        }
+        IQU_Database::set_left($id, current_time('mysql', true));
+        IQU_Billing_DB::log_action(['action' => 'left', 'account_id' => $acc ? (int) $acc['id'] : 0, 'registration_id' => $id, 'reason' => $reason]);
+        return ['ok' => true, 'message' => $name . ' is marked Left and no longer appears in billing.' . ($note !== '' ? ' ' . $note : '')];
+    }
+
     private static function fail(string $m): array
     {
         return ['ok' => false, 'message' => $m];

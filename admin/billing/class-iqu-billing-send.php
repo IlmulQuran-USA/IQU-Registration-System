@@ -98,6 +98,8 @@ class IQU_Billing_Send
         if (!current_user_can(self::CAP)) wp_die('You do not have permission to view this page.', 403);
 
         $ids     = self::ids_from($_GET);
+        // 3.7.9: students marked Left are not offered here (create_account refuses them too)
+        $ids     = array_values(array_filter($ids, function ($i) { $r = IQU_Database::get_registration($i); return $r && (string) ($r['left_at'] ?? '') === ''; }));
         $courses = array_map('sanitize_key', (array) ($_GET['course'] ?? []));
         $days    = array_map('absint', (array) ($_GET['days'] ?? []));
         $then    = ($_GET['then'] ?? '') === 'copy' ? 'copy' : 'email';
@@ -127,7 +129,7 @@ class IQU_Billing_Send
             "SELECT * FROM `{$table}` WHERE form_type = %s AND LOWER(email) = LOWER(%s) AND id <> %d ORDER BY id",
             IQU_Database::FORM_FREE, $main['email'], (int) $main['id']
         ), ARRAY_A) ?: [];
-        $siblings = array_values(array_filter($siblings, fn($s) => !IQU_Billing_DB::account_for_registration((int) $s['id'])));
+        $siblings = array_values(array_filter($siblings, fn($s) => (string) ($s['left_at'] ?? '') === '' && !IQU_Billing_DB::account_for_registration((int) $s['id'])));
 
         $rows = [];
         $total = 0.0; $ready = true; $types = []; $free = []; $paid = 0;

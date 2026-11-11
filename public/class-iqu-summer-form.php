@@ -781,7 +781,12 @@ class IQU_Summer_Form
         // Insert (with the visitor's marketing-cookie choice, for Meta server events)
         IQU_Submit_Guard::check_rate((string) $clean['email']);
         IQU_Pixel::record_consent($clean);
-        $reg_id = IQU_Database::insert_registration($clean);
+        // 3.7.9: the same student (name + email) at this level already has a record → it is updated, never doubled.
+        // A place already paid keeps its payment: only the details change, and no payment page is opened.
+        $match  = class_exists('IQU_Reenroll') ? IQU_Reenroll::find($clean) : null;
+        $saved  = class_exists('IQU_Reenroll') ? IQU_Reenroll::save($clean, $match) : ['id' => (int) IQU_Database::insert_registration($clean), 'mode' => 'new'];
+        if ($saved['mode'] === 'details') $pay = null;
+        $reg_id = $saved['id'];
         if (!$reg_id) {
             error_log('[IQU] Summer registration DB insert failed.');
             wp_send_json_error(['message' => 'Enrollment failed due to a server error. Please try again or contact us.', 'code' => 'db_error']);

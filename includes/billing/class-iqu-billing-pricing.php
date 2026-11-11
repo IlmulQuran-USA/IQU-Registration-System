@@ -38,6 +38,23 @@ class IQU_Billing_Pricing
         return (string) ($reg['course_type'] ?? '') !== '' || self::legacy_fee($reg) === null;
     }
 
+    /**
+     * 3.7.9: an older Enroll for Free record (no course recorded) billed at the fee chosen on the old form (fee_pref such as
+     * custom_25 or qaidah_50, or the old payment amount). course_missing() is false for it; the student page still lets an
+     * admin set its course and agreed fee.
+     */
+    public static function is_legacy(array $reg): bool
+    {
+        return in_array($reg['form_type'] ?? '', self::BILLABLE_FORMS, true) && (string) ($reg['course_type'] ?? '') === '' && self::legacy_fee($reg) !== null;
+    }
+
+    /** 3.7.9: the old form's monthly fee of a legacy record (see is_legacy()), or null. */
+    public static function legacy_amount(array $reg): ?float
+    {
+        $l = self::is_legacy($reg) ? self::legacy_fee($reg) : null;
+        return $l ? (float) $l['amount'] : null;
+    }
+
     /** The monthly fee agreed with the family (agreed_fee), or null when none was agreed. */
     /** Highest agreed monthly fee an admin can enter (a typo such as 3000 for 30, or 1e9, is refused). */
     public const AGREED_MAX = 5000.0;

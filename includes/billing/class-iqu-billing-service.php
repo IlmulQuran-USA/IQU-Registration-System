@@ -219,6 +219,7 @@ class IQU_Billing_Service
             $reg = IQU_Database::get_registration($id);
             if (!$reg) { $errors[] = "Enrollment #{$id} was not found."; continue; }
             $name = trim($reg['first_name'] . ' ' . $reg['last_name']);
+            if ((string) ($reg['left_at'] ?? '') !== '') { $errors[] = "{$name} is marked Left (Student Billing), so no payment link is made."; continue; } // 3.7.9
             if (IQU_Billing_DB::account_for_registration($id)) { $errors[] = "{$name} already has billing set up."; continue; }
             $p = IQU_Billing_Pricing::for_registration(
                 $reg,

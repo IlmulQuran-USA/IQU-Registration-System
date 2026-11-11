@@ -160,6 +160,36 @@ class IQU_Summer_Pay
     }
 
     // ------------------------------------------------------------
+    // Webhook: charge.refunded for a Summer payment (3.7.9)
+    // ------------------------------------------------------------
+
+    /**
+     * A refund on a Summer Stripe payment: the total refunded so far (Stripe's amount_refunded, in cents, which grows with
+     * each partial refund) is stored on the registration (refunded_amount), so Dashboard → Collected via Stripe can subtract
+     * it. Found by the payment intent saved when the place was paid. Idempotent (a replay stores the same total).
+     * Nothing else changes (status, payment status, emails). null = not a Summer payment (the event goes on as before).
+     * @return array{0:string,1:null,2:string}|null
+     */
+    public static function on_charge_refunded(array $charge): ?array
+    {
+        global $wpdb;
+        $pi = $charge['payment_intent'] ?? '';
+        $pi = is_array($pi) ? (string) ($pi['id'] ?? '') : (string) $pi;
+        if (!preg_match('/^pi_[A-Za-z0-9]+$/', $pi)) return null;
+        $id = (int) $wpdb->get_var($wpdb->prepare(
+            'SELECT id FROM ' . $wpdb->prefix . IQU_TABLE_NAME . ' WHERE transaction_id = %s AND payment_method = %s AND form_type IN (%s, %s) ORDER BY id DESC LIMIT 1',
+            $pi, 'stripe', IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2
+        ));
+        if (!$id) return null;
+        if (!IQU_Database::refunded_amount_ready()) throw new RuntimeException('refunded_amount column not ready'); // Stripe retries
+        $amount = round(max(0, (int) ($charge['amount_refunded'] ?? 0)) / 100, 2);
+        if (false === $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, ['refunded_amount' => $amount], ['id' => $id], ['%f'], ['%d'])) {
+            throw new RuntimeException('summer refund write failed');
+        }
+        return ['summer_refund', null, 'registration #' . $id . ' refunded ' . number_format($amount, 2, '.', '')];
+    }
+
+    // ------------------------------------------------------------
     // Webhook: checkout.session.completed with iqu_kind = summer
     // ------------------------------------------------------------
 

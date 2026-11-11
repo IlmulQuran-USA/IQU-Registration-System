@@ -801,3 +801,16 @@
     else B.init();
   }
 })(typeof window !== "undefined" ? window : this);
+// 3.7.9: "Left" on Student Billing — every row opens one shared dialog (admin.js opens it); fill in the student first.
+(function () {
+  "use strict";
+  if (typeof document === "undefined" || !document.addEventListener) return;
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest ? e.target.closest("[data-iqu-left]") : null;
+    var d = a ? document.getElementById(a.getAttribute("data-iqu-dialog")) : null;
+    if (!d) return;
+    var id = d.querySelector("input[name=registration]"), name = d.querySelector("[data-iqu-left-name]");
+    if (id) id.value = a.getAttribute("data-iqu-left");
+    if (name) name.textContent = a.getAttribute("data-iqu-left-name");
+  }, true);
+})();
