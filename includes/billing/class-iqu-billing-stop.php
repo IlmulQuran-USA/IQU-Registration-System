@@ -137,7 +137,20 @@ final class IQU_Billing_Stop
         if ((string) ($s['status'] ?? '') !== 'trialing' || !$end) $end = (int) ($s['items']['data'][0]['current_period_end'] ?? $s['current_period_end'] ?? 0);
         IQU_Billing_DB::update_account((int) $acc['id'], ['status' => IQU_Billing_Sync::status_from($s), 'ends_at' => null, 'next_charge_at' => $end ? gmdate('Y-m-d H:i:s', $end) : null]);
         IQU_Billing_DB::log_action(['action' => 'resume_billing', 'account_id' => (int) $acc['id'], 'amount' => (float) $acc['net_amount'], 'reason' => 'Billing resumed', 'stripe_ref' => $sub]);
-        return ['ok' => true, 'message' => 'Billing resumed. The next charge happens as before.'];
+        // 3.7.10: a student marked Left whose family billing is resumed is charged again: Left is cleared (and logged), so they
+        // are never hidden from Student Billing while being charged. Students removed from the account earlier stay as they are.
+        $back = [];
+        if (IQU_Database::left_ready()) {
+            $removed = self::removed($acc);
+            foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
+                $r = IQU_Database::get_registration((int) $m['registration_id']);
+                if (!$r || (string) ($r['left_at'] ?? '') === '' || isset($removed[(int) $r['id']]) || (string) ($r['billing_ended_at'] ?? '') !== '') continue;
+                IQU_Database::set_left((int) $r['id'], null);
+                IQU_Billing_DB::log_action(['action' => 'return_to_billing', 'account_id' => (int) $acc['id'], 'registration_id' => (int) $r['id'], 'reason' => 'Billing resumed']);
+                $back[] = trim($r['first_name'] . ' ' . $r['last_name']);
+            }
+        }
+        return ['ok' => true, 'message' => 'Billing resumed. The next charge happens as before.' . ($back ? ' ' . implode(', ', $back) . (count($back) === 1 ? ' is' : ' are') . ' no longer marked Left.' : '')];
     }
 
     /** No subscription yet: close the open Checkout page, cancel the registrations now. No subscription call. */
@@ -341,6 +354,46 @@ final class IQU_Billing_Stop
         IQU_Database::set_left($id, current_time('mysql', true));
         IQU_Billing_DB::log_action(['action' => 'left', 'account_id' => $acc ? (int) $acc['id'] : 0, 'registration_id' => $id, 'reason' => $reason]);
         return ['ok' => true, 'message' => $name . ' is marked Left and no longer appears in billing.' . ($note !== '' ? ' ' . $note : '')];
+    }
+
+    // ------------------------------------------------------------
+    // 3.7.10: "Return to billing" (undo Left) on the student page
+    // ------------------------------------------------------------
+
+    /**
+     * While the family's billing is still ending (Stop billing, end date not reached), Return to billing is not offered:
+     * the end of that period as a timestamp; 0 = it can be offered. (Before the end date, "Resume billing" on the family
+     * page undoes the stop, and clears Left for the students it charges again.)
+     */
+    public static function return_blocked_until(array $reg): int
+    {
+        $acc = IQU_Billing_DB::account_for_registration((int) $reg['id']);
+        if (!$acc || (string) $acc['status'] !== 'ending') return 0;
+        $ends = self::ends_ts($acc);
+        return $ends > time() ? $ends : 0;
+    }
+
+    /**
+     * Undo Left: the student is active again (Enrolled, no billing end date) and shows in Student Billing as Not set up,
+     * so a new payment link can be sent. Like a returning student: an existing student (no second free month), and taken
+     * off a billing account whose billing has ended for them, as re-enrollment does (IQU_Reenroll::detach_ended).
+     * Logged as 'return_to_billing' (who, when). Not while the family's billing is still ending.
+     */
+    public static function return_to_billing(array $reg): array
+    {
+        $id   = (int) $reg['id'];
+        $name = trim($reg['first_name'] . ' ' . $reg['last_name']);
+        if (!IQU_Database::left_ready() || (string) ($reg['left_at'] ?? '') === '') return self::fail($name . ' is not marked Left.');
+        if ((string) ($reg['form_type'] ?? '') !== IQU_Database::FORM_FREE) return self::fail('Only monthly students can be returned to billing here.');
+        if ($until = self::return_blocked_until($reg)) return self::fail('Return to billing is possible after ' . self::day($until) . ', when the family\'s billing has ended.');
+        $acc = IQU_Billing_DB::account_for_registration($id);
+        if (class_exists('IQU_Reenroll')) IQU_Reenroll::detach_ended($id, 'Returned to billing', get_current_user_id());
+        IQU_Database::set_left($id, null);
+        IQU_Database::set_billing_ended($id, null);
+        IQU_Database::set_status($id, 'enrolled');
+        IQU_Database::set_existing_student($id, true); // no second free month
+        IQU_Billing_DB::log_action(['action' => 'return_to_billing', 'account_id' => $acc ? (int) $acc['id'] : 0, 'registration_id' => $id, 'reason' => 'Returned to billing']);
+        return ['ok' => true, 'message' => $name . ' is back in billing: Student Billing shows them as Not set up, so a new payment link can be sent (no free month).'];
     }
 
     private static function fail(string $m): array

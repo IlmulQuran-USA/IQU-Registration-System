@@ -114,9 +114,10 @@ final class IQU_Reenroll
     /**
      * Enroll for Free: take the student off a billing account (this mode) on which their billing has ended — the account
      * ended (canceled), or they were removed from it (Remove from billing) — so a new payment link can be sent.
-     * The old account keeps its invoices. Logged as "detached".
+     * The old account keeps its invoices. Logged as "detached". 3.7.10: also used by "Return to billing" (its own reason
+     * and the admin who did it).
      */
-    private static function detach_ended(int $id): void
+    public static function detach_ended(int $id, string $reason = 'Re-enrolled on the website', int $user_id = 0): void
     {
         if (!class_exists('IQU_Billing_DB')) return;
         $acc = IQU_Billing_DB::account_for_registration($id);
@@ -125,7 +126,7 @@ final class IQU_Reenroll
         foreach (IQU_Billing_DB::actions_for_account((int) $acc['id'], 'remove_student') as $a) if ((int) $a['registration_id'] === $id) $removed = true;
         if ((string) $acc['status'] !== 'canceled' && !$removed) return;
         if (!IQU_Billing_DB::remove_member((int) $acc['id'], $id)) return;
-        IQU_Billing_DB::log_action(['action' => 'detached', 'account_id' => (int) $acc['id'], 'registration_id' => $id, 'reason' => 'Re-enrolled on the website', 'user_id' => 0]);
+        IQU_Billing_DB::log_action(['action' => 'detached', 'account_id' => (int) $acc['id'], 'registration_id' => $id, 'reason' => $reason, 'user_id' => $user_id]);
     }
 
     /** One Telegram line for the team (besides the usual new-enrollment notice, which carries the same IQU number). */

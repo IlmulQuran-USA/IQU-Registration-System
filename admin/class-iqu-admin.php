@@ -263,11 +263,16 @@ class IQU_Admin
   /** 3.7.9: "Left on <date>" on the student page of a student marked Left on Student Billing; nothing otherwise. */
   private static function render_left_item(array $row): void
   {
-    if ((string) ($row['left_at'] ?? '') === '') return;
+    // 3.7.10: the result of "Return to billing" (once); printed even though Left is now cleared
+    $back = class_exists('IQU_Billing_Stop_Admin') ? IQU_Billing_Stop_Admin::return_notice() : '';
+    if ((string) ($row['left_at'] ?? '') === '') {
+      if ($back !== '') echo '<div class="iqu-detail-item iqu-detail-full"><div class="iqu-detail-val">' . $back . '</div></div>'; // escaped inside
+      return;
+    }
     ?>
                 <div class="iqu-detail-item iqu-detail-full" data-iqu-left-on>
                     <div class="iqu-detail-lbl">Billing</div>
-                    <div class="iqu-detail-val"><span class="iqu-status-badge iqu-sb-cancelled">Left on <?php echo esc_html(wp_date('M j, Y', (int) strtotime($row['left_at'] . ' UTC'))); ?></span></div>
+                    <div class="iqu-detail-val"><span class="iqu-status-badge iqu-sb-cancelled">Left on <?php echo esc_html(wp_date('M j, Y', (int) strtotime($row['left_at'] . ' UTC'))); ?></span><?php echo class_exists('IQU_Billing_Stop_Admin') ? ' ' . IQU_Billing_Stop_Admin::return_controls($row) . $back : ''; // 3.7.10; escaped inside ?></div>
                 </div>
     <?php
   }

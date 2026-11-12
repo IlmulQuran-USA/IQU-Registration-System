@@ -28,6 +28,7 @@ final class IQU_Billing_Stop_Admin
         add_action('admin_post_' . self::A_STOP, [__CLASS__, 'handle']);
         add_action('admin_post_' . self::A_REG, [__CLASS__, 'handle_registration']);
         add_action('admin_post_' . self::A_LEFT, [__CLASS__, 'handle_left']); // 3.7.9
+        add_action('admin_post_' . self::A_RETURN, [__CLASS__, 'handle_return']); // 3.7.10
     }
 
     // ------------------------------------------------------------
@@ -208,6 +209,61 @@ final class IQU_Billing_Stop_Admin
             : ($op === '' ? ['ok' => false, 'message' => 'This page was out of date, so nothing was changed.'] : IQU_Billing_Stop::left($reg, self::posted_reason(), $op));
         set_transient('iqu_left_notice_' . get_current_user_id(), $r, 120);
         wp_safe_redirect(admin_url('admin.php?page=' . IQU_Billing_Page::SLUG));
+        exit;
+    }
+
+    // ------------------------------------------------------------
+    // 3.7.10: "Return to billing" (undo Left) on the student page
+    // ------------------------------------------------------------
+
+    public const A_RETURN = 'iqu_billing_return';
+
+    /**
+     * Next to "Left on <date>": the "Return to billing" button with its confirm dialog (same permission as Left; without
+     * JavaScript, ?iqu_confirm=return shows the dialog open). While the family's billing is still ending: a note instead.
+     */
+    public static function return_controls(array $reg): string
+    {
+        if (!current_user_can(self::CAP) || !IQU_Database::left_ready() || (string) ($reg['left_at'] ?? '') === '') return '';
+        $id = (int) $reg['id'];
+        if ($until = IQU_Billing_Stop::return_blocked_until($reg)) {
+            return '<p class="iqu-free-month-note" data-iqu-return-later>Return to billing is possible after ' . esc_html(IQU_Billing_Stop::day($until)) . ', when the family\'s billing has ended.</p>';
+        }
+        $d    = 'iqu-return-reg-' . $id;
+        $open = sanitize_key((string) ($_GET['iqu_confirm'] ?? '')) === 'return';
+        $name = trim($reg['first_name'] . ' ' . $reg['last_name']);
+        return '<a class="iqu-action-btn iqu-action-btn--view" href="' . esc_url(add_query_arg('iqu_confirm', 'return', admin_url('admin.php?page=iqu-view-registration&id=' . $id))) . '" data-iqu-dialog="' . $d . '">Return to billing</a>'
+            . '<dialog class="iqu-modal" id="' . $d . '" aria-labelledby="' . $d . '-t"' . ($open ? ' open' : '') . '>'
+            . '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" class="iqu-modal-form">'
+            . '<h2 class="iqu-modal-title" id="' . $d . '-t">Return ' . esc_html($name) . ' to billing</h2>'
+            . '<p class="iqu-modal-text">Left is cleared and they are an enrolled student again. Student Billing shows them as Not set up, so a new payment link can be sent. As a returning student, there is no free month.</p>'
+            . '<input type="hidden" name="action" value="' . self::A_RETURN . '">'
+            . '<input type="hidden" name="id" value="' . $id . '">'
+            . wp_nonce_field(self::A_RETURN . '_' . $id, '_wpnonce', true, false)
+            . '<div class="iqu-modal-actions">'
+            . '<button type="submit" class="iqu-btn iqu-btn--primary">Return to billing</button>'
+            . '<button type="submit" formmethod="dialog" formnovalidate value="cancel" class="iqu-btn iqu-btn--secondary">Keep Left</button>'
+            . '</div></form></dialog>';
+    }
+
+    /** The result of the last Return to billing (once), for the student page. */
+    public static function return_notice(): string
+    {
+        $n = get_transient('iqu_return_notice_' . get_current_user_id());
+        if (!$n) return '';
+        delete_transient('iqu_return_notice_' . get_current_user_id());
+        return '<p class="iqu-free-month-note" role="' . (!empty($n['ok']) ? 'status' : 'alert') . '" data-iqu-return-notice>' . esc_html((string) $n['message']) . '</p>';
+    }
+
+    public static function handle_return(): void
+    {
+        $id = absint($_POST['id'] ?? 0);
+        if (!current_user_can(self::CAP)) wp_die('You do not have permission to do this.', 403);
+        check_admin_referer(self::A_RETURN . '_' . $id);
+        $reg = $id ? IQU_Database::get_registration($id) : null;
+        if (!$reg) wp_die('Student not found.', 404);
+        set_transient('iqu_return_notice_' . get_current_user_id(), IQU_Billing_Stop::return_to_billing($reg), 120);
+        wp_safe_redirect(admin_url('admin.php?page=iqu-view-registration&id=' . $id));
         exit;
     }
 
