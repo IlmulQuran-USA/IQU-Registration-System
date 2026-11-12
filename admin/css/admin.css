@@ -1778,6 +1778,23 @@ button.iqu-perpage-btn,
   vertical-align: middle;
 }
 
+/* 3.7.11: the Fee preference pill of Recent Submissions — Received / Free month / Payment failed (Pending as above) */
+.iqu-free-pending-badge--received {
+  background: #e6f5ec;
+  color: var(--iqu-green);
+  border-color: #b7e1c5;
+}
+.iqu-free-pending-badge--free {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+.iqu-free-pending-badge--failed {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
 /* ═════════════════════════════════════════════════════════════
  * IQU Admin — Coupon pages (v2.8.0)
  *

@@ -132,7 +132,7 @@
             datasets: [
               {
                 data: cd.revenue.data,
-                backgroundColor: ["#aed4ff", "#a9ffd2", "#ffeeb0"],
+                backgroundColor: ["#aed4ff", "#a9ffd2", "#ffeeb0", "#c7f0ef"], // 3.7.11: a 4th (Weekend), only with Stripe payments
                 borderWidth: 3,
                 borderColor: "#ffffff",
                 hoverBorderColor: "#ffffff",

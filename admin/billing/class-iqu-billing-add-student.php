@@ -404,6 +404,8 @@ class IQU_Billing_Add_Student
             'per_class_rate'     => $calc ? (float) $calc['per_class_rate'] : 0.0, // 0 while the course is missing
             'calculated_amount'  => $gross,
             'discount_amount'    => $discount,
+            // 3.7.11: the monthly amount the lists show (Recent Submissions): the standard fee, or the agreed fee (it was left 0)
+            'payment_amount'     => $agreed !== null && !$course_missing ? $agreed : round($gross - $discount, 2),
             'zakat_declaration'  => !empty($in['zakat']) ? 1 : 0,
             'special_discount'   => 0,
             'flexible_fee_note'  => !empty($in['use_agreed']) ? substr('Agreed monthly fee ' . IQU_Pricing::format($agreed ?? ($gross - $discount)), 0, 300) : '',

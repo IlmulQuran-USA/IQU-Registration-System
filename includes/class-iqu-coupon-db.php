@@ -399,6 +399,13 @@ class IQU_Coupon_DB
      *
      * @return bool  সফলভাবে রিডিম হলে true
      */
+    /** 3.7.11: one use back (a coupon removed from a student on the student page); never below 0. */
+    public static function release(int $id): bool
+    {
+        global $wpdb;
+        return (bool) $wpdb->query($wpdb->prepare('UPDATE `' . self::table() . '` SET `used_count` = `used_count` - 1 WHERE `id` = %d AND `used_count` > 0', $id));
+    }
+
     public static function redeem(int $id): bool
     {
         global $wpdb;

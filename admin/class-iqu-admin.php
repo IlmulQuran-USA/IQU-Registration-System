@@ -62,6 +62,9 @@ class IQU_Admin
     add_action('admin_post_iqu_set_existing_student', [$this, 'handle_set_existing_student']);
     add_action('admin_post_iqu_set_course', [$this, 'handle_set_course']);
     add_action('admin_post_iqu_set_agreed_fee', [$this, 'handle_set_agreed_fee']);
+    add_action('admin_post_iqu_change_course', [$this, 'handle_change_course']);    // 3.7.11
+    add_action('admin_post_iqu_apply_coupon_admin', [$this, 'handle_apply_coupon']); // 3.7.11
+    add_action('admin_post_iqu_remove_coupon', [$this, 'handle_remove_coupon']);    // 3.7.11
     add_action('admin_post_iqu_billing_review_done', [$this, 'handle_billing_review_done']);
     // a list longer than IQU_Pager::LOCAL_MAX: its table card alone, for live search and paging
     IQU_Pager::remote('iqu-list', [$this, 'list_region_from_request']);
@@ -113,7 +116,7 @@ class IQU_Admin
         $ok = IQU_Database::fill_course($id, $course, $days, (float) $calc['per_class_rate'], (float) $calc['monthly_amount'], $legacy);
         if ($ok && $old !== null) $ok = IQU_Database::set_agreed_fee($id, $old);
         // legacy: the page and the lists show the amount now billed (as for a student from the form)
-        if ($ok && $legacy && ($now = IQU_Database::get_registration($id))) IQU_Database::set_quoted_amount($id, (float) IQU_Billing_Pricing::for_registration($now)['net']);
+        if ($ok && ($now = IQU_Database::get_registration($id))) IQU_Database::set_quoted_amount($id, (float) IQU_Billing_Pricing::for_registration($now)['net']); // 3.7.11: every row
         return $ok;
       };
       if (!empty($calc['valid']) && (class_exists('IQU_Billing_Service') ? IQU_Billing_Service::change_amount($id, $fill) : $fill())) {
@@ -142,11 +145,13 @@ class IQU_Admin
     } elseif ($acc && !empty($acc['stripe_subscription_id'])) {
       $msg = 'fee_locked';
     } elseif (!empty($_POST['clear'])) {
-      $msg = IQU_Billing_Service::change_amount($id, fn() => IQU_Database::set_agreed_fee($id, null)) ? 'fee_cleared' : 'fee_failed';
+      $msg = IQU_Billing_Service::change_amount($id, fn() => IQU_Database::set_agreed_fee($id, null) && (self::sync_quoted_amount($id) || true)) ? 'fee_cleared' : 'fee_failed';
+    } elseif ((string) $row['coupon_code'] !== '' || (int) $row['coupon_id'] > 0) {
+      $msg = 'fee_coupon'; // 3.7.11: one at a time — remove the coupon first
     } elseif (!preg_match('/^\d+(\.\d{1,2})?$/', $raw) || (float) $raw > IQU_Billing_Pricing::AGREED_MAX) {
       $msg = 'fee_invalid'; // empty, negative, not a number, or more than the cap
     } else {
-      $msg = IQU_Billing_Service::change_amount($id, fn() => IQU_Database::set_agreed_fee($id, (float) $raw)) ? 'fee_saved' : 'fee_failed';
+      $msg = IQU_Billing_Service::change_amount($id, fn() => IQU_Database::set_agreed_fee($id, (float) $raw) && (self::sync_quoted_amount($id) || true)) ? 'fee_saved' : 'fee_failed';
     }
     // (change_amount() closed the open Checkout page first and priced the account again.)
     wp_safe_redirect(add_query_arg(['page' => 'iqu-view-registration', 'id' => $id, 'iqu_msg' => $msg], admin_url('admin.php')));
@@ -158,6 +163,229 @@ class IQU_Admin
   {
     $acc = class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
     return $acc && !empty($acc['stripe_subscription_id']);
+  }
+
+  // ────────────────────────────────────────────────────
+  // 3.7.11: course, coupon and the amount shown — student page, while monthly billing is not running
+  // ────────────────────────────────────────────────────
+
+  /** The amount shown on the page and the lists (payment_amount) = what is billed now (IQU_Billing_Pricing net). */
+  private static function sync_quoted_amount(int $id): void
+  {
+    $row = IQU_Database::get_registration($id);
+    if ($row && class_exists('IQU_Billing_Pricing') && !IQU_Billing_Pricing::course_missing($row)) {
+      IQU_Database::set_quoted_amount($id, (float) IQU_Billing_Pricing::for_registration($row)['net']);
+    }
+  }
+
+  /** The coupon applied to a registration (by id, else by code), or null. */
+  private static function applied_coupon(array $row): ?array
+  {
+    if ((string) ($row['coupon_code'] ?? '') === '' && (int) ($row['coupon_id'] ?? 0) <= 0) return null;
+    $c = (int) ($row['coupon_id'] ?? 0) > 0 ? IQU_Coupon_DB::get((int) $row['coupon_id']) : null;
+    return $c ?: IQU_Coupon_DB::get_by_code((string) $row['coupon_code']);
+  }
+
+  /** Active coupons of the Coupon List that apply to a course (all courses, or that one). */
+  private static function coupons_for_course(string $course): array
+  {
+    $out = [];
+    foreach ((array) (IQU_Coupon_DB::get_coupons(['state' => IQU_Coupon::STATE_ACTIVE, 'per_page' => 500])['items'] ?? []) as $c) {
+      if (IQU_Coupon::effective_status($c) !== IQU_Coupon::STATE_ACTIVE) continue;
+      if ((string) $c['course_type'] !== '' && (string) $c['course_type'] !== $course) continue;
+      $out[] = $c;
+    }
+    return $out;
+  }
+
+  private static function back_to_student(int $id, string $msg): void
+  {
+    wp_safe_redirect(add_query_arg(['page' => 'iqu-view-registration', 'id' => $id, 'iqu_msg' => $msg], admin_url('admin.php')));
+    exit;
+  }
+
+  /**
+   * Change the course and classes a week of a student who has a course (the "Set course" form serves missing and legacy
+   * ones). The standard price comes from the normal pricing; an agreed fee stays (its reduction against the new price),
+   * an applied coupon is recalculated on the new price if it applies to the new course (else refused), a special plan is
+   * recalculated if it applies (else refused). Then the amount shown = what is billed.
+   */
+  public function handle_change_course(): void
+  {
+    if (!current_user_can('manage_options')) wp_die('Permission denied.', 403);
+    $id = absint($_POST['id'] ?? 0);
+    check_admin_referer('iqu_change_course_' . $id);
+    $row    = $id ? IQU_Database::get_registration($id) : null;
+    $course = sanitize_key($_POST['course'] ?? '');
+    $days   = absint($_POST['days'] ?? 0);
+    if (!$row || $row['form_type'] !== IQU_Database::FORM_FREE || !IQU_Pricing::is_valid_course((string) $row['course_type'])) self::back_to_student($id, 'course_failed');
+    if (self::billing_running($id)) self::back_to_student($id, 'course_locked');
+    $calc = IQU_Pricing::is_valid_course($course) ? IQU_Pricing::calculate($course, $days) : ['valid' => false];
+    if (empty($calc['valid'])) self::back_to_student($id, 'course_failed');
+    $std  = round((float) $calc['monthly_amount'], 2);
+    $set  = ['course_type' => $course, 'days_per_week' => (string) $days, 'per_class_rate' => round((float) $calc['per_class_rate'], 2), 'calculated_amount' => $std, 'discount_amount' => 0.0];
+    $agreed = class_exists('IQU_Billing_Pricing') ? IQU_Billing_Pricing::agreed_fee($row) : null;
+    if ($agreed !== null) {
+      $set['discount_amount'] = max(0.0, round($std - $agreed, 2));
+    } elseif ((string) ($row['coupon_code'] ?? '') !== '' || (int) ($row['coupon_id'] ?? 0) > 0) {
+      $c = self::applied_coupon($row);
+      if (!$c || ((string) $c['course_type'] !== '' && (string) $c['course_type'] !== $course)) {
+        set_transient('iqu_course_note_' . get_current_user_id(), $c ? 'This coupon is for ' . IQU_Pricing::label((string) $c['course_type']) . ' only. Remove the coupon first.' : 'The coupon on this record no longer exists. Remove the coupon first.', 120);
+        self::back_to_student($id, 'course_coupon');
+      }
+      $set['discount_amount'] = IQU_Coupon::discount_for($c, $std)[1];
+    } elseif (!empty($row['special_discount'])) {
+      $sp = IQU_Pricing::calculate_special($course, $days);
+      if (empty($sp['valid'])) {
+        set_transient('iqu_course_note_' . get_current_user_id(), (string) ($sp['error'] ?: 'The special discount does not apply to this course and classes a week.'), 120);
+        self::back_to_student($id, 'course_special');
+      }
+      $set['discount_amount'] = round((float) $sp['discount_amount'], 2);
+    }
+    $ok = class_exists('IQU_Billing_Service')
+      ? IQU_Billing_Service::change_amount($id, function () use ($id, $set) { $ok = IQU_Database::set_fee_fields($id, $set); if ($ok) self::sync_quoted_amount($id); return $ok; })
+      : IQU_Database::set_fee_fields($id, $set);
+    self::back_to_student($id, $ok ? 'course_changed' : 'course_failed');
+  }
+
+  /**
+   * Apply an active coupon of the Coupon List (matching the course) to a student, as on the public form: the coupon's own
+   * rules on the standard price (IQU_Coupon::validate), used_count + 1 (redeem, which also refuses a coupon used up a
+   * moment ago). Not with an agreed fee or the special discount (one discount at a time). The family never sees the code.
+   */
+  public function handle_apply_coupon(): void
+  {
+    if (!current_user_can('manage_options')) wp_die('Permission denied.', 403);
+    $id = absint($_POST['id'] ?? 0);
+    check_admin_referer('iqu_apply_coupon_' . $id);
+    $row = $id ? IQU_Database::get_registration($id) : null;
+    if (!$row || $row['form_type'] !== IQU_Database::FORM_FREE || !IQU_Pricing::is_valid_course((string) $row['course_type'])) self::back_to_student($id, 'coupon_failed');
+    if (self::billing_running($id)) self::back_to_student($id, 'coupon_locked');
+    if (IQU_Billing_Pricing::agreed_fee($row) !== null) self::back_to_student($id, 'coupon_agreed');
+    if (!empty($row['special_discount'])) self::back_to_student($id, 'coupon_special');
+    if ((string) $row['coupon_code'] !== '' || (int) $row['coupon_id'] > 0) self::back_to_student($id, 'coupon_failed');
+    $coupon = IQU_Coupon_DB::get(absint($_POST['coupon_id'] ?? 0));
+    $calc   = IQU_Pricing::calculate((string) $row['course_type'], (int) $row['days_per_week']);
+    $v      = $coupon ? IQU_Coupon::validate((string) $coupon['code'], (string) $row['course_type'], (float) ($calc['monthly_amount'] ?? 0)) : ['valid' => false, 'error' => 'Choose a coupon.'];
+    if (empty($v['valid'])) { set_transient('iqu_coupon_note_' . get_current_user_id(), (string) $v['error'], 120); self::back_to_student($id, 'coupon_invalid'); }
+    if (!IQU_Coupon_DB::redeem((int) $v['coupon_id'])) { set_transient('iqu_coupon_note_' . get_current_user_id(), 'This coupon code has already been used. Please contact us for a new one.', 120); self::back_to_student($id, 'coupon_invalid'); }
+    $set = ['coupon_code' => (string) $v['code'], 'coupon_id' => (int) $v['coupon_id'], 'calculated_amount' => round((float) $calc['monthly_amount'], 2),
+      'per_class_rate' => round((float) $calc['per_class_rate'], 2), 'discount_amount' => (float) $v['discount_amount'], 'payment_amount' => (float) $v['final_amount']];
+    $ok = IQU_Billing_Service::change_amount($id, function () use ($id, $set) { $ok = IQU_Database::set_fee_fields($id, $set); if ($ok) self::sync_quoted_amount($id); return $ok; });
+    if (!$ok) IQU_Coupon_DB::release((int) $v['coupon_id']); // nothing saved: the use goes back
+    self::back_to_student($id, $ok ? 'coupon_applied' : 'coupon_failed');
+  }
+
+  /** Remove the coupon: no discount, the standard price again; used_count − 1. */
+  public function handle_remove_coupon(): void
+  {
+    if (!current_user_can('manage_options')) wp_die('Permission denied.', 403);
+    $id = absint($_POST['id'] ?? 0);
+    check_admin_referer('iqu_remove_coupon_' . $id);
+    $row = $id ? IQU_Database::get_registration($id) : null;
+    if (!$row || $row['form_type'] !== IQU_Database::FORM_FREE || ((string) $row['coupon_code'] === '' && (int) $row['coupon_id'] <= 0)) self::back_to_student($id, 'coupon_failed');
+    if (self::billing_running($id)) self::back_to_student($id, 'coupon_locked');
+    $c  = self::applied_coupon($row);
+    $ok = IQU_Billing_Service::change_amount($id, function () use ($id) {
+      $ok = IQU_Database::set_fee_fields($id, ['coupon_code' => '', 'coupon_id' => 0, 'discount_amount' => 0.0]);
+      if ($ok) self::sync_quoted_amount($id);
+      return $ok;
+    });
+    if ($ok && $c) IQU_Coupon_DB::release((int) $c['id']);
+    self::back_to_student($id, $ok ? 'coupon_removed' : 'coupon_failed');
+  }
+
+  /** "Change course" (a student with a course, billing not running) — the "Set course" form serves missing and legacy ones. */
+  private static function render_course_change_item(array $row): void
+  {
+    if ($row['form_type'] !== IQU_Database::FORM_FREE || !class_exists('IQU_Billing_Pricing') || !IQU_Pricing::is_valid_course((string) $row['course_type'])) return;
+    $id  = (int) $row['id'];
+    $msg = sanitize_key($_GET['iqu_msg'] ?? '');
+    $note = in_array($msg, ['course_coupon', 'course_special'], true) ? (string) get_transient('iqu_course_note_' . get_current_user_id()) : '';
+    if ($note !== '') delete_transient('iqu_course_note_' . get_current_user_id());
+    $texts = ['course_changed' => ['status', 'Course saved. The monthly amount was recalculated.'], 'course_failed' => ['alert', 'The course could not be changed. Choose a course and the classes a week.'],
+      'course_locked' => ['alert', 'Monthly billing is already running in Stripe, so the course cannot be changed here.'], 'course_coupon' => ['alert', $note], 'course_special' => ['alert', $note]];
+    ?>
+                <div class="iqu-detail-item iqu-detail-full" data-iqu-change-course>
+                    <div class="iqu-detail-lbl">Change course</div>
+                    <div class="iqu-detail-val">
+                        <?php if (isset($texts[$msg]) && $texts[$msg][1] !== ''): ?><p class="iqu-free-month-note" role="<?php echo esc_attr($texts[$msg][0]); ?>"><?php echo esc_html($texts[$msg][1]); ?></p><?php endif; ?>
+                        <?php if (self::billing_running($id)): ?>
+                        <p class="iqu-free-month-note">Monthly billing is already running in Stripe, so the course cannot be changed here.</p>
+                        <?php else: ?>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-set-course-form">
+                            <input type="hidden" name="action" value="iqu_change_course">
+                            <input type="hidden" name="id" value="<?php echo $id; ?>">
+                            <?php wp_nonce_field('iqu_change_course_' . $id); ?>
+                            <label class="screen-reader-text" for="iqu-change-course">Course</label>
+                            <select id="iqu-change-course" name="course" required>
+                                <?php foreach (IQU_Pricing::course_keys() as $ck): ?><option value="<?php echo esc_attr($ck); ?>"<?php selected((string) $row['course_type'], $ck); ?>><?php echo esc_html(IQU_Pricing::label($ck)); ?></option><?php endforeach; ?>
+                            </select>
+                            <label class="screen-reader-text" for="iqu-change-days">Classes a week</label>
+                            <select id="iqu-change-days" name="days" required><?php for ($i = 1; $i <= 7; $i++): ?><option value="<?php echo $i; ?>"<?php selected((int) $row['days_per_week'], $i); ?>><?php echo $i; ?></option><?php endfor; ?></select>
+                            <button type="submit" class="iqu-action-btn iqu-action-btn--view">Save course</button>
+                        </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+    <?php
+  }
+
+  /** "Coupon": the applied coupon with "Remove coupon", or the active coupons for the course with "Apply coupon". */
+  private static function render_coupon_item(array $row): void
+  {
+    if ($row['form_type'] !== IQU_Database::FORM_FREE || !class_exists('IQU_Billing_Pricing') || !IQU_Pricing::is_valid_course((string) $row['course_type'])) return;
+    $id  = (int) $row['id'];
+    $msg = sanitize_key($_GET['iqu_msg'] ?? '');
+    $note = $msg === 'coupon_invalid' ? (string) get_transient('iqu_coupon_note_' . get_current_user_id()) : '';
+    if ($note !== '') delete_transient('iqu_coupon_note_' . get_current_user_id());
+    $texts = ['coupon_applied' => ['status', 'Coupon applied. The monthly amount was recalculated.'], 'coupon_removed' => ['status', 'Coupon removed: the standard fee applies again.'],
+      'coupon_failed' => ['alert', 'The coupon could not be changed.'], 'coupon_locked' => ['alert', 'Monthly billing is already running in Stripe, so the coupon cannot be changed here.'],
+      'coupon_agreed' => ['alert', 'A coupon cannot be applied while an agreed fee is set. Clear the agreed fee first.'],
+      'coupon_special' => ['alert', 'A coupon cannot be combined with the special discount.'], 'coupon_invalid' => ['alert', $note]];
+    $c       = self::applied_coupon($row);
+    $running = self::billing_running($id);
+    ?>
+                <div class="iqu-detail-item iqu-detail-full" data-iqu-coupon>
+                    <div class="iqu-detail-lbl">Coupon</div>
+                    <div class="iqu-detail-val">
+                        <?php if ((string) $row['coupon_code'] !== ''): ?>
+                        <strong><?php echo esc_html((string) $row['coupon_code']); ?></strong> · −<?php echo esc_html(IQU_Pricing::format((float) $row['discount_amount'])); ?> a month
+                        <?php else: ?>
+                        <strong>None</strong>
+                        <?php endif; ?>
+                        <?php if (isset($texts[$msg]) && $texts[$msg][1] !== ''): ?><p class="iqu-free-month-note" role="<?php echo esc_attr($texts[$msg][0]); ?>"><?php echo esc_html($texts[$msg][1]); ?></p><?php endif; ?>
+                        <?php if ($running): ?>
+                        <p class="iqu-free-month-note">Monthly billing is already running in Stripe, so the coupon cannot be changed here.</p>
+                        <?php elseif ((string) $row['coupon_code'] !== '' || (int) $row['coupon_id'] > 0): ?>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-set-course-form">
+                            <input type="hidden" name="action" value="iqu_remove_coupon">
+                            <input type="hidden" name="id" value="<?php echo $id; ?>">
+                            <?php wp_nonce_field('iqu_remove_coupon_' . $id); ?>
+                            <button type="submit" class="iqu-action-btn">Remove coupon</button>
+                        </form>
+                        <?php elseif (IQU_Billing_Pricing::agreed_fee($row) !== null): ?>
+                        <p class="iqu-free-month-note">A coupon cannot be applied while an agreed fee is set. Clear the agreed fee first.</p>
+                        <?php elseif (!empty($row['special_discount'])): ?>
+                        <p class="iqu-free-month-note">A coupon cannot be combined with the special discount.</p>
+                        <?php elseif (!($list = self::coupons_for_course((string) $row['course_type']))): ?>
+                        <p class="iqu-free-month-note">No active coupon for this course in the Coupon List.</p>
+                        <?php else: ?>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-set-course-form">
+                            <input type="hidden" name="action" value="iqu_apply_coupon_admin">
+                            <input type="hidden" name="id" value="<?php echo $id; ?>">
+                            <?php wp_nonce_field('iqu_apply_coupon_' . $id); ?>
+                            <label class="screen-reader-text" for="iqu-apply-coupon">Coupon</label>
+                            <select id="iqu-apply-coupon" name="coupon_id" required>
+                                <option value="">Choose a coupon…</option>
+                                <?php foreach ($list as $cp): ?><option value="<?php echo (int) $cp['id']; ?>"><?php echo esc_html($cp['code'] . ' — ' . ($cp['discount_type'] === IQU_Coupon_DB::TYPE_PERCENTAGE ? rtrim(rtrim(number_format((float) $cp['discount_value'], 2), '0'), '.') . '%' : IQU_Pricing::format((float) $cp['discount_value'])) . ($cp['occasion_name'] !== '' ? ' · ' . $cp['occasion_name'] : '')); ?></option><?php endforeach; ?>
+                            </select>
+                            <button type="submit" class="iqu-action-btn iqu-action-btn--view">Apply coupon</button>
+                        </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+    <?php
   }
 
   /** The "Agreed fee" line on the student page: the fee, the note against the standard price, the editor. */
@@ -179,6 +407,7 @@ class IQU_Admin
       'fee_invalid' => ['alert', 'Enter an amount like 30 or 30.50 (0 = full scholarship). Negative or non-numeric amounts are not accepted.'],
       'fee_locked'  => ['alert', 'Monthly billing is already running in Stripe, so the fee cannot be changed here.'],
       'fee_failed'  => ['alert', 'The fee could not be changed.'],
+      'fee_coupon'  => ['alert', 'An agreed fee cannot be set while a coupon is applied. Remove the coupon first.'], // 3.7.11
     ];
     ?>
                 <div class="iqu-detail-item iqu-detail-full" data-agreed-fee="<?php echo $agreed === null ? 'none' : esc_attr(number_format($agreed, 2, '.', '')); ?>">
@@ -197,6 +426,8 @@ class IQU_Admin
                         <?php if (isset($texts[$msg])): ?><p class="iqu-free-month-note" role="<?php echo esc_attr($texts[$msg][0]); ?>"><?php echo esc_html($texts[$msg][1]); ?></p><?php endif; ?>
                         <?php if ($acc && !empty($acc['stripe_subscription_id'])): ?>
                             <p class="iqu-free-month-note">Monthly billing is already running in Stripe, so the fee can no longer be changed here.</p>
+                        <?php elseif ((string) $row['coupon_code'] !== '' || (int) $row['coupon_id'] > 0): // 3.7.11: one at a time ?>
+                            <p class="iqu-free-month-note">An agreed fee cannot be set while a coupon is applied. Remove the coupon first.</p>
                         <?php else: ?>
                             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="iqu-set-course-form iqu-agreed-form">
                                 <input type="hidden" name="action" value="iqu_set_agreed_fee">
@@ -381,56 +612,39 @@ class IQU_Admin
   // ════════════════════════════════════════════════════
 
   /**
-   * Money collected, per program: [Enroll for Free, Summer L1, Summer L2].
-   * - Enroll for Free: the monthly tuition actually paid through Stripe (paid invoices in the current mode,
-   *   as "Collected" on the Payments page). The registration's payment_amount is only the quoted monthly
-   *   fee — it was summed as if it had been collected.
-   * - Summer: the amount of each registration that is not still waiting for Stripe and not cancelled
-   *   (Zelle and Zeffy payments are confirmed outside the plugin, so they count as before).
-   */
-  private static function revenue_by_program(): array
-  {
-    global $wpdb;
-    $table = $wpdb->prefix . IQU_TABLE_NAME;
-    $free = 0.0;
-    if (class_exists('IQU_Billing_DB') && class_exists('IQU_Stripe')) {
-      $free = (float) $wpdb->get_var($wpdb->prepare(
-        'SELECT COALESCE(SUM(amount_paid), 0) FROM ' . IQU_Billing_DB::payments_table() . " WHERE mode = %s AND status = 'paid'",
-        IQU_Stripe::expected_mode()
-      ));
-    }
-    $summer = fn(string $type) => (float) $wpdb->get_var($wpdb->prepare(
-      "SELECT COALESCE(SUM(payment_amount),0) FROM `{$table}` WHERE form_type = %s AND payment_amount > 0 AND payment_status NOT IN ('stripe_pending', 'pending') AND status <> 'cancelled'",
-      $type
-    ));
-    return [round($free, 2), $summer(IQU_Database::FORM_SUMMER_LEVEL1), $summer(IQU_Database::FORM_SUMMER_LEVEL2)];
-  }
-
-  /**
    * 3.7.9: "Collected via Stripe" — money received through Stripe since the start, LIVE mode only, from the plugin's own
    * records (so it moves as soon as a payment or refund webhook is processed): paid monthly tuition invoices (amount paid
    * minus refunded; a dispute counts as refunded, as in Reports) plus Summer Stripe payments made on a live Checkout page
    * (cs_live_…) minus their recorded refunds. Stripe fees are not subtracted. Manually confirmed amounts (Zelle, Zeffy) are
-   * not part of it.
+   * not part of it. 3.7.11: by program, for the card AND the donut (one source, so their totals are always equal):
+   * ['tuition', 'summer_level1', 'summer_level2', 'weekend'] (Weekend only ever has Stripe payments if one is made).
    */
-  public static function collected_via_stripe(): float
+  public static function collected_via_stripe_parts(): array
   {
     global $wpdb;
-    $sum = 0.0;
+    $parts = ['tuition' => 0.0, IQU_Database::FORM_SUMMER_LEVEL1 => 0.0, IQU_Database::FORM_SUMMER_LEVEL2 => 0.0, 'weekend' => 0.0];
     if (class_exists('IQU_Billing_DB')) {
       foreach ((array) $wpdb->get_results("SELECT amount_paid, amount_refunded FROM " . IQU_Billing_DB::payments_table()
         . " WHERE mode = 'live' AND status IN ('paid', 'refunded', 'disputed')", ARRAY_A) as $r) {
-        $sum += max(0.0, (float) $r['amount_paid'] - (float) $r['amount_refunded']);
+        $parts['tuition'] += max(0.0, (float) $r['amount_paid'] - (float) $r['amount_refunded']);
       }
     }
-    $cols = 'payment_amount' . (IQU_Database::refunded_amount_ready() ? ', refunded_amount' : '');
+    $types = array_merge([IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], IQU_Database::weekend_types());
+    $cols  = 'form_type, payment_amount' . (IQU_Database::refunded_amount_ready() ? ', refunded_amount' : '');
     foreach ((array) $wpdb->get_results($wpdb->prepare(
-      "SELECT {$cols} FROM `" . $wpdb->prefix . IQU_TABLE_NAME . "` WHERE form_type IN (%s, %s) AND payment_method = 'stripe' AND payment_status = 'paid' AND SUBSTR(pay_session_id, 1, 8) = %s",
-      IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2, 'cs_live_'
+      "SELECT {$cols} FROM `" . $wpdb->prefix . IQU_TABLE_NAME . "` WHERE form_type IN (" . implode(', ', array_fill(0, count($types), '%s')) . ") AND payment_method = 'stripe' AND payment_status = 'paid' AND SUBSTR(pay_session_id, 1, 8) = %s",
+      ...array_merge($types, ['cs_live_'])
     ), ARRAY_A) as $r) {
-      $sum += max(0.0, (float) $r['payment_amount'] - (float) ($r['refunded_amount'] ?? 0));
+      $key = in_array($r['form_type'], IQU_Database::weekend_types(), true) ? 'weekend' : (string) $r['form_type'];
+      $parts[$key] += max(0.0, (float) $r['payment_amount'] - (float) ($r['refunded_amount'] ?? 0));
     }
-    return round($sum, 2);
+    return array_map(fn($v) => round($v, 2), $parts);
+  }
+
+  /** 3.7.9: the "Collected via Stripe" total (the card; the donut's total is the same). */
+  public static function collected_via_stripe(): float
+  {
+    return round(array_sum(self::collected_via_stripe_parts()), 2);
   }
 
   /**
@@ -461,9 +675,12 @@ class IQU_Admin
       $week_counts[] = $count;
     }
 
-    // ── Payment collected, by program (one figure for the card, the badge and the chart) ──
-    [$revenue_free, $revenue_l1, $revenue_l2] = self::revenue_by_program();
-    $total_revenue = $revenue_free + $revenue_l1 + $revenue_l2;
+    // ── 3.7.11: Collected via Stripe, by program: the donut uses the card's own data (collected_via_stripe_parts) ──
+    $parts   = self::collected_via_stripe_parts();
+    $rev_lbl = ['Monthly tuition', 'Summer L1', 'Summer L2'];
+    $rev_val = [$parts['tuition'], $parts[IQU_Database::FORM_SUMMER_LEVEL1], $parts[IQU_Database::FORM_SUMMER_LEVEL2]];
+    if ($parts['weekend'] > 0) { $rev_lbl[] = 'Weekend'; $rev_val[] = $parts['weekend']; } // only with Stripe payments
+    $total_revenue = round(array_sum($parts), 2);
 
     // ── Referral breakdown ────────────────────────────────────
     // Only what families answered. The old "existing_student" marker that Billing used to
@@ -509,7 +726,7 @@ class IQU_Admin
 
     return [
       'weekly'    => ['labels' => $week_labels, 'data' => $week_counts],
-      'revenue'   => ['labels' => ['Free Enrollment', 'Summer L1', 'Summer L2'], 'data' => [$revenue_free, $revenue_l1, $revenue_l2], 'total' => $total_revenue],
+      'revenue'   => ['labels' => $rev_lbl, 'data' => $rev_val, 'total' => $total_revenue],
       'referral'  => ['labels' => $ref_labels, 'data' => $ref_data],
       'breakdown' => $breakdown,
     ];
@@ -732,13 +949,61 @@ class IQU_Admin
   }
 
   /**
+   * 3.7.11: the "Fee preference" pill of Recent Submissions, from the plugin's own payment records (kept up to date by the
+   * Stripe webhooks, so it changes month by month). Monthly students, LIVE billing only:
+   *   received — the invoice of the current billing period is paid;  free — in the free first month;
+   *   failed   — the current payment failed (Stripe retrying, or unpaid);  pending — anything else (no live billing yet,
+   *   not paid yet, the period's invoice not there yet).
+   */
+  private static function monthly_fee_status(array $row): string
+  {
+    global $wpdb;
+    if (!class_exists('IQU_Billing_DB')) return 'pending';
+    $acc = $wpdb->get_row($wpdb->prepare(
+      'SELECT a.* FROM ' . IQU_Billing_DB::members_table() . ' m JOIN ' . IQU_Billing_DB::accounts_table() . ' a ON a.id = m.account_id AND a.mode = m.mode WHERE m.registration_id = %d AND m.mode = %s ORDER BY a.id DESC LIMIT 1',
+      (int) $row['id'], 'live'
+    ), ARRAY_A);
+    if (!$acc) return 'pending';
+    if ((string) $acc['status'] === 'free_month') return 'free';
+    if (in_array((string) $acc['status'], ['past_due', 'unpaid'], true)) return 'failed';
+    $inv = $wpdb->get_row($wpdb->prepare(
+      'SELECT status, period_start, period_end FROM ' . IQU_Billing_DB::payments_table() . " WHERE account_id = %d AND mode = %s AND status <> 'void' AND period_start IS NOT NULL AND period_start <= %s ORDER BY period_start DESC, id DESC LIMIT 1",
+      (int) $acc['id'], 'live', current_time('mysql', true)
+    ), ARRAY_A);
+    if (!$inv) return 'pending';
+    $start = (int) strtotime($inv['period_start'] . ' UTC');
+    $end   = !empty($inv['period_end']) ? (int) strtotime($inv['period_end'] . ' UTC') : (int) strtotime('+1 month', $start);
+    if ($end <= time()) return 'pending'; // that period is over; this period's invoice is not there yet
+    if ((string) $inv['status'] === 'paid') return 'received';
+    if (in_array((string) $inv['status'], ['failed', 'uncollectible'], true)) return 'failed';
+    return 'pending';
+  }
+
+  /** 3.7.11: Summer — received when paid through Stripe, or when the payment is marked "confirmed"; else pending. */
+  private static function summer_fee_status(array $row): string
+  {
+    $status = (string) ($row['payment_status'] ?? '');
+    if ((strtolower((string) ($row['payment_method'] ?? '')) === 'stripe' && $status === 'paid') || $status === 'confirmed') return 'received';
+    return 'pending';
+  }
+
+  /** 3.7.11: the pill itself (Pending keeps its look; the other three are its colour variants). */
+  private static function fee_pill_html(string $status): string
+  {
+    $map = ['received' => ['Received', ' iqu-free-pending-badge--received'], 'free' => ['Free month', ' iqu-free-pending-badge--free'],
+      'failed' => ['Payment failed', ' iqu-free-pending-badge--failed'], 'pending' => ['Pending', '']];
+    [$label, $mod] = $map[$status] ?? $map['pending'];
+    return '<span class="iqu-free-pending-badge' . $mod . '" data-iqu-fee-pill="' . esc_attr($status) . '">' . esc_html($label) . '</span>';
+  }
+
+  /**
    * Render the "Fee Preference" / payment cell for a registration row.
    *
    * Every payment display rule lives here — free vs summer forms,
    * Zakat-eligible free places, complimentary seats, flexible amounts
    * typed as free text, and standard packages.
    */
-  private static function payment_cell_html(array $row): string
+  private static function payment_cell_html(array $row, bool $live_pill = false): string // 3.7.11: $live_pill — Recent Submissions only
   {
     $form_type     = $row['form_type'] ?? '';
     $admission_fee = $row['admission_fee'] ?? '';
@@ -747,11 +1012,11 @@ class IQU_Admin
     $pay_amount    = (float) ($row['payment_amount'] ?? 0);
 
     if ($form_type === 'free') {
-      return self::free_payment_html($row);
+      return self::free_payment_html($row, $live_pill);
     }
 
     if (in_array($form_type, ['summer_level1', 'summer_level2'], true)) {
-      return self::summer_payment_html($row, $admission_fee, $flexible_note, $pay_amount);
+      return self::summer_payment_html($row, $admission_fee, $flexible_note, $pay_amount, $live_pill);
     }
 
     if (in_array($form_type, IQU_Database::weekend_types(), true)) {
@@ -786,9 +1051,9 @@ class IQU_Admin
    *
    * কোনো টাকা এখনো সংগ্রহ হয়নি, তাই সব অঙ্কে "Pending" ব্যাজ থাকে।
    */
-  private static function free_payment_html(array $row): string
+  private static function free_payment_html(array $row, bool $live_pill = false): string
   {
-    $pending  = '<span class="iqu-free-pending-badge">Pending</span>';
+    $pending  = $live_pill ? self::fee_pill_html(self::monthly_fee_status($row)) : '<span class="iqu-free-pending-badge">Pending</span>';
     $course   = $row['course_type'] ?? '';
     $fee_pref = $row['fee_pref'] ?? '';
 
@@ -920,7 +1185,8 @@ class IQU_Admin
     array $row,
     string $admission_fee,
     string $flexible_note,
-    float $pay_amount
+    float $pay_amount,
+    bool $live_pill = false
   ): string {
     if ($admission_fee === 'complimentary') {
       return '<span class="iqu-no-pay-chip">'
@@ -940,7 +1206,7 @@ class IQU_Admin
     $resolved = self::resolve_amount($admission_fee, $flexible_note, $pay_amount);
     $method   = strtolower(trim($row['payment_method'] ?? ''));
 
-    $html = '<span class="iqu-pay-cell">';
+    $html = '<span class="iqu-pay-cell">' . ($live_pill ? self::fee_pill_html(self::summer_fee_status($row)) : ''); // 3.7.11
 
     if ($method !== '') {
       $method_classes = ['zelle' => 'iqu-pay-zelle', 'zeffy' => 'iqu-pay-zeffy'];
@@ -1031,11 +1297,9 @@ class IQU_Admin
 
     $total = max(1, (int) $counts['total']);
 
-    // Revenue total for the metric card: the same figure as the chart (revenue_by_program)
     global $wpdb;
     $table = $wpdb->prefix . IQU_TABLE_NAME;
-    $total_revenue = array_sum(self::revenue_by_program());
-    $stripe_total  = self::collected_via_stripe(); // 3.7.9: the "Collected via Stripe" card (live money only)
+    $stripe_total  = self::collected_via_stripe(); // 3.7.9: the "Collected via Stripe" card (live money only); 3.7.11: the donut too
   ?>
 <div class="wrap iqu-admin-wrap">
 
@@ -1199,16 +1463,20 @@ class IQU_Admin
         </div>
         <div class="iqu-card">
             <div class="iqu-card-head">
-                <span class="iqu-card-head-title">Payment collected</span>
-                <span class="iqu-card-head-badge">$<?php echo number_format($total_revenue, 0); ?> total</span>
+                <span class="iqu-card-head-title" data-iqu-donut-title>Collected via Stripe</span>
+                <span class="iqu-card-head-badge">$<?php echo number_format($stripe_total, 0); ?> total</span>
             </div>
+            <?php if ($stripe_total > 0): // 3.7.11: the card's data, by program ?>
             <div class="iqu-chart-body iqu-chart-body-donut">
-                <canvas id="iqu-revenue-chart" aria-label="Revenue by form type"></canvas>
+                <canvas id="iqu-revenue-chart" aria-label="Collected via Stripe by program"></canvas>
                 <div class="iqu-donut-center">
-                    <span class="iqu-donut-amt">$<?php echo number_format($total_revenue, 0); ?></span>
+                    <span class="iqu-donut-amt">$<?php echo number_format($stripe_total, 0); ?></span>
                     <span class="iqu-donut-lbl">collected</span>
                 </div>
             </div>
+            <?php else: ?>
+            <div class="iqu-empty-state" data-iqu-donut-empty>No payments collected via Stripe yet.</div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -1332,7 +1600,7 @@ class IQU_Admin
                     <td class="iqu-td-email"><?php echo esc_html($row['email']); ?></td>
                     <td><?php echo self::status_badge_html($row['status']) . self::review_badges_html($row); ?></td>
                     <td><?php echo self::referral_chip_html($row['referral'] ?? ''); ?></td>
-                    <td><?php echo self::payment_cell_html($row); ?></td>
+                    <td><?php echo self::payment_cell_html($row, true); // 3.7.11: the live Fee preference pill (Recent Submissions only) ?></td>
                     <td class="iqu-td-date"><?php
                       $dt = new DateTime($row['created_at'], new DateTimeZone('UTC'));
                       $dt->setTimezone(new DateTimeZone('Asia/Dhaka'));
@@ -1872,7 +2140,7 @@ class IQU_Admin
                 <div class="iqu-detail-item iqu-detail-full"><div class="iqu-detail-val"><p class="iqu-free-month-note" role="status">Course saved. Billing can now be set up in Student Billing.</p></div></div>
                 <?php endif; ?>
 
-                <?php self::render_agreed_fee_item($row); ?>
+                <?php self::render_course_change_item($row); self::render_agreed_fee_item($row); self::render_coupon_item($row); // 3.7.11: change course, agreed fee, coupon ?>
 
                 <?php if ($d_course !== ''): ?>
                 <!-- ── নতুন সিস্টেম (v2.8.0+) ── -->

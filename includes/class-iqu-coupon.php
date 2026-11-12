@@ -237,20 +237,9 @@ class IQU_Coupon
             return $result;
         }
 
-        // ── ডিসকাউন্ট হিসাব ──
+        // ── ডিসকাউন্ট হিসাব ── (3.7.11: one place, also used by the student page — discount_for())
         $type  = $coupon['discount_type'];
-        $value = (float) $coupon['discount_value'];
-
-        if ($type === IQU_Coupon_DB::TYPE_PERCENTAGE) {
-            $value    = min(100.00, max(0.00, $value));
-            $discount = round($base_amount * ($value / 100), 2);
-        } else {
-            $discount = round(max(0.0, $value), 2); // a negative stored value never raises the price
-        }
-
-        // ডিসকাউন্ট কখনোই মূল অঙ্কের চেয়ে বেশি হবে না
-        $discount = min($discount, $base_amount);
-        $final    = round($base_amount - $discount, 2);
+        [$value, $discount, $final] = self::discount_for($coupon, $base_amount);
 
         $result['valid']               = true;
         $result['coupon_id']           = (int) $coupon['id'];
@@ -266,6 +255,25 @@ class IQU_Coupon
         $result['occasion_name']       = $coupon['occasion_name'];
 
         return $result;
+    }
+
+    /**
+     * 3.7.11: a coupon's discount on a base amount, by the coupon's own rules (percentage, capped at 100; or a fixed amount,
+     * never negative), never more than the base. Used by validate() and by the student page (recalculating an applied
+     * coupon after a course change). @return array{0: float, 1: float, 2: float} [value used, discount, final amount]
+     */
+    public static function discount_for(array $coupon, float $base_amount): array
+    {
+        $value = (float) $coupon['discount_value'];
+        if ($coupon['discount_type'] === IQU_Coupon_DB::TYPE_PERCENTAGE) {
+            $value    = min(100.00, max(0.00, $value));
+            $discount = round($base_amount * ($value / 100), 2);
+        } else {
+            $discount = round(max(0.0, $value), 2); // a negative stored value never raises the price
+        }
+        // ডিসকাউন্ট কখনোই মূল অঙ্কের চেয়ে বেশি হবে না
+        $discount = min($discount, $base_amount);
+        return [$value, $discount, round($base_amount - $discount, 2)];
     }
 
     // ════════════════════════════════════════════════════

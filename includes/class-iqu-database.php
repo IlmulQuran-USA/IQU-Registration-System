@@ -920,6 +920,45 @@ class IQU_Database
         return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, $set, ['id' => $id]);
     }
 
+    /**
+     * 3.7.11: the fee fields of a registration, as the student page changes them (course and classes a week, the standard
+     * price, the reduction, the coupon, the amount shown). Only these columns.
+     */
+    public static function set_fee_fields(int $id, array $fields): bool
+    {
+        global $wpdb;
+        $allowed = ['course_type' => '%s', 'days_per_week' => '%s', 'per_class_rate' => '%f', 'calculated_amount' => '%f', 'discount_amount' => '%f',
+            'payment_amount' => '%f', 'coupon_code' => '%s', 'coupon_id' => '%d'];
+        $set = array_intersect_key($fields, $allowed);
+        if (!$set || !self::get_registration($id)) return false;
+        return false !== $wpdb->update($wpdb->prefix . IQU_TABLE_NAME, $set, ['id' => $id], array_values(array_intersect_key(array_merge($set, $allowed), $set)), ['%d']);
+    }
+
+    /** 3.7.11: when the payment_amount fix below ran: ['at', 'rows' => [registration ids]] */
+    public const OPT_QUOTED_FIX_3711 = 'iqu_quoted_amount_fixed_3711';
+
+    /**
+     * 3.7.11, once (on init, after the billing classes load): students added through Add Student or the Import were saved
+     * with payment_amount = 0, so Recent Submissions showed $0.00 while Student Billing showed the standard fee. Every such
+     * Enroll for Free row with a course and payment_amount 0 gets the amount it is billed (IQU_Billing_Pricing net: the
+     * standard fee, or the agreed fee; a full scholarship stays 0). The ids are stored in OPT_QUOTED_FIX_3711.
+     */
+    public static function fix_quoted_amounts_3711(): void
+    {
+        global $wpdb;
+        if (get_option(self::OPT_QUOTED_FIX_3711, null) !== null || !class_exists('IQU_Billing_Pricing')) return;
+        $t = $wpdb->prefix . IQU_TABLE_NAME;
+        $rows = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$t} WHERE form_type = %s AND (payment_amount IS NULL OR payment_amount = 0)", self::FORM_FREE), ARRAY_A) ?: [];
+        $ids = [];
+        foreach ($rows as $r) {
+            if (!in_array(self::created_via($r), [self::VIA_ADMIN, self::VIA_IMPORT], true) || IQU_Billing_Pricing::course_missing($r)) continue;
+            $net = (float) IQU_Billing_Pricing::for_registration($r)['net'];
+            if ($net > 0 && self::set_quoted_amount((int) $r['id'], $net)) $ids[] = (int) $r['id'];
+        }
+        update_option(self::OPT_QUOTED_FIX_3711, ['at' => gmdate('Y-m-d H:i:s'), 'rows' => $ids], false);
+        if ($ids) error_log('[IQU] 3.7.11: monthly amount filled in for ' . count($ids) . ' admin-added / imported students: #' . implode(', #', $ids));
+    }
+
     /** 3.7.9: the monthly amount shown on the page and the lists (payment_amount), e.g. after a legacy record gets a course. */
     public static function set_quoted_amount(int $id, float $amount): bool
     {
