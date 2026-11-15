@@ -115,6 +115,15 @@ class IQU_Enrollment_Admin
                         <input id="iqu_summer_fee_supported" type="text" inputmode="decimal" name="summer_fee_supported" value="<?php echo esc_attr(number_format(IQU_Enrollment_Settings::summer_fee('supported'), 2, '.', '')); ?>">
                         <p class="iqu-fld-hint">Paid once, at registration, for the whole program.</p>
                     </div>
+                    <?php if (class_exists('IQU_Billing_Service')): $bd = IQU_Billing_Service::billing_day(); // 3.7.12 ?>
+                    <div class="iqu-fld" data-iqu-billing-day>
+                        <label for="iqu_billing_day">Billing day</label>
+                        <select id="iqu_billing_day" name="billing_day">
+                            <?php for ($i = 1; $i <= 28; $i++): ?><option value="<?php echo $i; ?>"<?php selected($bd, $i); ?>><?php echo esc_html(IQU_Billing_Email::ordinal($i)); ?> of the month</option><?php endfor; ?>
+                        </select>
+                        <p class="iqu-fld-hint">Every family is charged on this day of the month. New students: the first billing day after their 30 free days. Current students: the next billing day. Changing it affects new billing records only.</p>
+                    </div>
+                    <?php endif; ?>
                 </div>
                 <div class="iqu-cpn-actions">
                     <?php submit_button('Save enrollment settings', 'primary', 'submit', false); ?>

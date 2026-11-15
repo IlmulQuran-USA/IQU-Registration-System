@@ -221,7 +221,8 @@ final class IQU_Billing_Stop
             $reg = IQU_Database::get_registration((int) $m['registration_id']);
             if (!$reg || !IQU_Database::is_active_student($reg) || (string) ($reg['billing_ended_at'] ?? '') !== '') continue;
             $amount = (float) $m['amount'];
-            $out[] = ['reg' => $reg, 'amount' => $amount, 'paid' => IQU_Billing_Pricing::to_cents($amount) > 0, 'last' => false];
+            // 3.7.12: a sibling whose own first charge is still ahead has no Stripe line yet — removed without a Stripe call
+            $out[] = ['reg' => $reg, 'amount' => $amount, 'paid' => IQU_Billing_Pricing::to_cents($amount) > 0 && !IQU_Billing_Service::is_deferred($m), 'last' => false];
         }
         if (count($out) < 2) return [];
         $paid = array_keys(array_filter($out, fn($s) => $s['paid']));

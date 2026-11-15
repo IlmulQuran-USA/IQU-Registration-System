@@ -178,7 +178,6 @@ Public details in Stripe (name, support email, website, statement descriptor ILM
    - Customers: Write (create the family's customer; the Settings "Test connection" reads one)
    - Checkout Sessions: Write (create the payment page, expire an old one, read its status; Summer payments)
    - Customer portal: Write (the family's "Change bank or card" page)
-   - Subscriptions: Read
    - Invoices: Read (also the invoice payments list)
    - Charges: Read
    - PaymentIntents: Read (Summer payment details)
@@ -186,6 +185,8 @@ Public details in Stripe (name, support email, website, statement descriptor ILM
    - SetupIntents: Read (3.4.10: a US bank account waiting for microdeposits)
    - Payouts: Read and Balance: Read (3.5.0: Billing → Payouts and the payout alerts)
    - Disputes: Read (3.5.0: a payout that includes a dispute)
+   - Subscriptions: Write (3.7.0 stop / resume billing, 3.7.7 remove one student; 3.7.12 add a brother or sister: subscription items)
+   - Products: Write (3.7.12: "Add to this family's billing" creates the child's product for their subscription line)
    Everything else: None. Try the same set as a TEST restricted key first (Test connection + one enrollment).
 4. Live webhook destination with the same 19 events (see "US bank accounts" and "Payouts" above); new whsec in wp-config.
 5. Set site mode to live (iqu_billing_mode option) only after the security review.

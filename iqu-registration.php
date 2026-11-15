@@ -4,7 +4,7 @@
  * Plugin Name:       IQU Registration System
  * Plugin URI:        https://ilmulquranus.org
  * Description:       Secure student registration system for Ilm-Ul-Quran USA — includes Free Enrollment & Summer Program forms, dashboard, Zelle/Zeffy payments, Google reCAPTCHA v3, and Stripe monthly tuition billing.
- * Version:           3.7.11
+ * Version:           3.7.12
  * Author:            Ilm-Ul-Quran USA (Muhammad Nurul Ahsan)
  * License:           GPL-2.0+
  * Text Domain:       iqu-registration
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 // ============================================================
 // 📌 Constants
 // ============================================================
-define('IQU_VERSION', '3.7.11');
+define('IQU_VERSION', '3.7.12');
 define('IQU_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('IQU_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('IQU_TABLE_NAME', 'iqu_registrations');
@@ -114,6 +114,7 @@ require_once IQU_PLUGIN_DIR . 'public/class-iqu-weekend-form.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-icons.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-pager.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-admin.php';
+require_once IQU_PLUGIN_DIR . 'admin/class-iqu-back.php'; // 3.7.12: "← Back…" returns to where the admin came from
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-zeffy-admin.php';
 require_once IQU_PLUGIN_DIR . 'admin/class-iqu-coupon-admin.php';
 require_once IQU_PLUGIN_DIR . 'includes/class-iqu-telegram.php';
@@ -202,6 +203,7 @@ add_action('plugins_loaded', function () {
 
   if (is_admin()) {
     IQU_Pager::init(); // a long list's table alone (live search), see admin/class-iqu-pager.php
+    IQU_Back::init(); // 3.7.12
     new IQU_Admin();
     new IQU_Zeffy_Admin();
     new IQU_Coupon_Admin();

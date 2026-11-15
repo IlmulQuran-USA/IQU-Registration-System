@@ -172,7 +172,7 @@ final class IQU_Discount_Ledger_Admin
 
     private static function back_link(): string
     {
-        return '<a href="' . esc_url(self::page_url()) . '" class="iqu-back-btn">← Back to Coupon List</a>';
+        return '<a href="' . esc_url(class_exists('IQU_Back') ? IQU_Back::url(self::page_url()) : self::page_url()) . '" class="iqu-back-btn">← Back to Coupon List</a>'; // 3.7.12: where the admin came from
     }
 
     private static function render_preview(): void

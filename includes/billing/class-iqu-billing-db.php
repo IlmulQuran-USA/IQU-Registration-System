@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) exit;
  */
 class IQU_Billing_DB
 {
-    public const DB_VERSION = '1.6.0';
+    public const DB_VERSION = '1.7.0';
     private const OPT_VERSION = 'iqu_billing_db_version';
 
     /** Columns update_account() may change, with their formats. */
@@ -53,6 +53,9 @@ class IQU_Billing_DB
         'review_reason'          => '%s',
         'review_note'            => '%s',
         'ends_at'                => '%s', // 1.6.0: when billing stops (end of the paid period) or stopped
+        // 1.7.0 (3.7.12): reminders for a link an admin sent — which send they count from, and which were sent
+        'link_reminder_base'     => '%s',
+        'link_reminders'         => '%d',
     ];
 
     public const STATUSES = [
@@ -136,6 +139,8 @@ class IQU_Billing_DB
             review_reason VARCHAR(30) NOT NULL DEFAULT '',
             review_note VARCHAR(255) NOT NULL DEFAULT '',
             ends_at DATETIME DEFAULT NULL,
+            link_reminder_base DATETIME DEFAULT NULL,
+            link_reminders TINYINT(3) UNSIGNED NOT NULL DEFAULT 0,
             created_by BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
@@ -154,6 +159,7 @@ class IQU_Billing_DB
             mode VARCHAR(4) NOT NULL DEFAULT 'test',
             amount DECIMAL(8,2) NOT NULL DEFAULT 0.00,
             stripe_item_id VARCHAR(64) NOT NULL DEFAULT '',
+            first_charge_date DATE DEFAULT NULL,
             created_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY registration_mode (registration_id, mode),
@@ -246,6 +252,7 @@ class IQU_Billing_DB
         if ($problem === '') $problem = self::migrate_accounts_140();
         if ($problem === '') $problem = self::migrate_accounts_150();
         if ($problem === '') $problem = self::migrate_accounts_160();
+        if ($problem === '') $problem = self::migrate_170();
         if ($problem !== '') {
             // Leave the version behind so the next page load tries again.
             error_log('IQU Billing: payments table upgrade to ' . self::DB_VERSION . ' not finished — ' . $problem);
@@ -330,6 +337,34 @@ class IQU_Billing_DB
         };
         if (!$has()) $wpdb->query('ALTER TABLE ' . self::accounts_table() . ' ADD COLUMN ends_at DATETIME DEFAULT NULL');
         return $has() ? '' : 'missing account column: ends_at (' . $wpdb->last_error . ')';
+    }
+
+    /** 1.7.0 (3.7.12) columns: [table => [column => definition]]. */
+    private static function columns_170(): array
+    {
+        return [
+            self::accounts_table() => ['link_reminder_base' => 'DATETIME DEFAULT NULL', 'link_reminders' => 'TINYINT(3) UNSIGNED NOT NULL DEFAULT 0'],
+            self::members_table()  => ['first_charge_date' => 'DATE DEFAULT NULL'],
+        ];
+    }
+
+    /**
+     * 1.7.0 (3.7.12): the reminders for an admin-sent link (accounts) and a student's own first charge when it is later
+     * than the family's (members: a sibling whose Stripe line is added on that day). Added when missing, then verified.
+     * @return string '' when every column exists, otherwise the reason.
+     */
+    private static function migrate_170(): string
+    {
+        global $wpdb;
+        $missing = [];
+        foreach (self::columns_170() as $table => $defs) {
+            $have = function () use ($wpdb, $table): array { $o = []; foreach ((array) $wpdb->get_results('SHOW COLUMNS FROM ' . $table, ARRAY_A) as $c) $o[(string) $c['Field']] = true; return $o; };
+            $cols = $have();
+            foreach ($defs as $col => $def) if (!isset($cols[$col])) $wpdb->query('ALTER TABLE ' . $table . " ADD COLUMN {$col} {$def}");
+            $cols = $have();
+            foreach (array_keys($defs) as $col) if (!isset($cols[$col])) $missing[] = $col;
+        }
+        return $missing ? 'missing columns: ' . implode(', ', $missing) . ' (' . $wpdb->last_error . ')' : '';
     }
 
     public static function actions_table(): string
@@ -628,6 +663,48 @@ class IQU_Billing_DB
         global $wpdb;
         return false !== $wpdb->update(self::members_table(), ['amount' => $amount],
             ['account_id' => $account_id, 'registration_id' => $registration_id, 'mode' => IQU_Stripe::expected_mode()], ['%f'], ['%d', '%d', '%s']);
+    }
+
+    /** 3.7.12: clear the account's Checkout page id only while it is still $session_id (one UPDATE): true for the one request that did. */
+    public static function clear_checkout_session(int $account_id, string $session_id): bool
+    {
+        global $wpdb;
+        return (bool) $wpdb->query($wpdb->prepare('UPDATE ' . self::accounts_table() . " SET checkout_session_id = '' WHERE id = %d AND checkout_session_id = %s", $account_id, $session_id));
+    }
+
+    /** 3.7.12: a student's own first charge (Y-m-d) when it is later than the family's; null clears it. */
+    public static function set_member_first_charge(int $account_id, int $registration_id, ?string $date): bool
+    {
+        global $wpdb;
+        $t = self::members_table();
+        $sql = $date === null
+            ? $wpdb->prepare("UPDATE {$t} SET first_charge_date = NULL WHERE account_id = %d AND registration_id = %d AND mode = %s", $account_id, $registration_id, IQU_Stripe::expected_mode())
+            : $wpdb->prepare("UPDATE {$t} SET first_charge_date = %s WHERE account_id = %d AND registration_id = %d AND mode = %s", $date, $account_id, $registration_id, IQU_Stripe::expected_mode());
+        return false !== $wpdb->query($sql);
+    }
+
+    /** 3.7.12: the student's Stripe subscription item, once their line is on the family's subscription. */
+    public static function set_member_item(int $account_id, int $registration_id, string $item_id): bool
+    {
+        global $wpdb;
+        return false !== $wpdb->update(self::members_table(), ['stripe_item_id' => substr($item_id, 0, 64)],
+            ['account_id' => $account_id, 'registration_id' => $registration_id, 'mode' => IQU_Stripe::expected_mode()], ['%s'], ['%d', '%d', '%s']);
+    }
+
+    /**
+     * 3.7.12: claim a link reminder for the send at $base, in one UPDATE (only while bit $check is not set; sets $set): true
+     * only for the run that claimed it.
+     * A newer send (another base) starts the count again: its earlier bits do not count.
+     */
+    public static function claim_link_reminder(int $account_id, string $base, int $check, int $set): bool
+    {
+        global $wpdb;
+        $t = self::accounts_table();
+        return (bool) $wpdb->query($wpdb->prepare(
+            "UPDATE {$t} SET link_reminders = CASE WHEN link_reminder_base = %s THEN link_reminders | %d ELSE %d END, link_reminder_base = %s
+             WHERE id = %d AND (link_reminder_base IS NULL OR link_reminder_base <> %s OR (link_reminders & %d) = 0)",
+            $base, $set, $set, $base, $account_id, $base, $check
+        ));
     }
 
     /** Accounts (current mode) for many Stripe customer ids, in one query: [cus_… => account row]. */

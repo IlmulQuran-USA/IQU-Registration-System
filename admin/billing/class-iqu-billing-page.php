@@ -160,49 +160,15 @@ class IQU_Billing_Page
     // Data
     // ------------------------------------------------------------
 
-    /** Every monthly enrollment with its fee and billing state. */
+    /** Every monthly enrollment with its fee and billing state (3.7.12: shared with the Daily Summary — IQU_Billing_Service::student_rows). */
     public static function rows(): array
     {
-        global $wpdb;
-        $table = $wpdb->prefix . IQU_TABLE_NAME;
-        $in    = implode(',', array_fill(0, count(self::MONTHLY_FORMS), '%s'));
-        $arch  = IQU_Database::archive_ready() ? ' AND archived_at IS NULL' : ''; // 3.7.0 AK: archived students leave the list
-        $arch .= IQU_Database::not_left_sql(); // 3.7.9: students marked Left leave every billing list
-        $regs  = $wpdb->get_results($wpdb->prepare("SELECT * FROM `{$table}` WHERE form_type IN ({$in}){$arch} ORDER BY id DESC", ...self::MONTHLY_FORMS), ARRAY_A) ?: [];
-
-        $mode = IQU_Stripe::expected_mode();
-        $acc_rows = $wpdb->get_results($wpdb->prepare(
-            'SELECT m.registration_id, a.* FROM ' . IQU_Billing_DB::members_table() . ' m JOIN ' . IQU_Billing_DB::accounts_table() . ' a ON a.id = m.account_id WHERE m.mode = %s AND a.mode = %s',
-            $mode, $mode
-        ), ARRAY_A) ?: [];
-        $by_reg = [];
-        foreach ($acc_rows as $a) $by_reg[(int) $a['registration_id']] = $a;
-
-        $out = [];
-        foreach ($regs as $reg) {
-            $id  = (int) $reg['id'];
-            $acc = $by_reg[$id] ?? null;
-            $p   = IQU_Billing_Pricing::for_registration($reg);
-            if ($acc) {
-                $group = self::group_for_status($acc['status']);
-            } elseif ($p['billable']) {
-                $group = 'not_set_up';
-            } elseif ($p['needs_input']) {
-                $group = 'needs_course';
-            } else {
-                $group = 'not_billed';
-            }
-            $out[] = ['reg' => $reg, 'p' => $p, 'acc' => $acc, 'group' => $group];
-        }
-        return $out;
+        return IQU_Billing_Service::student_rows(self::MONTHLY_FORMS);
     }
 
     private static function group_for_status(string $status): string
     {
-        if (in_array($status, ['not_sent', 'link_sent', 'bank_verification'], true)) return 'link_sent';
-        if (in_array($status, ['free_month', 'waiting_first_charge', 'active', 'ending'], true)) return 'active';
-        if (in_array($status, ['past_due', 'unpaid', 'paused', 'review'], true)) return 'failed';
-        return 'not_billed';
+        return IQU_Billing_Service::group_for_status($status);
     }
 
     /** Dot colour of each status filter pill (the status chip tones; "All" is navy). */
@@ -675,7 +641,7 @@ class IQU_Billing_Page
                 <span class="iqu-card-head-title">Send payment links to <?php echo count($fam); ?> famil<?php echo count($fam) === 1 ? 'y' : 'ies'; ?></span>
             </div>
             <div class="iqu-billing-body">
-                <p class="iqu-billing-intro">Check each family's first charge date. New students are filled in with the end of their free month. For current students, use their usual due date this month — or today if it has passed.</p>
+                <p class="iqu-billing-intro">Check each family's first charge. Every family is charged on the billing day (the <?php echo esc_html(IQU_Billing_Service::billing_day_text()); ?>): new students from the first billing day after their 30 free days, current students from the next billing day (or a later one).</p>
                 <?php if (IQU_Stripe::expected_mode() === 'test'): ?>
                     <div class="notice notice-warning inline"><p><strong>Test mode:</strong> billing records are created in Stripe test mode and no email goes to families.</p></div>
                 <?php endif; ?>
@@ -690,7 +656,6 @@ class IQU_Billing_Page
                     <tbody>
                     <?php foreach ($fam as $key => $f):
                         $types = array_unique(array_map(['IQU_Billing_Service', 'student_type'], $f['regs']));
-                        $suggest = (count($f['regs']) === 1 && $types === ['new']) ? (string) IQU_Billing_Service::suggested_first_charge($f['regs'][0]) : '';
                         $guardian = trim((string) $f['regs'][0]['guardian_name']); ?>
                         <tr>
                             <td><input type="checkbox" name="inc[<?php echo esc_attr($key); ?>]" value="1" checked aria-label="Send to this family"></td>
@@ -700,8 +665,7 @@ class IQU_Billing_Page
                                     <input type="hidden" name="fam[<?php echo esc_attr($key); ?>][]" value="<?php echo (int) $reg['id']; ?>">
                                 <?php endforeach; ?></td>
                             <td><strong><?php echo esc_html(IQU_Pricing::format((float) $f['total'])); ?></strong></td>
-                            <td><label class="screen-reader-text" for="d<?php echo esc_attr($key); ?>">First charge date</label>
-                                <input id="d<?php echo esc_attr($key); ?>" type="date" name="date[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($suggest); ?>" min="<?php echo esc_attr(wp_date('Y-m-d')); ?>" max="<?php echo esc_attr(wp_date('Y-m-d', time() + 45 * DAY_IN_SECONDS)); ?>"></td>
+                            <td><?php echo IQU_Billing_Send::first_charge_field('date[' . $key . ']', 'd' . $key, $f['regs'], '<label class="screen-reader-text" for="d' . esc_attr($key) . '">First charge date</label>'); // 3.7.12; escaped inside ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -713,7 +677,7 @@ class IQU_Billing_Page
                 </div>
             </form>
             <div class="iqu-billing-body">
-                <p class="iqu-fld-hint">Families without a date are skipped. After sending, each family's WhatsApp message is one click away in the result list.</p>
+                <p class="iqu-fld-hint">After sending, each family's WhatsApp message is one click away in the result list.</p>
             </div>
         </div>
         </div>

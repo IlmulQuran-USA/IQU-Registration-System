@@ -63,6 +63,9 @@ class IQU_Billing_Sync
         }
 
         $status = self::status_from($sub);
+        // 3.7.12: a current family whose first billing day was more than a month away waits in a Stripe no-charge period
+        // (a trial): that is "waiting for the first charge", never a free month.
+        if ($status === 'free_month' && !IQU_Billing_Service::has_free_first_month($acc)) $status = 'waiting_first_charge';
         $label  = self::method_label($sub['default_payment_method'] ?? null);
         // A US bank account still waiting for its microdeposits (they take 1–2 business days, then the family
         // confirms them): not set up yet, so no "card added", no enrollment and no charge until it is verified.

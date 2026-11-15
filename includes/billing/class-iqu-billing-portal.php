@@ -338,14 +338,15 @@ class IQU_Billing_Portal
         $first = self::nice_date($acc['first_charge_date'] ? $acc['first_charge_date'] . ' 15:00:00' : null);
         $soon  = IQU_Billing_Service::first_charge_timestamp($acc['first_charge_date']) === 0;
         $new   = ($acc['student_type'] ?? '') === 'new';
+        $day   = $acc['first_charge_date'] ? IQU_Billing_Email::ordinal((int) substr((string) $acc['first_charge_date'], 8, 2)) : IQU_Billing_Service::billing_day_text(); // 3.7.12: the billing day
 
         return '<section class="card hero" aria-labelledby="hero-title"><h2 id="hero-title" class="label">Three steps, once</h2><ol class="steps">'
             . '<li><span class="step-n" aria-hidden="true">1</span><div><strong>Add a bank account or card</strong>'
             . '<span class="small muted">This opens Stripe\'s secure page. Ilm-Ul-Quran USA never sees or stores your bank or card details.</span></div></li>'
             . '<li><span class="step-n" aria-hidden="true">2</span><div>'
             . ($soon
-                ? '<strong>Your first payment is taken when you finish setting up.</strong><span class="small muted">After that, the same date every month.</span>'
-                : '<strong>Nothing is charged before ' . esc_html($first) . '</strong><span class="small muted">First payment: ' . esc_html($first) . ($new ? ' (after the free first month)' : '') . '. After that, the same date every month.</span><span class="small muted">To stop, tell us at least 7 days before this date.</span>')
+                ? '<strong>Your first payment is taken when you finish setting up.</strong><span class="small muted">After that, on the ' . esc_html($day) . ' of every month.</span>'
+                : '<strong>Nothing is charged before ' . esc_html($first) . '</strong><span class="small muted">First payment: ' . esc_html($first) . ($new ? ' (after the free first month)' : '') . '. After that, on the ' . esc_html($day) . ' of every month.</span><span class="small muted">To stop, tell us at least 7 days before this date.</span>')
             . '</div></li>'
             . '<li><span class="step-n" aria-hidden="true">3</span><div><strong>Receipts arrive by email</strong>'
             . '<span class="small muted">Every payment, to ' . esc_html(self::mask_email((string) $acc['contact_email'])) . '.</span></div></li>'
@@ -500,7 +501,7 @@ class IQU_Billing_Portal
     {
         $items = [
             'When am I charged?' =>
-                'Tuition is taken automatically once a month, on the same date as your first payment. You get a receipt by email each time, and every payment also appears on this page.',
+                'Tuition is taken automatically once a month, on the same day of the month as your first payment. You get a receipt by email each time, and every payment also appears on this page.', // 3.7.12: the billing day
             'Changing your card or bank' =>
                 'Press "Change bank or card" on this page. It opens Stripe\'s secure page, and the new card or bank is used from the next payment.',
             'If a payment fails' =>

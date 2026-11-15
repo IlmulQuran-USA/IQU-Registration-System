@@ -160,6 +160,41 @@ class IQU_Billing_Notify
         ], $acc);
     }
 
+    /** 3.7.12: the 7-day reminder went to a family whose payment link (sent by an admin) has not been used. Once per send. */
+    public static function link_not_used(array $acc, int $days): void
+    {
+        self::send("\u{1F514} No card yet — link sent {$days} days ago", [
+            'Monthly: <b>' . self::e(IQU_Pricing::format((float) $acc['net_amount'])) . '</b>',
+            'Days since the link was sent: <b>' . (int) $days . '</b>',
+        ], $acc, [], ['The family got a reminder email today (the second and last one). Please contact them.']);
+    }
+
+    /** 3.7.12: a brother or sister was added to a family's billing ("Add to this family's billing"). */
+    public static function sibling_added(array $acc, array $reg, float $fee, string $first_ymd, bool $running): void
+    {
+        self::send("\u{2795} Added to family billing", [
+            'Added: <b>' . self::e(trim($reg['first_name'] . ' ' . $reg['last_name'])) . '</b> (IQU-' . (int) $reg['id'] . ') — ' . self::e(IQU_Pricing::format($fee)) . ' a month',
+            'New monthly total: <b>' . self::e(IQU_Pricing::format((float) $acc['net_amount'])) . '</b>',
+            'First charged: ' . self::e($fee > 0 ? self::day($first_ymd . ' 15:00:00') : 'never (full scholarship)'),
+        ], $acc, [], [$running ? 'Added to the family\'s Stripe subscription: no new card, nothing charged today.' : 'The family has not added a card yet; their payment page now shows the new total.']);
+    }
+
+    /** 3.7.12: a sibling's Stripe line was added after the charge it was meant for (the site did not run in time). */
+    public static function sibling_line_late(array $acc, array $reg, string $first_ymd): void
+    {
+        self::send("\u{26A0}\u{FE0F} Sibling added to Stripe late", [
+            self::e(trim($reg['first_name'] . ' ' . $reg['last_name'])) . ' (IQU-' . (int) $reg['id'] . ') was due to be charged from ' . self::e(self::day($first_ymd . ' 15:00:00')) . '.',
+        ], $acc, [], ['Their line is now on the family\'s subscription from the next charge. Nothing was charged early; please check whether that month should be collected another way.']);
+    }
+
+    /** 3.7.12: a sibling's Stripe line could not be added for their first charge (Stripe refused or could not be reached). */
+    public static function sibling_line_failed(array $acc, array $reg, string $error): void
+    {
+        self::send("\u{26A0}\u{FE0F} Sibling not added to Stripe", [
+            self::e(trim($reg['first_name'] . ' ' . $reg['last_name'])) . ' (IQU-' . (int) $reg['id'] . '): ' . self::e(substr($error, 0, 200)),
+        ], $acc, [], ['It is tried again every hour. Nothing was charged for this student.']);
+    }
+
     /** An old Checkout page set up a subscription at a different amount (IQU_Billing_Service::flag_amount_mismatch). */
     public static function amount_mismatch(array $acc, string $note, string $label = 'Review: amount mismatch'): void
     {

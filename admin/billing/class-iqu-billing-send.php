@@ -86,6 +86,24 @@ class IQU_Billing_Send
     // Check and send
     // ------------------------------------------------------------
 
+    /**
+     * 3.7.12: the first charge control for one family (IQU_Billing_Service::first_charge_plan). New students: the first
+     * billing day after their 30 free days, shown as text (fixed). Current students: the next billing day, or a later one
+     * within the limit — never another day of the month. Escaped HTML.
+     */
+    public static function first_charge_field(string $name, string $id, array $regs, string $label_html = ''): string
+    {
+        $plan = IQU_Billing_Service::first_charge_plan(array_values($regs));
+        $nice = fn(string $d) => wp_date('j F Y', (int) strtotime($d . ' 15:00:00 UTC'));
+        if ($plan['type'] === 'new') {
+            return $label_html . '<input type="hidden" name="' . esc_attr($name) . '" value="' . esc_attr($plan['options'][0]) . '">'
+                . '<div class="iqu-fld-value" data-iqu-first-charge="' . esc_attr($plan['options'][0]) . '"><strong>' . esc_html($nice($plan['options'][0])) . '</strong></div>';
+        }
+        $h = $label_html . '<select id="' . esc_attr($id) . '" name="' . esc_attr($name) . '" data-iqu-first-charge-options>';
+        foreach ($plan['options'] as $i => $d) $h .= '<option value="' . esc_attr($d) . '">' . esc_html($nice($d) . ($i === 0 ? ' (next billing day)' : ' (a later billing day)')) . '</option>';
+        return $h . '</select>';
+    }
+
     private static function ids_from(array $src): array
     {
         $raw = $src['ids'] ?? '';
@@ -146,7 +164,6 @@ class IQU_Billing_Send
             $rows[] = ['reg' => $reg, 'p' => $p, 'existing' => $existing];
         }
         $type = (count(array_unique($types)) === 1 && $types[0] === 'new') ? 'new' : 'current';
-        $suggest = ($type === 'new' && count($ids) === 1) ? IQU_Billing_Service::suggested_first_charge($main) : '';
         $base = admin_url('admin.php');
         ?>
         <!-- ── Check ──────────────────────────────────────── -->
@@ -213,6 +230,7 @@ class IQU_Billing_Send
                 </table>
                 </div>
 
+                <?php if (class_exists('IQU_Billing_Family_Admin')) echo IQU_Billing_Family_Admin::send_notice(array_column($rows, 'reg')); // 3.7.12: the family may already be on billing; escaped inside ?>
                 <?php if ($siblings): ?>
                     <div class="iqu-billing-section">
                         <div class="iqu-section-title">Same family?</div>
@@ -254,13 +272,12 @@ class IQU_Billing_Send
 
                 <div class="iqu-fld-grid">
                     <div class="iqu-fld">
-                        <label for="first_charge_date">First charge <em>*</em></label>
-                        <input id="first_charge_date" type="date" name="first_charge_date" required value="<?php echo esc_attr((string) $suggest); ?>" min="<?php echo esc_attr(wp_date('Y-m-d')); ?>" max="<?php echo esc_attr(wp_date('Y-m-d', time() + 45 * DAY_IN_SECONDS)); ?>">
+                        <?php echo self::first_charge_field('first_charge_date', 'first_charge_date', array_column(array_filter($rows, fn($r) => !empty($r['p']['billable'])) ?: $rows, 'reg'), '<label for="first_charge_date">First charge <em>*</em></label>'); // 3.7.12; escaped inside ?>
                         <p class="iqu-fld-hint">
                             <?php if ($type === 'new'): ?>
-                                New student: filled in as the day the free first month ends.
+                                New student: the first billing day (the <?php echo esc_html(IQU_Billing_Service::billing_day_text()); ?>) after the 30 free days. The days in between are free.
                             <?php else: ?>
-                                Current student: their usual due date this month. If it has already passed, choose today — they are charged when they add the bank or card.
+                                Current student: the next billing day (the <?php echo esc_html(IQU_Billing_Service::billing_day_text()); ?>), or a later one. Nothing is charged before it.
                             <?php endif; ?>
                         </p>
                     </div>
@@ -331,7 +348,7 @@ class IQU_Billing_Send
 
         echo '<div class="wrap iqu-admin-wrap iqu-billing">';
         // at the very top, above the "Billing" header card — as "← Back to list" on the student page
-        echo '<a href="' . esc_url(IQU_Billing_Page::list_url_from_referer()) . '" class="iqu-back-btn iqu-back-top">← Back to Student Billing</a>';
+        echo '<a href="' . esc_url(class_exists('IQU_Back') ? IQU_Back::url(IQU_Billing_Page::list_url_from_referer()) : IQU_Billing_Page::list_url_from_referer()) . '" class="iqu-back-btn iqu-back-top">← Back to Student Billing</a>'; // 3.7.12: where the admin came from
         IQU_Billing_Page::tabs('students');
         if ($notice) self::print_notice($notice);
         if (!$acc) { echo '<div class="iqu-card"><div class="iqu-empty-state">Billing record not found.</div></div></div>'; return; }
@@ -476,7 +493,7 @@ class IQU_Billing_Send
         $removed = class_exists('IQU_Billing_Stop') ? IQU_Billing_Stop::removed($acc) : []; // 3.7.7 Part AI
         foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
             $reg = IQU_Database::get_registration((int) $m['registration_id']);
-            if ($reg) $rows[] = [$reg, IQU_Billing_Pricing::for_registration($reg), (float) $m['amount']];
+            if ($reg) $rows[] = [$reg, IQU_Billing_Pricing::for_registration($reg), (float) $m['amount'], IQU_Billing_Service::is_deferred($m) ? (string) $m['first_charge_date'] : ''];
         }
         ?>
         <div class="iqu-card">
@@ -491,9 +508,9 @@ class IQU_Billing_Send
             <table class="iqu-tbl iqu-dt iqu-billing-tbl">
                 <thead><tr><th>Student</th><th>IQU no</th><th>Course</th><th class="is-num">Days/week</th><th class="is-num">Monthly</th><th>Discount / Zakat</th></tr></thead>
                 <tbody>
-                <?php foreach ($rows as [$reg, $p, $amount]): $gone = $removed ? IQU_Billing_Stop::removed_line($reg, $removed) : ''; ?>
+                <?php foreach ($rows as [$reg, $p, $amount, $later]): $gone = $removed ? IQU_Billing_Stop::removed_line($reg, $removed) : ''; ?>
                     <tr<?php echo $gone !== '' ? ' data-iqu-removed' : ''; ?>>
-                        <td class="iqu-td-name"><strong><?php echo esc_html(trim($reg['first_name'] . ' ' . $reg['last_name'])); ?></strong><?php if ($gone !== ''): ?><br><span class="iqu-billing-sub"><?php echo esc_html($gone); ?></span><?php endif; ?></td>
+                        <td class="iqu-td-name"><strong><?php echo esc_html(trim($reg['first_name'] . ' ' . $reg['last_name'])); ?></strong><?php if ($gone !== ''): ?><br><span class="iqu-billing-sub"><?php echo esc_html($gone); ?></span><?php elseif ($later !== ''): // 3.7.12: a sibling first charged later ?><br><span class="iqu-billing-sub" data-iqu-first-later>First charged <?php echo esc_html(self::nice_date($later)); ?></span><?php endif; ?></td>
                         <td><a href="<?php echo esc_url(admin_url('admin.php?page=iqu-view-registration&id=' . (int) $reg['id'])); ?>">IQU-<?php echo (int) $reg['id']; ?></a></td>
                         <td><?php echo esc_html($p['course_label'] ?: '—'); ?></td>
                         <td class="is-num"><?php echo (int) $p['days_per_week'] ?: '—'; ?></td>

@@ -137,6 +137,12 @@ class IQU_Enrollment_Settings
         if (in_array($summer, self::SUMMER_MODES, true)) update_option(self::OPT_SUMMER, $summer, false);
 
         $problems = [];
+        // 3.7.12: the billing day (1–28), used for new billing records only
+        if (array_key_exists('billing_day', $post) && class_exists('IQU_Billing_Service')) {
+            $day = absint($post['billing_day']);
+            if ($day >= 1 && $day <= 28) update_option(IQU_Billing_Service::OPT_BILLING_DAY, $day, false);
+            else $problems[] = 'Billing day was not changed: choose a day from 1 to 28.';
+        }
         foreach (['summer_fee' => [self::OPT_SUMMER_FEE, 'Summer fee — Standard'], 'summer_fee_supported' => [self::OPT_SUMMER_FEE_SUPPORTED, 'Summer fee — Supported rate']] as $field => [$opt, $label]) {
             if (!array_key_exists($field, $post)) continue;
             $v = self::parse_amount(sanitize_text_field((string) $post[$field]));

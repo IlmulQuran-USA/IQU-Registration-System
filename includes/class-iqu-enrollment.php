@@ -328,7 +328,7 @@ class IQU_Enrollment
                 ['button', 'Open my billing page', IQU_Billing_Service::link_for($acc)],
                 ['list', 'Good to know', [
                     $free ? 'Nothing is charged during the free first month.' : ($first !== '' ? "Nothing is charged before {$first}." : 'Nothing is charged before the first payment date.'),
-                    ($free ? 'After that, tuition' : 'Tuition') . ' is taken automatically on the same date every month, and you will receive a receipt by email each time.',
+                    ($free ? 'After that, tuition' : 'Tuition') . ' is taken automatically on the ' . ($acc['first_charge_date'] ? IQU_Billing_Email::ordinal((int) substr((string) $acc['first_charge_date'], 8, 2)) : IQU_Billing_Service::billing_day_text()) . ' of every month, and you will receive a receipt by email each time.', // 3.7.12: the billing day
                     "Our team will contact you on WhatsApp within 24–48 hours to arrange the class schedule, in-sha'-Allah.",
                     'You can change your bank account or card at any time from your private billing page.',
                 ]],
@@ -344,6 +344,7 @@ class IQU_Enrollment
     {
         global $wpdb;
         if (!IQU_Database::schema_ready()) return;
+        if (class_exists('IQU_Billing_Chase')) IQU_Billing_Chase::reset_budget(); // 3.7.12 B: a cap on Stripe read-backs per run
         $now = self::now();
         $t   = $wpdb->prefix . IQU_TABLE_NAME;
         $expire_before = gmdate('Y-m-d H:i:s', $now - self::EXPIRE_DAYS * DAY_IN_SECONDS);
@@ -370,6 +371,14 @@ class IQU_Enrollment
             $bits = (int) $reg['reminders_sent'];
 
             $acc = class_exists('IQU_Billing_DB') ? IQU_Billing_DB::account_for_registration($id) : null;
+            // 3.7.12 B: the family may have finished the Stripe page while its webhook never arrived — read it back from
+            // Stripe first, and finish it exactly as the webhook does (welcome, "✅ Enrolled"; once only).
+            $due = $age >= self::EXPIRE_DAYS * DAY_IN_SECONDS || $age >= 72 * HOUR_IN_SECONDS || !($bits & self::BIT_24H); // an expiry or a reminder is due now
+            if ($acc && $due && class_exists('IQU_Billing_Chase')) {
+                $acc = IQU_Billing_Chase::check_checkout($acc);
+                $now_reg = IQU_Database::get_registration($id);
+                if (!$now_reg || (string) $now_reg['status'] !== 'card_pending') continue;
+            }
             if ($age >= self::EXPIRE_DAYS * DAY_IN_SECONDS) {
                 // A card or bank is already on file (e.g. waiting for an amount review): not expired.
                 // Only from card_pending, in one UPDATE: the webhook may enroll the family between the read above and here.
@@ -390,6 +399,10 @@ class IQU_Enrollment
 
         // Summer one-time payments not finished after 24 h (one reminder).
         if (class_exists('IQU_Summer_Pay')) IQU_Summer_Pay::run_reminders($now);
+
+        // 3.7.12: reminders for payment links an admin sent (A), and a sibling's Stripe line added for their first charge (E).
+        if (class_exists('IQU_Billing_Chase')) IQU_Billing_Chase::run();
+        if (class_exists('IQU_Billing_Family')) IQU_Billing_Family::activate_due();
     }
 
     private static function reminder_email(array $reg, array $acc, bool $last): void

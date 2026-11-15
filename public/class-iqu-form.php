@@ -504,7 +504,7 @@ class IQU_Form
                                         charge?</span><span class="iqu-faq-icon" aria-hidden="true"></span></button>
                             </h4>
                             <div class="iqu-faq-a" id="iqu-faq-a3" role="region" aria-labelledby="iqu-faq-q3" hidden>
-                                <p>30 days after you register, then once a month on the same date.</p>
+                                <p><?php $iqu_bd = class_exists('IQU_Billing_Service') ? IQU_Billing_Service::billing_day_text() : '1st'; /* 3.7.12: the billing day */ ?>On the <?php echo esc_html($iqu_bd); ?> of the month once your 30 free days are over, then on the <?php echo esc_html($iqu_bd); ?> of every month.</p>
                             </div>
                         </div>
                         <div class="iqu-faq-item">

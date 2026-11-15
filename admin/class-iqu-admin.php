@@ -1897,9 +1897,12 @@ class IQU_Admin
 
     $is_summer = in_array($row['form_type'], [IQU_Database::FORM_SUMMER_LEVEL1, IQU_Database::FORM_SUMMER_LEVEL2], true);
     $is_weekend = in_array($row['form_type'], IQU_Database::weekend_types(), true);
-    $ref_page = sanitize_key($_GET['from'] ?? 'iqu-registrations');
-    $back_page = in_array($ref_page, self::ALLOWED_BACK_PAGES, true) ? $ref_page : 'iqu-registrations';
-    $back_url = admin_url('admin.php?page=' . $back_page);
+    // 3.7.12: back to the exact screen the admin came from (IQU_Back); opened directly: ?from= as before, else the list of the
+    // student's program
+    $ref_page = sanitize_key($_GET['from'] ?? '');
+    $program = $is_summer ? ($row['form_type'] === IQU_Database::FORM_SUMMER_LEVEL2 ? 'iqu-list-summer-l2' : 'iqu-list-summer-l1') : ($is_weekend ? 'iqu-list-weekend' : 'iqu-list-free');
+    $back_page = in_array($ref_page, self::ALLOWED_BACK_PAGES, true) ? $ref_page : $program;
+    $back_url = class_exists('IQU_Back') ? IQU_Back::url(admin_url('admin.php?page=' . $back_page)) : admin_url('admin.php?page=' . $back_page);
     $initials = strtoupper(mb_substr($row['first_name'], 0, 1) . mb_substr($row['last_name'], 0, 1));
     $full_name = $row['first_name'] . ' ' . $row['last_name'];
   ?>
@@ -2140,7 +2143,7 @@ class IQU_Admin
                 <div class="iqu-detail-item iqu-detail-full"><div class="iqu-detail-val"><p class="iqu-free-month-note" role="status">Course saved. Billing can now be set up in Student Billing.</p></div></div>
                 <?php endif; ?>
 
-                <?php self::render_course_change_item($row); self::render_agreed_fee_item($row); self::render_coupon_item($row); // 3.7.11: change course, agreed fee, coupon ?>
+                <?php self::render_course_change_item($row); self::render_agreed_fee_item($row); self::render_coupon_item($row); if (class_exists('IQU_Billing_Family_Admin')) echo IQU_Billing_Family_Admin::student_item($row); // 3.7.11: change course, agreed fee, coupon; 3.7.12: add to a family's billing (escaped inside) ?>
 
                 <?php if ($d_course !== ''): ?>
                 <!-- ── নতুন সিস্টেম (v2.8.0+) ── -->

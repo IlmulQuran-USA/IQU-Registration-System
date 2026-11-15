@@ -179,10 +179,13 @@ final class IQU_Discount_Ledger
         return self::has_admin_discount($reg) ? 'admin_discount' : null;
     }
 
-    /** First month that counts (Y-m-01): the month the free first month ends, else the registration month. */
+    /**
+     * First month that counts (Y-m-01): for a student with a free first month, the month of their first charge (3.7.12:
+     * the first billing day after the free days — IQU_Billing_Service::ledger_first_charge); else the registration month.
+     */
     public static function first_month(array $reg): string
     {
-        $end = class_exists('IQU_Billing_Service') ? IQU_Billing_Service::free_month_end($reg) : null;
+        $end = class_exists('IQU_Billing_Service') ? IQU_Billing_Service::ledger_first_charge($reg) : null;
         if ($end) return substr($end, 0, 7) . '-01';
         $created = strtotime((string) ($reg['created_at'] ?? '') . ' UTC');
         return wp_date('Y-m-01', $created ?: time());

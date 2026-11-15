@@ -167,28 +167,124 @@ class IQU_Billing_Service
     public static function suggested_first_charge(array $reg): ?string
     {
         if (self::student_type($reg) !== 'new') return null;
-        $created = strtotime((string) $reg['created_at'] . ' UTC');
-        return wp_date('Y-m-d', $created + self::FREE_MONTH_DAYS * DAY_IN_SECONDS);
+        return self::first_charge_for_new($reg);
+    }
+
+    // ------------------------------------------------------------
+    // 3.7.12: the billing day — every family is charged on the same day of the month
+    // ------------------------------------------------------------
+
+    public const OPT_BILLING_DAY = 'iqu_billing_day';
+
+    /** The billing day (1–28) from Billing Settings; default 1. Used for new billing records only. */
+    public static function billing_day(): int
+    {
+        $d = (int) get_option(self::OPT_BILLING_DAY, 1);
+        return ($d >= 1 && $d <= 28) ? $d : 1;
+    }
+
+    /** "1st", "15th": the billing day for texts. */
+    public static function billing_day_text(?int $day = null): string
+    {
+        return IQU_Billing_Email::ordinal($day ?? self::billing_day());
+    }
+
+    /** The first date (Y-m-d) on or after $ymd whose day of the month is $day (1–28). */
+    public static function billing_day_on_or_after(string $ymd, int $day): string
+    {
+        $d = DateTimeImmutable::createFromFormat('!Y-m-d', $ymd, new DateTimeZone('UTC'));
+        if (!$d) return $ymd;
+        $day = max(1, min(28, $day));
+        $same = $d->setDate((int) $d->format('Y'), (int) $d->format('n'), $day);
+        if ($same >= $d) return $same->format('Y-m-d');
+        $next = $d->modify('first day of next month');
+        return $next->setDate((int) $next->format('Y'), (int) $next->format('n'), $day)->format('Y-m-d');
+    }
+
+    /** The same day of the month, one month later (days 29–31 of older records: the month's last day). */
+    private static function next_month_same_day(string $ymd): string
+    {
+        $d = DateTimeImmutable::createFromFormat('!Y-m-d', $ymd, new DateTimeZone('UTC'));
+        if (!$d) return $ymd;
+        $day  = (int) $d->format('j');
+        $next = $d->modify('first day of next month');
+        return $next->setDate((int) $next->format('Y'), (int) $next->format('n'), min($day, (int) $next->format('t')))->format('Y-m-d');
+    }
+
+    /** Charge time of a date (CHARGE_HOUR_UTC). */
+    private static function charge_ts(string $ymd): int
+    {
+        return (int) strtotime($ymd . ' ' . self::CHARGE_HOUR_UTC . ':00:00 UTC');
     }
 
     /**
-     * Unix time of the first charge, or 0 when it is charged at checkout.
-     * - Today or earlier: charged at checkout (an admin picks today for a current student whose date has passed).
-     * - Later, and at least 48 h away: that date at CHARGE_HOUR_UTC.
-     * - Later but closer than 48 h (Stripe needs that much): the first charge slot at least 48 h away — a day
-     *   or two after the date, never before it (it used to fall back to "charged at checkout", i.e. before
-     *   the date the family was told).
+     * A billing date Stripe can still use: the date itself when its charge time is at least 48 h away; otherwise the
+     * same day of a following month (never a day or two later — the monthly charge always falls on the billing day).
+     */
+    public static function roll_to_bookable(string $ymd): string
+    {
+        $min = time() + self::MIN_FUTURE_HOURS * HOUR_IN_SECONDS;
+        for ($i = 0; $i < 24 && self::charge_ts($ymd) < $min; $i++) $ymd = self::next_month_same_day($ymd);
+        return $ymd;
+    }
+
+    /** A new student's first charge: the first billing day on or after the end of the 30 free days (48 h rule applied). */
+    public static function first_charge_for_new(array $reg, ?int $day = null): string
+    {
+        $end = self::free_month_end($reg) ?? wp_date('Y-m-d');
+        return self::roll_to_bookable(self::billing_day_on_or_after($end, $day ?? self::billing_day()));
+    }
+
+    /**
+     * A current student's first charge choices: the next billing day (48 h rule applied), then any later billing day
+     * within MAX_DAYS_AHEAD. Nothing is charged before the chosen day.
+     * @return string[] Y-m-d, earliest first (never empty)
+     */
+    public static function current_first_charge_options(?int $day = null): array
+    {
+        $first = self::roll_to_bookable(self::billing_day_on_or_after(wp_date('Y-m-d'), $day ?? self::billing_day()));
+        $out = [$first];
+        $limit = time() + self::MAX_DAYS_AHEAD * DAY_IN_SECONDS;
+        for ($next = self::next_month_same_day($first); self::charge_ts($next) <= $limit; $next = self::next_month_same_day($next)) $out[] = $next;
+        return $out;
+    }
+
+    /**
+     * The family's first charge for these students (all of one family): new (every child in the free month) → the
+     * latest child's first billing day after their free days, so no child is charged during them; otherwise → the
+     * current options. @return array{type:string, options:string[]} ('new': exactly one option)
+     */
+    public static function first_charge_plan(array $regs): array
+    {
+        $types = array_values(array_unique(array_map([__CLASS__, 'student_type'], $regs)));
+        if ($regs && count($types) === 1 && $types[0] === 'new') {
+            $dates = array_map(fn($r) => self::first_charge_for_new($r), $regs);
+            return ['type' => 'new', 'options' => [max($dates)]];
+        }
+        return ['type' => 'current', 'options' => self::current_first_charge_options()];
+    }
+
+    /**
+     * Unix time of the first charge, or 0 when there is no date. The date itself when its charge time is at least
+     * 48 h away; otherwise the same day of the following month (3.7.12: the billing day is kept — a family who opens
+     * the payment page late is charged on the next billing day, never at checkout and never a day or two later).
      */
     public static function first_charge_timestamp(?string $date): int
     {
         if (!$date || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) return 0;
-        if ($date <= wp_date('Y-m-d')) return 0;
-        $ts = strtotime($date . ' ' . self::CHARGE_HOUR_UTC . ':00:00 UTC');
-        if (!$ts) return 0;
-        $min = time() + self::MIN_FUTURE_HOURS * HOUR_IN_SECONDS;
-        if ($ts >= $min) return $ts;
-        $slot = strtotime(gmdate('Y-m-d', $min) . ' ' . self::CHARGE_HOUR_UTC . ':00:00 UTC');
-        return $slot >= $min ? $slot : $slot + DAY_IN_SECONDS;
+        return self::charge_ts(self::roll_to_bookable($date));
+    }
+
+    /**
+     * How the subscription waits for its first charge: 'trial' (the free first month; or 3.7.12 a current family whose
+     * first billing day is more than one month away — Stripe accepts a billing cycle anchor only within the first
+     * period, so a no-charge period until that day is used instead) or 'anchor'.
+     */
+    public static function first_charge_mode(array $acc, int $first_ts): string
+    {
+        if (self::has_free_first_month($acc)) return 'trial';
+        $limit = (int) strtotime('+1 month', time()) - HOUR_IN_SECONDS; // a margin inside Stripe's "now + one interval"
+        return $first_ts > $limit ? 'trial' : 'anchor';
     }
 
     // ------------------------------------------------------------
@@ -243,19 +339,21 @@ class IQU_Billing_Service
         if (!is_email($email)) return $fail(['The enrollment has no valid email address.']);
 
         // New only if every child is still in the free month.
-        $types = array_values(array_unique(array_map([__CLASS__, 'student_type'], $regs)));
-        $type  = (count($types) === 1 && $types[0] === 'new') ? 'new' : 'current';
-
-        $date = (string) ($opts['first_charge_date'] ?? '');
-        if ($date === '' && $type === 'new' && count($regs) === 1) {
-            $date = (string) self::suggested_first_charge(reset($regs));
-        }
-        if ($date === '') return $fail(['Choose the date of the first charge.']);
-        $d = DateTime::createFromFormat('!Y-m-d', $date, new DateTimeZone('UTC'));
-        if (!$d || $d->format('Y-m-d') !== $date) return $fail(['The first charge date is not valid.']);
-        if ($date < wp_date('Y-m-d')) return $fail(['The first charge date cannot be in the past. Choose today if the payment is already due.']);
-        if ($d->getTimestamp() > time() + self::MAX_DAYS_AHEAD * DAY_IN_SECONDS) {
-            return $fail(['The first charge date must be within the next ' . self::MAX_DAYS_AHEAD . ' days.']);
+        // 3.7.12: the first charge is always a billing day. New: the first billing day after the 30 free days (fixed;
+        // a date sent with it is not used). Current: the next billing day, or a later one within MAX_DAYS_AHEAD.
+        $plan = self::first_charge_plan(array_values($regs));
+        $type = $plan['type'];
+        if ($type === 'new') {
+            $date = $plan['options'][0];
+        } else {
+            $date = (string) ($opts['first_charge_date'] ?? '');
+            if ($date === '') return $fail(['Choose the date of the first charge.']);
+            $d = DateTime::createFromFormat('!Y-m-d', $date, new DateTimeZone('UTC'));
+            if (!$d || $d->format('Y-m-d') !== $date) return $fail(['The first charge date is not valid.']);
+            if (!in_array($date, $plan['options'], true)) {
+                return $fail(['The first charge must be on the billing day (the ' . self::billing_day_text() . ' of the month): '
+                    . implode(' or ', array_map(fn($o) => wp_date('j F Y', self::charge_ts($o)), $plan['options'])) . '.']);
+            }
         }
 
         $first    = reset($regs);
@@ -405,11 +503,92 @@ class IQU_Billing_Service
         return $ok;
     }
 
+    /**
+     * 3.7.12: a student whose own first charge is later than the family's (a brother or sister added with a free first
+     * month): not on the Stripe subscription yet — their line is added for that charge (IQU_Billing_Family::activate_due).
+     */
+    public static function is_deferred(array $member): bool
+    {
+        return (string) ($member['first_charge_date'] ?? '') !== '' && (string) ($member['stripe_item_id'] ?? '') === '';
+    }
+
+    /**
+     * 3.7.12: the date the discount ledger's first month comes from, for a student with a free first month: their own
+     * first charge (a sibling added later), else the family's (never before the first billing day after the free days),
+     * else the first billing day after the free days. Null for a student without a free month.
+     */
+    public static function ledger_first_charge(array $reg): ?string
+    {
+        $end = self::free_month_end($reg);
+        if ($end === null) return null;
+        if (class_exists('IQU_Billing_DB') && IQU_Billing_DB::is_installed() && !empty($reg['id'])) {
+            $acc = IQU_Billing_DB::account_for_registration((int) $reg['id']);
+            if ($acc) {
+                foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
+                    if ((int) $m['registration_id'] === (int) $reg['id'] && (string) ($m['first_charge_date'] ?? '') !== '') return (string) $m['first_charge_date'];
+                }
+                $fam = (string) ($acc['first_charge_date'] ?? '');
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fam)) return max($fam, self::billing_day_on_or_after($end, (int) substr($fam, 8, 2)));
+            }
+        }
+        return self::billing_day_on_or_after($end, self::billing_day());
+    }
+
+    /** Student Billing's group for an account status (3.7.12: shared with the Daily Summary). */
+    public static function group_for_status(string $status): string
+    {
+        if (in_array($status, ['not_sent', 'link_sent', 'bank_verification'], true)) return 'link_sent';
+        if (in_array($status, ['free_month', 'waiting_first_charge', 'active', 'ending'], true)) return 'active';
+        if (in_array($status, ['past_due', 'unpaid', 'paused', 'review'], true)) return 'failed';
+        return 'not_billed';
+    }
+
+    /**
+     * Every monthly enrollment (not archived, not Left) with its fee and billing state: [reg, p, acc, group] — the rows
+     * of Student Billing (IQU_Billing_Page::rows) and, 3.7.12, of the Daily Summary's "no card" lines.
+     */
+    public static function student_rows(array $forms = ['free']): array
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . IQU_TABLE_NAME;
+        $in    = implode(',', array_fill(0, count($forms), '%s'));
+        $arch  = IQU_Database::archive_ready() ? ' AND archived_at IS NULL' : ''; // 3.7.0 AK: archived students leave the list
+        $arch .= IQU_Database::not_left_sql(); // 3.7.9: students marked Left leave every billing list
+        $regs  = $wpdb->get_results($wpdb->prepare("SELECT * FROM `{$table}` WHERE form_type IN ({$in}){$arch} ORDER BY id DESC", ...$forms), ARRAY_A) ?: [];
+
+        $mode = IQU_Stripe::expected_mode();
+        $acc_rows = $wpdb->get_results($wpdb->prepare(
+            'SELECT m.registration_id, a.* FROM ' . IQU_Billing_DB::members_table() . ' m JOIN ' . IQU_Billing_DB::accounts_table() . ' a ON a.id = m.account_id WHERE m.mode = %s AND a.mode = %s',
+            $mode, $mode
+        ), ARRAY_A) ?: [];
+        $by_reg = [];
+        foreach ($acc_rows as $a) $by_reg[(int) $a['registration_id']] = $a;
+
+        $out = [];
+        foreach ($regs as $reg) {
+            $id  = (int) $reg['id'];
+            $acc = $by_reg[$id] ?? null;
+            $p   = IQU_Billing_Pricing::for_registration($reg);
+            if ($acc) {
+                $group = self::group_for_status($acc['status']);
+            } elseif ($p['billable']) {
+                $group = 'not_set_up';
+            } elseif ($p['needs_input']) {
+                $group = 'needs_course';
+            } else {
+                $group = 'not_billed';
+            }
+            $out[] = ['reg' => $reg, 'p' => $p, 'acc' => $acc, 'group' => $group];
+        }
+        return $out;
+    }
+
     /** What the family should pay each month now, in cents, from the students' records. */
     public static function billable_cents(array $acc): int
     {
         $cents = 0;
         foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
+            if (self::is_deferred($m)) continue; // 3.7.12: not on the subscription yet
             $reg = IQU_Database::get_registration((int) $m['registration_id']);
             if (!$reg) continue;
             $p = IQU_Billing_Pricing::for_registration($reg);
@@ -428,7 +607,10 @@ class IQU_Billing_Service
     public static function stored_cents(array $acc): int
     {
         $cents = 0;
-        foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) $cents += max(0, IQU_Billing_Pricing::to_cents((float) $m['amount']));
+        foreach (IQU_Billing_DB::get_members((int) $acc['id']) as $m) {
+            if (self::is_deferred($m)) continue; // 3.7.12: not on the subscription yet (added on its own first charge)
+            $cents += max(0, IQU_Billing_Pricing::to_cents((float) $m['amount']));
+        }
         return $cents;
     }
 
@@ -548,6 +730,7 @@ class IQU_Billing_Service
             // The amount saved when the account was created (priced on the server then).
             $cents = IQU_Billing_Pricing::to_cents((float) $m['amount']);
             if ($cents <= 0) continue;
+            if (self::is_deferred($m)) continue; // 3.7.12: a sibling first charged later — their line is added then
             $label = ($p['course_label'] ?: 'Tuition') . ' - ' . self::short_name($reg);
             $desc  = $p['days_per_week'] ? sprintf('%d %s a week (%d a month)', $p['days_per_week'], (int) $p['days_per_week'] === 1 ? 'class' : 'classes', $p['classes_per_month']) : 'Monthly tuition';
             $items[] = [
@@ -565,6 +748,7 @@ class IQU_Billing_Service
             ];
         }
         if (!$items) return $fail('Nothing to bill on this record.');
+        $cents_now = array_sum(array_map(fn($i) => (int) $i['price_data']['unit_amount'] * (int) $i['quantity'], $items));
 
         $link = self::link_for($acc);
         $sub  = [
@@ -574,7 +758,14 @@ class IQU_Billing_Service
 
         $first_ts = self::first_charge_timestamp($acc['first_charge_date'] ?? null);
         if ($first_ts) {
-            if (self::has_free_first_month($acc)) {
+            // 3.7.12: a family who opens the page after (or within 48 h of) the date they were given is charged on the
+            // next billing day; the record keeps the date the page sets up, so every text shows it.
+            $rolled = gmdate('Y-m-d', $first_ts);
+            if ($rolled !== (string) $acc['first_charge_date']) {
+                IQU_Billing_DB::update_account((int) $acc['id'], ['first_charge_date' => $rolled]);
+                $acc['first_charge_date'] = $rolled;
+            }
+            if (self::first_charge_mode($acc, $first_ts) === 'trial') {
                 $sub['trial_end'] = $first_ts;
             } else {
                 $sub['billing_cycle_anchor'] = $first_ts;
@@ -605,13 +796,13 @@ class IQU_Billing_Service
             // Stripe renders custom_text with Markdown: bold is the strongest emphasis allowed here
             // (font size cannot be changed on Stripe-hosted Checkout).
             $params['custom_text'] = ['submit' => ['message' => '**Nothing is charged today.** Your first payment of **'
-                . IQU_Pricing::format((float) $acc['net_amount']) . '** is on **' . wp_date('j F Y', $first_ts)
-                . '**, then on the same date every month.']];
+                . IQU_Pricing::format(round($cents_now / 100, 2)) . '** is on **' . wp_date('j F Y', $first_ts)
+                . '**, then on the ' . IQU_Billing_Email::ordinal((int) gmdate('j', $first_ts)) . ' of every month.']];
         }
 
         // The amount this page sets up, kept with the session (and on the record below) so an old
         // page can be recognised; the webhook compares the subscription with the current amount.
-        $cents = array_sum(array_map(fn($i) => (int) $i['price_data']['unit_amount'] * (int) $i['quantity'], $items));
+        $cents = $cents_now;
         $params['metadata']['iqu_amount_cents'] = (string) $cents;
         // One page at a time per family (a double tap, two tabs): atomic lock, released below.
         $lock = 'iqu_co_lock_' . (int) $acc['id'];

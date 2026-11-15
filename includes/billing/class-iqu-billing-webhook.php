@@ -123,6 +123,44 @@ class IQU_Billing_Webhook
         }
     }
 
+    /**
+     * A family's Checkout page has completed (checkout.session.completed, after the sync; 3.7.12: also the hourly safety
+     * net when that webhook never arrived — IQU_Billing_Chase). Second line of defence against an old Checkout page: the
+     * subscription must charge what the family pays now; if not, no activation (no "method added", no enrollment
+     * completion) — the account goes to review and the admins are alerted. Otherwise "Payment method added" for the page
+     * this account was waiting for, and the website enrollment is finished (welcome, "✅ Enrolled", Meta).
+     * Once only: the page id is cleared in one conditional UPDATE, and only the request that cleared it counts it as
+     * "this page"; the enrollment itself moves card_pending → enrolled in one UPDATE.
+     * @return array{0:string,1:?int,2:string}|null the webhook result when it stops early (review), else null
+     */
+    public static function finish_checkout(array $before, array $sync, array $session): ?array
+    {
+        $acc = $sync['account'];
+        $id  = (int) $acc['id'];
+        if (($before['review_reason'] ?? '') !== '') return ['in_review', $id, 'waiting for an admin'];
+        if (!empty($sync['subscription'])) {
+            $check = IQU_Billing_Service::amount_check($acc, $sync['subscription'], $session);
+            if (!$check['match']) {
+                IQU_Billing_Service::flag_amount_mismatch($acc, $check, (string) ($session['id'] ?? ''));
+                if (($check['currency'] ?? 'usd') !== 'usd') return ['not_usd', $id, 'currency ' . $check['currency'] . ' charged ' . $check['charged']];
+                return ['amount_mismatch', $id, 'charged ' . $check['charged'] . ' expected ' . $check['expected']];
+            }
+        }
+        $sid = (string) ($session['id'] ?? '');
+        // The page this account was waiting for has completed: cleared here in one UPDATE, so a repeat (or the other
+        // path, webhook / safety net) is not "first".
+        $this_page = $sid !== '' && (string) ($before['checkout_session_id'] ?? '') === $sid && IQU_Billing_DB::clear_checkout_session($id, $sid);
+        IQU_Billing_DB::update_account($id, ['checkout_session_id' => '', 'link_outdated' => 0]
+            + ((string) $before['last_payment_status'] === 'bank_failed' && $sync['new'] !== 'bank_verification' && (string) $acc['payment_method_label'] !== '' ? ['last_payment_status' => '', 'last_failure_reason' => ''] : []));
+        $had_method = in_array($sync['old'], ['free_month', 'waiting_first_charge', 'active', 'past_due', 'unpaid', 'paused', 'ending'], true);
+        if ((!$had_method || $this_page) && in_array($sync['new'], ['free_month', 'waiting_first_charge', 'active'], true)) {
+            IQU_Billing_Notify::method_added($acc);
+        }
+        // Enroll for Free: Stripe has confirmed the card → registrations become "enrolled". Never throws.
+        if (class_exists('IQU_Enrollment')) IQU_Enrollment::on_checkout_completed($acc);
+        return null;
+    }
+
     /** @return array{0:string,1:?int,2:string} result, account id, note */
     private static function process(array $event): array
     {
@@ -155,28 +193,8 @@ class IQU_Billing_Webhook
 
         switch ($event['type']) {
             case 'checkout.session.completed':
-                // Second line of defence against an old Checkout page: the subscription must charge
-                // what the family pays now. If not, no activation (no "method added", no enrollment
-                // completion) — the account goes to review and the admins are alerted.
-                if (($before['review_reason'] ?? '') !== '') return ['in_review', $id, 'waiting for an admin'];
-                if (!empty($sync['subscription'])) {
-                    $check = IQU_Billing_Service::amount_check($acc, $sync['subscription'], $obj);
-                    if (!$check['match']) {
-                        IQU_Billing_Service::flag_amount_mismatch($acc, $check, (string) ($obj['id'] ?? ''));
-                        if (($check['currency'] ?? 'usd') !== 'usd') return ['not_usd', $id, 'currency ' . $check['currency'] . ' charged ' . $check['charged']];
-                        return ['amount_mismatch', $id, 'charged ' . $check['charged'] . ' expected ' . $check['expected']];
-                    }
-                }
-                IQU_Billing_DB::update_account($id, ['checkout_session_id' => '', 'link_outdated' => 0]
-                    + ((string) $before['last_payment_status'] === 'bank_failed' && $sync['new'] !== 'bank_verification' && (string) $acc['payment_method_label'] !== '' ? ['last_payment_status' => '', 'last_failure_reason' => ''] : []));
-                $had_method = in_array($sync['old'], ['free_month', 'waiting_first_charge', 'active', 'past_due', 'unpaid', 'paused', 'ending'], true);
-                // The page this account was waiting for has completed (it is cleared just above, so a repeat is not "first").
-                $this_page  = (string) ($before['checkout_session_id'] ?? '') !== '' && (string) $before['checkout_session_id'] === (string) ($obj['id'] ?? '');
-                if ((!$had_method || $this_page) && in_array($sync['new'], ['free_month', 'waiting_first_charge', 'active'], true)) {
-                    IQU_Billing_Notify::method_added($acc);
-                }
-                // Enroll for Free: Stripe has confirmed the card → registrations become "enrolled". Never throws.
-                if (class_exists('IQU_Enrollment')) IQU_Enrollment::on_checkout_completed($acc);
+                $early = self::finish_checkout($before, $sync, $obj);
+                if ($early !== null) return $early;
                 break;
 
             case 'customer.subscription.created':
