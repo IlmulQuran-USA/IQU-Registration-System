@@ -26,7 +26,6 @@ class IQU_Validator
     // Whitelists
     private const ALLOWED_LEVELS     = ['beginner', 'intermediate', 'advanced'];
     private const ALLOWED_DAYS       = ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-    private const ALLOWED_DURATIONS  = ['30', '45', '60', 'other'];
     private const ALLOWED_LANGUAGES  = ['english', 'arabic', 'urdu', 'bengali', 'other'];
     private const ALLOWED_TEACHER    = ['male', 'female', 'no_preference'];
     private const ALLOWED_DEVICES    = ['smartphone', 'tablet', 'laptop/desktop'];
@@ -110,7 +109,8 @@ class IQU_Validator
         $this->v_text($post, 'time_slot', 'Preferred Time Slot', 100);
 
         $duration = strtolower(sanitize_text_field($post['session_dur'] ?? ''));
-        if (!in_array($duration, self::ALLOWED_DURATIONS, true)) {
+        // 3.7.13: the options come from IQU_Reg_Fields::SESSION_DURATIONS (one list); 'other' from an older form is still read as before
+        if (!in_array($duration, array_merge(array_map('strval', array_keys(IQU_Reg_Fields::SESSION_DURATIONS)), ['other']), true)) {
             $this->errors['session_dur'] = 'Please select a session duration.';
         }
         $this->clean['session_dur'] = $duration;

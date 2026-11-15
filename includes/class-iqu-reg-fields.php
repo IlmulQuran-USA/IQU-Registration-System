@@ -45,11 +45,25 @@ class IQU_Reg_Fields
         'UTC' => 'UTC (Coordinated Universal Time)',
     ];
 
+    /**
+     * 3.7.13: the one list of session durations (minutes), in order: the Enroll for Free form, its validation (also a
+     * website re-enrollment), Add existing student and the import (CSV and Excel) all use it. A record saved with an
+     * older value (45) keeps it and is shown as saved; it is no longer offered or accepted.
+     */
     public const SESSION_DURATIONS = [
         '30' => '30 minutes',
-        '45' => '45 minutes',
+        '40' => '40 minutes',
+        '50' => '50 minutes',
         '60' => '60 minutes',
     ];
+
+    /** "30, 40, 50 or 60" — the duration options for texts, built from SESSION_DURATIONS (3.7.13). */
+    public static function duration_list_text(string $last = 'or'): string
+    {
+        $k = array_map('strval', array_keys(self::SESSION_DURATIONS));
+        $end = array_pop($k);
+        return $k ? implode(', ', $k) . ' ' . $last . ' ' . $end : (string) $end;
+    }
 
     public const LANGUAGES = [
         'english' => 'English',

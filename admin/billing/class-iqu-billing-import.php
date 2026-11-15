@@ -46,6 +46,13 @@ class IQU_Billing_Import
      */
     private const KEEP      = HOUR_IN_SECONDS;
 
+    /** 3.7.13: COLUMNS with the session duration options filled in from IQU_Reg_Fields::SESSION_DURATIONS (never out of date). */
+    private static function columns(): array
+    {
+        $first = (string) array_key_first(IQU_Reg_Fields::SESSION_DURATIONS);
+        return array_map(fn($c) => array_map(fn($v) => is_string($v) ? str_replace(['{durations}', '{duration}'], [IQU_Reg_Fields::duration_list_text(), $first], $v) : $v, $c), self::COLUMNS);
+    }
+
     /** Sample file columns, in order. Names match the existing CSV export. */
     private const COLUMNS = [
         ['First Name',         true,  'Student first name.',                                   'Ayesha'],
@@ -65,7 +72,7 @@ class IQU_Billing_Import
         ['Memorized',          false, 'Surahs or Juz memorized before (up to 500 characters).', 'Juz Amma'],
         ['Preferred Days',     false, 'Days of the week, for example: Mon, Tue, Thu, Fri. No more than Days/Week.', 'Mon, Tue, Thu, Fri'],
         ['Time Slot',          false, 'Usual class time, for example 05:00 PM – 06:00 PM (CST). Up to 100 characters.', '05:00 PM – 06:00 PM (CST)'],
-        ['Session Duration',   false, '30, 45 or 60 (minutes).',                               '30'],
+        ['Session Duration',   false, '{durations} (minutes).',                                '{duration}'], // 3.7.13: filled from IQU_Reg_Fields::SESSION_DURATIONS (columns())
         ['Languages',          false, 'English, Arabic, Urdu or Bengali; several with commas.', 'English, Bengali'],
         ['Teacher Pref',       false, 'Male, Female or No preference.',                        'Female'],
         ['Referral',           false, 'How they heard about us: Facebook, WhatsApp, LinkedIn, YouTube, Website, Friend/Family, Email or Other (text after "Other:" is kept; saved with a warning).', 'Friend/Family'],
@@ -135,11 +142,11 @@ class IQU_Billing_Import
         nocache_headers();
         $out = IQU_Export::open('iqu-import-students-sample.csv'); // CSV as before, or Excel (format=xlsx)
         fputs($out, "\xEF\xBB\xBF");
-        IQU_CSV::put($out, array_column(self::COLUMNS, 0));
-        IQU_CSV::put($out, array_column(self::COLUMNS, 3));
+        IQU_CSV::put($out, array_column(self::columns(), 0));
+        IQU_CSV::put($out, array_column(self::columns(), 3));
         // Second example: one value per column of COLUMNS (22), in the same order (an adult: date of birth month first).
         IQU_CSV::put($out, ['Omar', 'Rahman', '', 'omar.r@example.com', '+1 469 555 0172', '', 'arabic', '2', '30', 'Yes', '4/12/2002', '', 'United States', '', '',
-            'Sat, Sun', '10:00 AM – 11:00 AM (CST)', '30', 'English, Arabic', 'No preference', '', 'Adult student, reduced fee agreed']);
+            'Sat, Sun', '10:00 AM – 11:00 AM (CST)', (string) (array_keys(IQU_Reg_Fields::SESSION_DURATIONS)[1] ?? array_key_first(IQU_Reg_Fields::SESSION_DURATIONS)), 'English, Arabic', 'No preference', '', 'Adult student, reduced fee agreed']); // 3.7.13: a duration from the list
         IQU_Export::close($out);
         exit;
     }
@@ -547,7 +554,7 @@ class IQU_Billing_Import
                         <summary>Which columns do I need?</summary>
                         <p class="iqu-fld-hint">Required columns:</p>
                         <ul class="iqu-column-chips" aria-label="Required columns">
-                            <?php foreach (self::COLUMNS as $c): if (!$c[1]) continue; ?>
+                            <?php foreach (self::columns() as $c): if (!$c[1]) continue; ?>
                                 <li><?php echo esc_html($c[0]); ?></li>
                             <?php endforeach; ?>
                         </ul>
@@ -557,7 +564,7 @@ class IQU_Billing_Import
                             <caption class="screen-reader-text">All columns</caption>
                             <thead><tr><th>Column</th><th>Required</th><th>What to enter</th><th>Example</th></tr></thead>
                             <tbody>
-                            <?php foreach (self::COLUMNS as $c): ?>
+                            <?php foreach (self::columns() as $c): ?>
                                 <tr>
                                     <td><strong><?php echo esc_html($c[0]); ?></strong></td>
                                     <td><?php echo $c[1] ? 'Yes' : '—'; ?></td>
@@ -666,7 +673,7 @@ class IQU_Billing_Import
         $tocheck = count(array_filter($ok, fn($r) => !empty($r['course_missing']) && !empty($r['in']['use_agreed'])));
         $total  = array_sum(array_map(fn($r) => (float) $r['net'], $ok));
         $post   = esc_url(admin_url('admin-post.php'));
-        $labels = array_column(self::COLUMNS, 0);
+        $labels = array_column(self::columns(), 0);
         $fields = ['first_name', 'last_name', 'guardian_name', 'email', 'whatsapp', 'guardian_whatsapp', 'course', 'days', 'agreed_fee', 'zakat', 'date_of_birth',
                    'country_origin', 'country_res', 'quran_level', 'memorized', 'preferred_days', 'time_slot', 'session_dur', 'languages', 'teacher_pref', 'referral', 'note'];
         $label_of = array_combine($fields, $labels);

@@ -256,7 +256,7 @@ class IQU_Billing_Add_Student
         $dur = strtolower(trim((string) ($x['session_dur'] ?? '')));
         if ($dur !== '') {
             $num = preg_replace('/\D/', '', $dur);
-            if (!isset(IQU_Reg_Fields::SESSION_DURATIONS[$num])) $e[] = 'Session duration must be 30, 45 or 60 minutes.';
+            if (!isset(IQU_Reg_Fields::SESSION_DURATIONS[$num])) $e[] = 'Session duration must be ' . IQU_Reg_Fields::duration_list_text() . ' minutes.'; // 3.7.13: from the list
             else $cols['session_dur'] = $num;
         }
 
