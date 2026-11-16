@@ -50,7 +50,8 @@ class IQU_Billing_Import
     private static function columns(): array
     {
         $first = (string) array_key_first(IQU_Reg_Fields::SESSION_DURATIONS);
-        return array_map(fn($c) => array_map(fn($v) => is_string($v) ? str_replace(['{durations}', '{duration}'], [IQU_Reg_Fields::duration_list_text(), $first], $v) : $v, $c), self::COLUMNS);
+        $course = (string) (IQU_Pricing::course_keys()[0] ?? '');
+        return array_map(fn($c) => array_map(fn($v) => is_string($v) ? str_replace(['{durations}', '{duration}', '{courses}', '{course}'], [IQU_Reg_Fields::duration_list_text(), $first, IQU_Pricing::course_list_text(), $course], $v) : $v, $c), self::COLUMNS);
     }
 
     /** Sample file columns, in order. Names match the existing CSV export. */
@@ -61,7 +62,7 @@ class IQU_Billing_Import
         ['Email',              true,  'Billing email. The payment link and receipts go here. Siblings may share one.', 'sara.k@example.com'],
         ['WhatsApp',           true,  'With country code. If empty, Guardian WhatsApp is used.', '+1 214 555 0148'],
         ['Guardian WhatsApp',  false, 'Used when WhatsApp is empty.',                          ''],
-        ['Course',             true,  'qaidah, hifz or arabic (the full course name also works). If the cell is empty or the course is not on the website, the student is still imported with a warning and the course left blank; billing waits until you set it.', 'qaidah'],
+        ['Course',             true,  '{courses} (the full course name also works). If the cell is empty or the course is not on the website, the student is still imported with a warning and the course left blank; billing waits until you set it.', '{course}'], // 3.7.15: from IQU_Pricing (columns())
         ['Days/Week',          true,  'Classes per week, 1 to 7. Hifz needs at least 3.',     '4'],
         ['Agreed Monthly Fee', false, 'A monthly fee agreed with the family, billed exactly as entered (lower or higher than the standard fee). Number only. 0 means full scholarship. Leave empty for the standard fee. Without a recognised course it is saved with a warning and compared with the standard price once the course is set.', ''],
         ['Zakat',              false, 'Yes if the reduced fee is paid by the Zakat Fund. Otherwise leave empty or No.', 'No'],
@@ -145,7 +146,7 @@ class IQU_Billing_Import
         IQU_CSV::put($out, array_column(self::columns(), 0));
         IQU_CSV::put($out, array_column(self::columns(), 3));
         // Second example: one value per column of COLUMNS (22), in the same order (an adult: date of birth month first).
-        IQU_CSV::put($out, ['Omar', 'Rahman', '', 'omar.r@example.com', '+1 469 555 0172', '', 'arabic', '2', '30', 'Yes', '4/12/2002', '', 'United States', '', '',
+        IQU_CSV::put($out, ['Omar', 'Rahman', '', 'omar.r@example.com', '+1 469 555 0172', '', (string) (IQU_Pricing::is_valid_course('arabic') ? 'arabic' : (IQU_Pricing::course_keys()[0] ?? '')), '2', '30', 'Yes', '4/12/2002', '', 'United States', '', '',
             'Sat, Sun', '10:00 AM – 11:00 AM (CST)', (string) (array_keys(IQU_Reg_Fields::SESSION_DURATIONS)[1] ?? array_key_first(IQU_Reg_Fields::SESSION_DURATIONS)), 'English, Arabic', 'No preference', '', 'Adult student, reduced fee agreed']); // 3.7.13: a duration from the list
         IQU_Export::close($out);
         exit;
@@ -389,14 +390,10 @@ class IQU_Billing_Import
     /** Accepts the course key, its short code, or its full name. */
     private static function normalise_course(string $value): string
     {
-        $flat = strtolower(preg_replace('/[^a-z0-9]/i', '', $value));
-        if ($flat === '') return '';
-        foreach (IQU_Pricing::course_keys() as $key) {
-            if ($flat === strtolower($key)) return $key;
-            if ($flat === strtolower(IQU_Pricing::short_code($key))) return $key;
-            if ($flat === strtolower(preg_replace('/[^a-z0-9]/i', '', IQU_Pricing::label($key)))) return $key;
-        }
-        return sanitize_key($value);
+        if (preg_replace('/[^a-z0-9]/i', '', $value) === '') return '';
+        // 3.7.15: key, short code, label or one of the course's spellings — one list, in IQU_Pricing
+        $key = IQU_Pricing::course_from_text($value);
+        return $key !== '' ? $key : sanitize_key($value);
     }
 
     // ------------------------------------------------------------

@@ -20,6 +20,10 @@ if (!defined('ABSPATH')) exit;
  *   Qa'idah / Nazirah : ১–২ দিন → $5/ক্লাস,  ৩–৭ দিন → $4/ক্লাস
  *   Quran Hifz        : $5/ক্লাস — সর্বনিম্ন ৩ দিন বাধ্যতামূলক
  *   Arabic Language   : $5/ক্লাস — ১–৭ দিন সব একই রেট
+ *   Tarjumatul Quran  : $5/ক্লাস — ১–৭ দিন সব একই রেট (3.7.15, Arabic Language-এর মতো)
+ *   Islamic Studies   : ১–২ দিন → $5/ক্লাস, ৩–৭ দিন → $4/ক্লাস (3.7.15, Qa'idah / Nazirah-এর মতো)
+ *
+ * aliases (3.7.15): import-এ গ্রহণযোগ্য অন্য বানান — শুধু এখানেই, একটি তালিকা (course_from_text())।
  */
 class IQU_Pricing
 {
@@ -60,6 +64,27 @@ class IQU_Pricing
             'tiers'    => [
                 ['up_to' => 7, 'rate' => 5.00],
             ],
+        ],
+        // 3.7.15: $5 a class for 1–7 days (as Arabic Language)
+        'tarjumatul_quran' => [
+            'label'    => 'Tarjumatul Quran',
+            'short'    => 'TRJ',
+            'min_days' => 1,
+            'tiers'    => [
+                ['up_to' => 7, 'rate' => 5.00],
+            ],
+            'aliases'  => ['tarjumatul quran', 'tarjamatul quran', "tarjumatul qur'an", 'tarjuma', 'quran translation'],
+        ],
+        // 3.7.15: $5 a class for 1–2 days, $4 a class for 3–7 days (as Qa'idah / Nazirah); no special discount
+        'islamic_studies' => [
+            'label'    => 'Islamic Studies',
+            'short'    => 'ISL',
+            'min_days' => 1,
+            'tiers'    => [
+                ['up_to' => 2, 'rate' => 5.00],
+                ['up_to' => 7, 'rate' => 4.00],
+            ],
+            'aliases'  => ['islamic studies', 'islamic study'],
         ],
     ];
 
@@ -108,6 +133,30 @@ class IQU_Pricing
     public static function short_code(string $course): string
     {
         return self::COURSES[$course]['short'] ?? '';
+    }
+
+    /**
+     * 3.7.15: the course a written name stands for — its key, short code, label or one of its aliases, in any case and
+     * with any spaces, apostrophes or hyphens ("Tarjumatul Qur'an", "islamic-study"). '' when it is not a course.
+     */
+    public static function course_from_text(string $value): string
+    {
+        $flat = fn(string $s) => strtolower(preg_replace('/[^a-z0-9]/i', '', $s));
+        $v = $flat($value);
+        if ($v === '') return '';
+        foreach (self::COURSES as $key => $c) {
+            $names = array_merge([$key, $c['short'], $c['label']], $c['aliases'] ?? []);
+            foreach ($names as $n) if ($v === $flat((string) $n)) return $key;
+        }
+        return '';
+    }
+
+    /** 3.7.15: "qaidah, hifz, arabic, tarjumatul_quran or islamic_studies" — the course keys for texts (the import guide). */
+    public static function course_list_text(): string
+    {
+        $k = self::course_keys();
+        $last = array_pop($k);
+        return $k ? implode(', ', $k) . ' or ' . $last : (string) $last;
     }
 
     /** কোর্স → সর্বনিম্ন দিন/সপ্তাহ */
