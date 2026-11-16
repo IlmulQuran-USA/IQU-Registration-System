@@ -167,7 +167,7 @@ class IQU_Billing_Reports
             $id = (int) $r['account_id'];
             $fam[$id] = $fam[$id] ?? ['expected' => 0.0, 'paid' => 0.0, 'statuses' => [], 'tones' => []];
             // Void, fully refunded and disputed invoices are not owed (as Outstanding on the Payments page and in month_summary).
-            if (!in_array($r['status'], ['void', 'refunded', 'disputed'], true)) $fam[$id]['expected'] += (float) $r['amount_due'];
+            if (!in_array($r['status'], ['void', 'refunded', 'disputed', 'waived'], true)) $fam[$id]['expected'] += (float) $r['amount_due']; // 3.7.14: a waived month is never expected
             if ($r['status'] === 'paid') $fam[$id]['paid'] += (float) $r['amount_paid'];
             [$label, $tone] = IQU_Billing_History::badge($r, $accounts[$id] ?? null);
             $fam[$id]['statuses'][] = $label;
@@ -456,6 +456,8 @@ class IQU_Billing_Reports
             ['Refunded', IQU_Pricing::format($sum['refunded']), $sum['refunded'] > 0 ? 'purple' : 'neutral', 'In ' . IQU_Billing_History::month_label($ym), 'rotate-ccw'],
             ['Not set up', (string) count($not_set_up), count($not_set_up) ? 'gold' : 'neutral', IQU_Pricing::format($owed) . ' a month waiting', 'user-plus'],
         ];
+        // 3.7.14: waived months on their own line (never collected or expected); only in a month that has one
+        if (($sum['waived'] ?? 0) > 0) $cards[] = ['Waived', IQU_Pricing::format((float) $sum['waived']), 'neutral', 'Not charged (waived)', 'rotate-ccw'];
         // One row of equal stat cards (Reports' own grid, not the Payments board): --iqu-kpi-n = how many.
         echo '<div class="iqu-rep-kpis" style="--iqu-kpi-n:' . count($cards) . '" aria-label="' . esc_attr(IQU_Billing_History::month_label($ym)) . '">';
         foreach ($cards as [$label, $value, $tone, $sub, $icon]) {

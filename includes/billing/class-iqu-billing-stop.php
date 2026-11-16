@@ -120,6 +120,7 @@ final class IQU_Billing_Stop
         $ends = IQU_Billing_Sync::ends_at($s);
         IQU_Billing_DB::update_account((int) $acc['id'], ['status' => (string) $acc['status'] === 'review' ? 'review' : IQU_Billing_Sync::status_from($s), 'ends_at' => $ends, 'next_charge_at' => null]);
         IQU_Billing_DB::log_action(['action' => 'stop_billing', 'account_id' => (int) $acc['id'], 'amount' => (float) $acc['net_amount'], 'reason' => $reason, 'stripe_ref' => $sub]);
+        if (class_exists('IQU_Billing_Arrears')) IQU_Billing_Arrears::on_stop($acc); // 3.7.14: an earlier month still waiting is never charged after a stop
         $day = self::day($ends ? (int) strtotime($ends . ' UTC') : 0);
         return ['ok' => true, 'message' => 'Billing will stop at the end of the period already paid' . ($day ? ' (' . $day . ')' : '') . '. No further charges.'];
     }
@@ -283,6 +284,7 @@ final class IQU_Billing_Stop
         IQU_Billing_DB::update_account((int) $acc['id'], ['net_amount' => $net, 'discount_amount' => $disc, 'monthly_amount' => round($net + $disc, 2)]);
         IQU_Billing_DB::log_action(['action' => 'remove_student', 'account_id' => (int) $acc['id'], 'registration_id' => (int) $reg['id'],
             'amount' => $pick['amount'], 'reason' => $reason, 'stripe_ref' => $item]);
+        if (class_exists('IQU_Billing_Arrears')) IQU_Billing_Arrears::on_stop($acc, (int) $reg['id']); // 3.7.14: their earlier month still waiting is never charged
         $day = self::day((int) strtotime($ended . ' UTC'));
         return ['ok' => true, 'message' => $name . ' was removed from billing and keeps classes until ' . $day . '. The family now pays '
             . IQU_Pricing::format($net) . ' a month' . ($pick['paid'] ? ' from the next charge' : '') . '. The other students are not changed.'];

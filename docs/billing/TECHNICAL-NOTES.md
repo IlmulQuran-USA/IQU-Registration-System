@@ -178,7 +178,7 @@ Public details in Stripe (name, support email, website, statement descriptor ILM
    - Customers: Write (create the family's customer; the Settings "Test connection" reads one)
    - Checkout Sessions: Write (create the payment page, expire an old one, read its status; Summer payments)
    - Customer portal: Write (the family's "Change bank or card" page)
-   - Invoices: Read (also the invoice payments list)
+   - Invoices: Write (3.7.14: an earlier month on the next invoice — invoice items; void an unpaid invoice; finalize and charge the waiting invoice. Write includes Read: the invoice payments list)
    - Charges: Read
    - PaymentIntents: Read (Summer payment details)
    - PaymentMethods: Read (card / bank label, card country)

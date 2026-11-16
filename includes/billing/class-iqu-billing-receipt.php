@@ -131,6 +131,16 @@ class IQU_Billing_Receipt
         $money = ($disc > 0 && abs($gross - $disc - $due) < 0.01)
             ? [['Amount', IQU_Pricing::format($gross)], [IQU_Billing_Pricing::account_discount_label($acc), '−' . IQU_Pricing::format($disc)]]
             : [['Amount', IQU_Pricing::format($due)]];
+        // 3.7.14: the same payment also paid an earlier month (stored as its own row "in_…#Y-m"): shown, and in the total
+        global $wpdb;
+        $pre = (string) $row['stripe_invoice_id'] . '#';
+        $earlier = $wpdb->get_results($wpdb->prepare('SELECT period_month, amount_paid FROM ' . IQU_Billing_DB::payments_table() . ' WHERE SUBSTR(stripe_invoice_id, 1, %d) = %s AND mode = %s ORDER BY period_month',
+            strlen($pre), $pre, IQU_Stripe::expected_mode()), ARRAY_A) ?: [];
+        foreach ($earlier as $e) {
+            $money[] = ['Earlier month: ' . IQU_Billing_History::month_label((string) $e['period_month']), IQU_Pricing::format((float) $e['amount_paid'])];
+            $paid += (float) $e['amount_paid'];
+        }
+        if ($earlier) $amount = IQU_Pricing::format($paid);
         $money[] = ['Total paid', $amount];
 
         $next = '';

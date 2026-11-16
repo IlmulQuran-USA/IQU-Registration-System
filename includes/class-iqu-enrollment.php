@@ -403,6 +403,8 @@ class IQU_Enrollment
         // 3.7.12: reminders for payment links an admin sent (A), and a sibling's Stripe line added for their first charge (E).
         if (class_exists('IQU_Billing_Chase')) IQU_Billing_Chase::run();
         if (class_exists('IQU_Billing_Family')) IQU_Billing_Family::activate_due();
+        // 3.7.14: an unpaid earlier month collected with the billing day's invoice (and a missed month not on its invoice yet)
+        if (class_exists('IQU_Billing_Arrears')) IQU_Billing_Arrears::run();
     }
 
     private static function reminder_email(array $reg, array $acc, bool $last): void

@@ -364,6 +364,7 @@ class IQU_Billing_Send
         $history = IQU_Billing_History::for_account((int) $acc['id']);
         self::family_header($acc, $students);
         self::family_students($acc);
+        if (class_exists('IQU_Billing_Arrears_Admin')) echo IQU_Billing_Arrears_Admin::card($acc); // 3.7.14: unpaid earlier months, Waive; escaped inside
         ?>
 
         <!-- ── Message ────────────────────────────────────── -->
@@ -442,6 +443,10 @@ class IQU_Billing_Send
     {
         $name   = trim((string) $acc['guardian_name']) ?: implode(', ', $students);
         $next   = !empty($acc['next_charge_at']) ? self::nice_utc((string) $acc['next_charge_at']) : ($acc['first_charge_date'] ? self::nice_date($acc['first_charge_date']) . ' (first charge)' : '—');
+        if (class_exists('IQU_Billing_Arrears')) { // 3.7.14: an earlier month charged with it — the full amount and its months
+            $np = !empty($acc['stripe_subscription_id']) ? IQU_Billing_Arrears::next_payment($acc) : IQU_Billing_Arrears::first_payment($acc);
+            if (!empty($np['earlier'])) $next .= ' · ' . IQU_Pricing::format((float) $np['amount']) . ' (' . IQU_Billing_Arrears::months_label($np['months']) . ')';
+        }
         $stripe = !empty($acc['stripe_customer_id'])
             ? 'https://dashboard.stripe.com/' . (IQU_Stripe::expected_mode() === 'test' ? 'test/' : '') . 'customers/' . rawurlencode((string) $acc['stripe_customer_id'])
             : '';
@@ -827,7 +832,10 @@ class IQU_Billing_Send
             $p[] = $free
                 ? "Welcome to Ilm-Ul-Quran USA! The first month of classes is free. After that, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer."
                 : "Starting this month, tuition for {$kids} will be collected automatically each month, so there is nothing to remember and nothing to transfer.";
-            $p[] = "Monthly tuition: {$amount}\n" . ($free ? "First month: free\n" : '') . "First payment: {$first}" . ($month !== '' ? " ({$month} tuition)" : '');
+            // 3.7.14 (A): a month missed before the card is charged with the first payment — the full amount and its months
+            $fp = class_exists('IQU_Billing_Arrears') ? IQU_Billing_Arrears::first_payment($acc) : ['earlier' => false];
+            $p[] = "Monthly tuition: {$amount}\n" . ($free ? "First month: free\n" : '') . "First payment: {$first}"
+                . (!empty($fp['earlier']) ? ' — ' . IQU_Pricing::format((float) $fp['amount']) . ' (' . IQU_Billing_Arrears::months_label($fp['months']) . ')' : ($month !== '' ? " ({$month} tuition)" : ''));
             $p[] = "Please add a US bank account or card once, using your family's private link:\n{$link}";
             $p[] = 'You can pay from your US bank account (recommended) or with a card.';
             $p[] = "Nothing is charged before {$first}." . ($zelle !== '' ? "\nFrom " . self::nice_date($zelle) . ', tuition can no longer be sent by Zelle.' : '');
@@ -843,6 +851,8 @@ class IQU_Billing_Send
             $p[] = ($acc['status'] === 'past_due'
                 ? 'We will try again automatically. You can also pay now, or switch to a different bank account or card, here:'
                 : 'You can pay it, or switch to a different bank account or card, on your private billing page:') . "\n{$link}";
+            $later = class_exists('IQU_Billing_Arrears') ? IQU_Billing_Arrears::failed_sentence($acc) : ''; // 3.7.14 (B)
+            if ($later !== '') $p[] = $later;
             $p[] = 'If paying is difficult right now, or the fee is a burden, please reply and we will sort it out together. No child\'s place is ever affected by cost.';
         } else { // stopped
             $p[] = "Monthly tuition billing for {$kids} has now stopped, and nothing more will be charged.";
@@ -896,7 +906,10 @@ class IQU_Billing_Send
             $zelle = (string) get_option(self::OPT_ZELLE, '');
             $free  = IQU_Billing_Service::has_free_first_month($acc);
             $table = array_merge($rows, IQU_Billing_Email::tuition_rows($acc), $free ? [['First month', 'Free']] : [], [
-                ['First payment', $first . ($ts ? ' (' . gmdate('F', $ts) . ' tuition)' : '')],
+                ['First payment', (function () use ($acc, $first, $ts) { // 3.7.14 (A): the full first payment and its months
+                    $fp = class_exists('IQU_Billing_Arrears') ? IQU_Billing_Arrears::first_payment($acc) : ['earlier' => false];
+                    return !empty($fp['earlier']) ? $first . ' — ' . IQU_Pricing::format((float) $fp['amount']) . ' (' . IQU_Billing_Arrears::months_label($fp['months']) . ')' : $first . ($ts ? ' (' . gmdate('F', $ts) . ' tuition)' : '');
+                })()],
                 ['After that', $ts ? $amount . ' on the ' . IQU_Billing_Email::ordinal((int) gmdate('j', $ts)) . ' of each month' . ((int) gmdate('j', $ts) >= 29 ? ' (the last day in shorter months)' : '') : ''],
                 ['Pay with', 'US bank account (recommended) or card'],
             ]);
@@ -947,6 +960,7 @@ class IQU_Billing_Send
                     ['button', 'Pay or update my card', $link],
                     ['list', 'Good to know', [
                         $past_due ? 'We will try again automatically, so if the account now has enough money you do not need to do anything.' : '',
+                        class_exists('IQU_Billing_Arrears') ? IQU_Billing_Arrears::failed_sentence($acc) : '', // 3.7.14 (B)
                         'You can change your bank account or card at any time from your private billing page.',
                     ]],
                 ],

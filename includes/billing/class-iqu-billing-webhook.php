@@ -153,6 +153,8 @@ class IQU_Billing_Webhook
         IQU_Billing_DB::update_account($id, ['checkout_session_id' => '', 'link_outdated' => 0]
             + ((string) $before['last_payment_status'] === 'bank_failed' && $sync['new'] !== 'bank_verification' && (string) $acc['payment_method_label'] !== '' ? ['last_payment_status' => '', 'last_failure_reason' => ''] : []));
         $had_method = in_array($sync['old'], ['free_month', 'waiting_first_charge', 'active', 'past_due', 'unpaid', 'paused', 'ending'], true);
+        // 3.7.14 (A): a month missed before the card goes on the first invoice (once; older months to the team)
+        if ($this_page && class_exists('IQU_Billing_Arrears')) { IQU_Billing_Arrears::schedule_missed(IQU_Billing_DB::get_account($id) ?: $acc); $acc = IQU_Billing_DB::get_account($id) ?: $acc; }
         if ((!$had_method || $this_page) && in_array($sync['new'], ['free_month', 'waiting_first_charge', 'active'], true)) {
             IQU_Billing_Notify::method_added($acc);
         }

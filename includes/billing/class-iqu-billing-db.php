@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) exit;
  */
 class IQU_Billing_DB
 {
-    public const DB_VERSION = '1.7.0';
+    public const DB_VERSION = '1.8.0';
     private const OPT_VERSION = 'iqu_billing_db_version';
 
     /** Columns update_account() may change, with their formats. */
@@ -56,6 +56,8 @@ class IQU_Billing_DB
         // 1.7.0 (3.7.12): reminders for a link an admin sent — which send they count from, and which were sent
         'link_reminder_base'     => '%s',
         'link_reminders'         => '%d',
+        // 1.8.0 (3.7.14): the first billing day a current family was given, kept when their payment page moved the first charge on
+        'owed_from'              => '%s',
     ];
 
     public const STATUSES = [
@@ -106,6 +108,7 @@ class IQU_Billing_DB
         $events   = self::events_table();
         $payments = self::payments_table();
         $actions  = self::actions_table();
+        $arrears  = self::arrears_table();
 
         return [
         $accounts => "CREATE TABLE {$accounts} (
@@ -141,6 +144,7 @@ class IQU_Billing_DB
             ends_at DATETIME DEFAULT NULL,
             link_reminder_base DATETIME DEFAULT NULL,
             link_reminders TINYINT(3) UNSIGNED NOT NULL DEFAULT 0,
+            owed_from DATE DEFAULT NULL,
             created_by BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
@@ -230,6 +234,30 @@ class IQU_Billing_DB
             PRIMARY KEY  (id),
             KEY account_id (account_id),
             KEY registration_id (registration_id)
+        ) {$charset};",
+        // 1.8.0 (3.7.14): an earlier month a family owes (a month missed before the card, or an invoice never paid), one row
+        // per student and month: charged with the next billing day (at most one), left to the team, waived, or not charged
+        // because the student stopped. Never deleted.
+        $arrears => "CREATE TABLE {$arrears} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            mode VARCHAR(4) NOT NULL DEFAULT 'test',
+            account_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+            registration_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+            month DATE NOT NULL,
+            amount DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+            source VARCHAR(10) NOT NULL DEFAULT '',
+            old_invoice_id VARCHAR(64) NOT NULL DEFAULT '',
+            item_id VARCHAR(64) NOT NULL DEFAULT '',
+            charged_invoice_id VARCHAR(64) NOT NULL DEFAULT '',
+            status VARCHAR(12) NOT NULL DEFAULT 'owed',
+            reason VARCHAR(255) NOT NULL DEFAULT '',
+            user_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY student_month (account_id,registration_id,month,mode),
+            KEY account_id (account_id),
+            KEY old_invoice_id (old_invoice_id)
         ) {$charset};",
         ];
     }
@@ -343,7 +371,7 @@ class IQU_Billing_DB
     private static function columns_170(): array
     {
         return [
-            self::accounts_table() => ['link_reminder_base' => 'DATETIME DEFAULT NULL', 'link_reminders' => 'TINYINT(3) UNSIGNED NOT NULL DEFAULT 0'],
+            self::accounts_table() => ['link_reminder_base' => 'DATETIME DEFAULT NULL', 'link_reminders' => 'TINYINT(3) UNSIGNED NOT NULL DEFAULT 0', 'owed_from' => 'DATE DEFAULT NULL' /* 1.8.0 */],
             self::members_table()  => ['first_charge_date' => 'DATE DEFAULT NULL'],
         ];
     }
@@ -365,6 +393,13 @@ class IQU_Billing_DB
             foreach (array_keys($defs) as $col) if (!isset($cols[$col])) $missing[] = $col;
         }
         return $missing ? 'missing columns: ' . implode(', ', $missing) . ' (' . $wpdb->last_error . ')' : '';
+    }
+
+    /** 1.8.0 (3.7.14): earlier months a family owes (IQU_Billing_Arrears). */
+    public static function arrears_table(): string
+    {
+        global $wpdb;
+        return $wpdb->prefix . 'iqu_billing_arrears';
     }
 
     public static function actions_table(): string
@@ -663,6 +698,19 @@ class IQU_Billing_DB
         global $wpdb;
         return false !== $wpdb->update(self::members_table(), ['amount' => $amount],
             ['account_id' => $account_id, 'registration_id' => $registration_id, 'mode' => IQU_Stripe::expected_mode()], ['%f'], ['%d', '%d', '%s']);
+    }
+
+    /**
+     * 3.7.14: [Stripe subscription item id => registration id] known here: the lines added for a student (members) and the
+     * lines deleted by "Remove from billing" (logged with the item id) — so an old invoice's line finds its student.
+     */
+    public static function all_member_items(): array
+    {
+        global $wpdb;
+        $map = [];
+        foreach ((array) $wpdb->get_results($wpdb->prepare('SELECT stripe_item_id, registration_id FROM ' . self::members_table() . " WHERE mode = %s AND stripe_item_id <> ''", IQU_Stripe::expected_mode()), ARRAY_A) as $r) $map[(string) $r['stripe_item_id']] = (int) $r['registration_id'];
+        if (self::is_installed()) foreach ((array) $wpdb->get_results($wpdb->prepare('SELECT stripe_ref, registration_id FROM ' . self::actions_table() . " WHERE mode = %s AND action = 'remove_student' AND stripe_ref <> ''", IQU_Stripe::expected_mode()), ARRAY_A) as $r) $map[(string) $r['stripe_ref']] = (int) $r['registration_id'];
+        return $map;
     }
 
     /** 3.7.12: clear the account's Checkout page id only while it is still $session_id (one UPDATE): true for the one request that did. */

@@ -339,6 +339,8 @@ class IQU_Billing_Portal
         $soon  = IQU_Billing_Service::first_charge_timestamp($acc['first_charge_date']) === 0;
         $new   = ($acc['student_type'] ?? '') === 'new';
         $day   = $acc['first_charge_date'] ? IQU_Billing_Email::ordinal((int) substr((string) $acc['first_charge_date'], 8, 2)) : IQU_Billing_Service::billing_day_text(); // 3.7.12: the billing day
+        $fp    = class_exists('IQU_Billing_Arrears') ? IQU_Billing_Arrears::first_payment($acc) : ['earlier' => false]; // 3.7.14 (A)
+        $what  = !empty($fp['earlier']) ? ' — ' . IQU_Pricing::format((float) $fp['amount']) . ' (' . IQU_Billing_Arrears::months_label($fp['months']) . ')' : '';
 
         return '<section class="card hero" aria-labelledby="hero-title"><h2 id="hero-title" class="label">Three steps, once</h2><ol class="steps">'
             . '<li><span class="step-n" aria-hidden="true">1</span><div><strong>Add a bank account or card</strong>'
@@ -346,7 +348,7 @@ class IQU_Billing_Portal
             . '<li><span class="step-n" aria-hidden="true">2</span><div>'
             . ($soon
                 ? '<strong>Your first payment is taken when you finish setting up.</strong><span class="small muted">After that, on the ' . esc_html($day) . ' of every month.</span>'
-                : '<strong>Nothing is charged before ' . esc_html($first) . '</strong><span class="small muted">First payment: ' . esc_html($first) . ($new ? ' (after the free first month)' : '') . '. After that, on the ' . esc_html($day) . ' of every month.</span><span class="small muted">To stop, tell us at least 7 days before this date.</span>')
+                : '<strong>Nothing is charged before ' . esc_html($first) . '</strong><span class="small muted">First payment: ' . esc_html($first . $what) . ($new ? ' (after the free first month)' : '') . '. After that, on the ' . esc_html($day) . ' of every month.</span><span class="small muted">To stop, tell us at least 7 days before this date.</span>')
             . '</div></li>'
             . '<li><span class="step-n" aria-hidden="true">3</span><div><strong>Receipts arrive by email</strong>'
             . '<span class="small muted">Every payment, to ' . esc_html(self::mask_email((string) $acc['contact_email'])) . '.</span></div></li>'
@@ -364,8 +366,12 @@ class IQU_Billing_Portal
         return '<section class="card hero">'
             . ($last === 'bank_failed' ? '<div class="box bad" role="alert"><strong>We could not verify your bank account, so it was not added.</strong> Nothing was charged. Please add a bank account or card again.</div>' : '')
             . '<div class="hero-top"><h2 class="label">Next payment</h2>' . self::pill((string) $acc['status']) . '</div>'
-            . '<p class="big">' . esc_html(IQU_Pricing::format((float) $acc['net_amount'])) . '</p>'
-            . '<p class="big-sub">' . esc_html(self::nice_date($acc['next_charge_at'])) . '</p>'
+            . (function () use ($acc) { // 3.7.14: an earlier month charged with the next payment — the full amount and its months
+                $np = class_exists('IQU_Billing_Arrears') ? IQU_Billing_Arrears::next_payment($acc) : ['amount' => (float) $acc['net_amount'], 'earlier' => false];
+                return '<p class="big">' . esc_html(IQU_Pricing::format((float) $np['amount'])) . '</p>'
+                    . '<p class="big-sub">' . esc_html(self::nice_date($acc['next_charge_at'])) . '</p>'
+                    . (!empty($np['earlier']) ? '<p class="small muted">' . esc_html(IQU_Billing_Arrears::months_label($np['months'])) . '</p>' : '');
+            })()
             . (!empty($acc['next_charge_at']) ? '<p class="small muted">To stop, tell us at least 7 days before this date.</p>' : '')
             . '<dl class="facts">'
             . '<div><dt>Paying from</dt><dd>' . esc_html(IQU_Billing_History::method_display((string) $acc['payment_method_label']) ?: '—') . '</dd></div>'
@@ -405,6 +411,7 @@ class IQU_Billing_Portal
             . '<p class="big">' . esc_html(IQU_Pricing::format($amount)) . '</p>'
             . ($month !== '' ? '<p class="big-sub">' . esc_html($month . ' tuition') . '</p>' : '')
             . '<p>' . ($acc['status'] === 'past_due' ? 'We will try again automatically. You can also pay now, or use a different bank or card.' : 'Please pay now or contact us, and we will sort it out together.') . '</p>'
+            . ((class_exists('IQU_Billing_Arrears') && ($later = IQU_Billing_Arrears::failed_sentence($acc)) !== '') ? '<p>' . esc_html($later) . '</p>' : '') // 3.7.14 (B)
             . '<div class="actions">';
         if ($open) {
             $h .= '<a class="btn wide" rel="noopener noreferrer" href="' . esc_url($open['hosted_invoice_url']) . '">Pay ' . esc_html(IQU_Pricing::format($amount)) . ' now</a>';

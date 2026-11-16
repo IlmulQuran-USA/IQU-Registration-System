@@ -217,6 +217,12 @@ class IQU_Billing_Service
         return (int) strtotime($ymd . ' ' . self::CHARGE_HOUR_UTC . ':00:00 UTC');
     }
 
+    /** 3.7.14: the charge time of a billing date (public, for an earlier month's dates on an invoice). */
+    public static function charge_time(string $ymd): int
+    {
+        return self::charge_ts($ymd);
+    }
+
     /**
      * A billing date Stripe can still use: the date itself when its charge time is at least 48 h away; otherwise the
      * same day of a following month (never a day or two later — the monthly charge always falls on the billing day).
@@ -762,7 +768,14 @@ class IQU_Billing_Service
             // next billing day; the record keeps the date the page sets up, so every text shows it.
             $rolled = gmdate('Y-m-d', $first_ts);
             if ($rolled !== (string) $acc['first_charge_date']) {
-                IQU_Billing_DB::update_account((int) $acc['id'], ['first_charge_date' => $rolled]);
+                $upd = ['first_charge_date' => $rolled];
+                // 3.7.14 (A): a current family keeps owing the month(s) missed before the card: the first billing day they
+                // were given is kept (once), and the latest missed month is charged with the first payment (IQU_Billing_Arrears)
+                if (!self::has_free_first_month($acc) && (string) ($acc['owed_from'] ?? '') === '' && (string) $acc['first_charge_date'] !== '' && (string) $acc['first_charge_date'] < $rolled) {
+                    $upd['owed_from'] = (string) $acc['first_charge_date'];
+                    $acc['owed_from'] = $upd['owed_from'];
+                }
+                IQU_Billing_DB::update_account((int) $acc['id'], $upd);
                 $acc['first_charge_date'] = $rolled;
             }
             if (self::first_charge_mode($acc, $first_ts) === 'trial') {
@@ -795,9 +808,11 @@ class IQU_Billing_Service
         if ($first_ts) {
             // Stripe renders custom_text with Markdown: bold is the strongest emphasis allowed here
             // (font size cannot be changed on Stripe-hosted Checkout).
+            // 3.7.14 (A): a month missed before the card is charged with the first payment — the note shows both
+            $fp = class_exists('IQU_Billing_Arrears') ? IQU_Billing_Arrears::first_payment($acc, $cents_now) : ['amount' => round($cents_now / 100, 2), 'earlier' => false, 'months' => []];
             $params['custom_text'] = ['submit' => ['message' => '**Nothing is charged today.** Your first payment of **'
-                . IQU_Pricing::format(round($cents_now / 100, 2)) . '** is on **' . wp_date('j F Y', $first_ts)
-                . '**, then on the ' . IQU_Billing_Email::ordinal((int) gmdate('j', $first_ts)) . ' of every month.']];
+                . IQU_Pricing::format((float) $fp['amount']) . '**' . (!empty($fp['earlier']) ? ' (' . IQU_Billing_Arrears::months_label($fp['months']) . ')' : '') . ' is on **' . wp_date('j F Y', $first_ts)
+                . '**, then ' . (!empty($fp['earlier']) ? IQU_Pricing::format(round($cents_now / 100, 2)) . ' ' : '') . 'on the ' . IQU_Billing_Email::ordinal((int) gmdate('j', $first_ts)) . ' of every month.']];
         }
 
         // The amount this page sets up, kept with the session (and on the record below) so an old

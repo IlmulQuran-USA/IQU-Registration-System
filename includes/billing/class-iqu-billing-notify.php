@@ -156,7 +156,12 @@ class IQU_Billing_Notify
         self::send("\u{1F4B3} Payment method added", [
             'Monthly: <b>' . self::e(IQU_Pricing::format((float) $acc['net_amount'])) . '</b>',
             'Method: ' . self::e($acc['payment_method_label'] ?: 'saved'),
-            'First charge: ' . self::e(self::day($acc['next_charge_at'] ?: ($acc['first_charge_date'] ? $acc['first_charge_date'] . ' 15:00:00' : null))),
+            'First charge: ' . self::e(self::day($acc['next_charge_at'] ?: ($acc['first_charge_date'] ? $acc['first_charge_date'] . ' 15:00:00' : null)))
+                . (function () use ($acc) { // 3.7.14 (A): with a month missed before the card
+                    if (!class_exists('IQU_Billing_Arrears')) return '';
+                    $np = IQU_Billing_Arrears::next_payment($acc);
+                    return !empty($np['earlier']) ? ' — <b>' . self::e(IQU_Pricing::format((float) $np['amount'])) . '</b> (' . self::e(IQU_Billing_Arrears::months_label($np['months'])) . ')' : '';
+                })(),
         ], $acc);
     }
 
@@ -167,6 +172,26 @@ class IQU_Billing_Notify
             'Monthly: <b>' . self::e(IQU_Pricing::format((float) $acc['net_amount'])) . '</b>',
             'Days since the link was sent: <b>' . (int) $days . '</b>',
         ], $acc, [], ['The family got a reminder email today (the second and last one). Please contact them.']);
+    }
+
+    /** 3.7.14: older earlier months are not charged automatically (at most one goes with the next billing day): the team decides. */
+    public static function arrears_to_team(array $acc, array $months, string $why): void
+    {
+        $names = array_map(fn($ym) => IQU_Billing_History::month_label((string) $ym), $months);
+        self::send("\u{1F4CB} Earlier months left to the team", [
+            'Months: <b>' . self::e(implode(', ', $names)) . '</b> (' . self::e($why) . ')',
+            'Monthly: ' . self::e(IQU_Pricing::format((float) $acc['net_amount'])),
+        ], $acc, [], ['Only one earlier month is charged with the next billing day. Please waive these months on the family page or settle them by hand.']);
+    }
+
+    /** 3.7.14: an unpaid earlier month was waived (never charged). */
+    public static function month_waived(array $acc, string $month, float $amount, string $reason, string $user): void
+    {
+        self::send("\u{1F91D} Month waived", [
+            'Month: <b>' . self::e($month) . '</b> — ' . self::e(IQU_Pricing::format($amount)) . ' will not be charged',
+            'Reason: ' . self::e($reason),
+            'By: ' . self::e($user !== '' ? $user : 'an administrator'),
+        ], $acc);
     }
 
     /** 3.7.12: a brother or sister was added to a family's billing ("Add to this family's billing"). */

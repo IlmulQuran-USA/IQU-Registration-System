@@ -41,8 +41,25 @@ class IQU_Billing_History
     public static function upsert_from_invoice(array $invoice, array $acc, array $charges = []): bool
     {
         try {
+            if (!empty($invoice['lines']['has_more']) && preg_match('/^in_[A-Za-z0-9]+$/', (string) ($invoice['id'] ?? ''))) {
+                // 3.7.14: an invoice with more lines than Stripe sends with it (a family with an earlier month): read them all
+                $g = IQU_Stripe::get('/invoices/' . $invoice['id'] . '/lines', ['limit' => 100]);
+                if ($g['ok']) $invoice['lines']['data'] = (array) ($g['data']['data'] ?? []);
+            }
             $row = self::row_from_invoice($invoice, $acc, $charges);
-            return $row ? self::save($row) : false;
+            if (!$row) return false;
+            // 3.7.14: a payment that also covers an earlier month is stored as one row per month (each month counted once,
+            // in the month it belongs to); a refund counts against the newest month first
+            $parts = self::earlier_parts($invoice);
+            if ($parts) {
+                $rows = self::split_row($row, $parts);
+                $ok = true;
+                foreach ($rows as $r) $ok = self::save($r) && $ok;
+            } else {
+                $ok = self::save($row);
+            }
+            if (class_exists('IQU_Billing_Arrears')) IQU_Billing_Arrears::on_invoice_stored($invoice);
+            return $ok;
         } catch (\Throwable $e) {
             error_log('IQU Billing history: could not store invoice ' . self::safe_id($invoice['id'] ?? '') . ' — ' . $e->getMessage());
             return false;
@@ -182,6 +199,12 @@ class IQU_Billing_History
         if ($status === 'failed' && $latest && ($latest['status'] ?? '') === 'failed') {
             $failure = (string) ($latest['failure_message'] ?? ($latest['outcome']['seller_message'] ?? ''));
         }
+        // 3.7.14: an unpaid invoice closed by the plugin — its month waived ("Waived" with the reason), or charged with a later month
+        if ($stripe_status === 'void' && class_exists('IQU_Billing_Arrears')) {
+            [$fate, $why] = IQU_Billing_Arrears::invoice_fate($id);
+            if ($fate === 'waived') { $status = 'waived'; $failure = 'Waived: ' . $why; }
+            elseif ($fate === 'combined') $failure = 'Charged with a later month';
+        }
 
         $method = '';
         foreach ($charges as $c) {
@@ -213,6 +236,77 @@ class IQU_Billing_History
             'attempt_count'      => min($attempts, 65535),
             'failure_reason'     => substr($failure, 0, 255),
         ];
+    }
+
+    /**
+     * 3.7.14: the earlier months an invoice also charges (lines added by IQU_Billing_Arrears, metadata iqu_arrears_month):
+     * [Y-m => ['cents' => int, 'start' => int, 'end' => int]], newest first. Empty for every other invoice.
+     */
+    public static function earlier_parts(array $invoice): array
+    {
+        $out = [];
+        foreach ((array) ($invoice['lines']['data'] ?? []) as $l) {
+            $ym = (string) ($l['metadata']['iqu_arrears_month'] ?? '');
+            if (!preg_match('/^\d{4}-\d{2}$/', $ym)) continue;
+            $out[$ym] = $out[$ym] ?? ['cents' => 0, 'start' => (int) ($l['period']['start'] ?? 0), 'end' => (int) ($l['period']['end'] ?? 0)];
+            $out[$ym]['cents'] += (int) ($l['amount'] ?? 0);
+        }
+        krsort($out);
+        return $out;
+    }
+
+    /**
+     * 3.7.14: one invoice row → the row of its own month plus one row per earlier month ("in_…#Y-m"). The amounts add up
+     * to the invoice; a refund (or a dispute) counts against the invoice's own month first, then the newest earlier month.
+     */
+    public static function split_row(array $row, array $parts): array
+    {
+        $paid_status = in_array($row['status'], ['paid', 'refunded', 'disputed'], true);
+        $earlier = 0.0;
+        foreach ($parts as $p) $earlier += $p['cents'] / 100;
+        $main = $row;
+        $main['amount_due']  = round(max(0.0, (float) $row['amount_due'] - $earlier), 2);
+        $main['amount_paid'] = $paid_status ? round(max(0.0, (float) $row['amount_paid'] - $earlier), 2) : (float) $row['amount_paid'];
+        $main['amount']      = $paid_status ? $main['amount_paid'] : 0.0;
+        $left = (float) $row['amount_refunded'];
+        $main['amount_refunded'] = round(min($left, $main['amount_paid']), 2);
+        $left = round($left - $main['amount_refunded'], 2);
+        $refund_status = function (array $r) use ($row) {
+            if ($row['status'] === 'disputed') return 'disputed';
+            if (!in_array($row['status'], ['paid', 'refunded'], true)) return $row['status'];
+            return ((float) $r['amount_paid'] > 0 && (float) $r['amount_refunded'] >= (float) $r['amount_paid']) ? 'refunded' : 'paid';
+        };
+        $main['status'] = $refund_status($main);
+        $out = [$main];
+        foreach ($parts as $ym => $p) {
+            $due = round($p['cents'] / 100, 2);
+            $r = $row;
+            $r['stripe_invoice_id'] = substr($row['stripe_invoice_id'] . '#' . $ym, 0, 64);
+            $r['period_month'] = $ym;
+            $r['period_start'] = $p['start'] ? gmdate('Y-m-d H:i:s', $p['start']) : null;
+            $r['period_end']   = $p['end'] ? gmdate('Y-m-d H:i:s', $p['end']) : null;
+            $r['amount_due']   = $due;
+            $r['amount_paid']  = $paid_status ? $due : 0.0;
+            $r['amount']       = $r['amount_paid'];
+            $r['amount_refunded'] = round(min($left, $r['amount_paid']), 2);
+            $left = round($left - $r['amount_refunded'], 2);
+            $r['status'] = $refund_status($r);
+            $out[] = $r;
+        }
+        return $out;
+    }
+
+    /** 3.7.14: a waived month with no Stripe invoice (a missed month): one history row "Waived", with the reason. */
+    public static function save_waived(int $account_id, string $ym, float $amount, string $reason): bool
+    {
+        if (!self::is_month($ym)) return false;
+        return self::save([
+            'stripe_invoice_id' => 'waived-' . $account_id . '-' . $ym, 'account_id' => $account_id, 'amount' => 0.0, 'paid_at' => null,
+            'status' => 'waived', 'period_month' => $ym, 'period_start' => null, 'period_end' => null,
+            'amount_due' => round($amount, 2), 'amount_paid' => 0.0, 'amount_refunded' => 0.0, 'method_label' => '',
+            'hosted_invoice_url' => '', 'invoice_pdf' => '', 'receipt_number' => '', 'attempt_count' => 0,
+            'failure_reason' => substr('Waived: ' . $reason, 0, 255),
+        ]);
     }
 
     /** Insert or update one row. amount and created_at are always supplied (NOT NULL columns). */
@@ -298,6 +392,7 @@ class IQU_Billing_History
             case 'uncollectible': return ['Unpaid', 'red'];
             case 'open':          return ['Open', 'gold'];
             case 'void':          return ['Void', 'neutral'];
+            case 'waived':        return ['Waived', 'neutral']; // 3.7.14
         }
         return [ucfirst((string) $r['status']), 'neutral'];
     }
@@ -396,12 +491,14 @@ class IQU_Billing_History
     public static function month_summary(string $ym, array $rows, array $accounts): array
     {
         $s = ['month' => $ym, 'billed' => 0.0, 'collected' => 0.0, 'outstanding' => 0.0, 'refunded' => 0.0,
-              'expected' => 0.0, 'rate' => null, 'paid_count' => 0, 'failed_count' => 0, 'invoices' => 0];
+              'expected' => 0.0, 'rate' => null, 'paid_count' => 0, 'failed_count' => 0, 'invoices' => 0, 'waived' => 0.0];
         $has_invoice = [];
         foreach ($rows as $r) {
             if ($r['period_month'] !== $ym) continue;
             $has_invoice[(int) $r['account_id']] = true;
             if ($r['status'] === 'void') continue;
+            // 3.7.14: a waived month is on its own line — never billed, expected, outstanding or collected
+            if ($r['status'] === 'waived') { $s['waived'] += (float) $r['amount_due']; continue; }
             $due = (float) $r['amount_due'];
             $s['invoices']++;
             $s['billed']   += $due;
@@ -420,7 +517,7 @@ class IQU_Billing_History
             if (isset($has_invoice[(int) $a['id']])) continue;
             if (self::month_of((int) strtotime($a['next_charge_at'] . ' UTC')) === $ym) $s['expected'] += (float) $a['net_amount'];
         }
-        foreach (['billed', 'collected', 'outstanding', 'refunded', 'expected'] as $k) $s[$k] = round($s[$k], 2);
+        foreach (['billed', 'collected', 'outstanding', 'refunded', 'expected', 'waived'] as $k) $s[$k] = round($s[$k], 2);
         $s['rate'] = $s['billed'] > 0 ? round($s['collected'] / $s['billed'] * 100, 1) : null;
         return $s;
     }

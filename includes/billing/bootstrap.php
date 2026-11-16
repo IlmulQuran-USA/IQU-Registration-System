@@ -41,6 +41,7 @@ add_action('plugins_loaded', function () {
     require_once $inc . 'class-iqu-billing-refund.php'; // 3.7.0: refunds, for the users in IQU_REFUND_USERS only
     require_once $inc . 'class-iqu-billing-chase.php'; // 3.7.12: link reminders, missed-webhook safety net, "no card" summary lines
     require_once $inc . 'class-iqu-billing-family.php'; // 3.7.12: add a brother or sister to a family's billing
+    require_once $inc . 'class-iqu-billing-arrears.php'; // 3.7.14: earlier months charged with the next billing day; waive
     // daily: a student whose billing end date has passed becomes "cancelled" (an ended scholarship, a removed student)
     if (class_exists('IQU_Discount_Ledger')) add_action(IQU_Discount_Ledger::CRON, ['IQU_Billing_Stop', 'finish_due'], 5);
 
@@ -68,6 +69,7 @@ add_action('plugins_loaded', function () {
         require_once $adm . 'class-iqu-billing-payouts.php';
         require_once $adm . 'class-iqu-billing-stop-admin.php'; // 3.7.0
         require_once $adm . 'class-iqu-billing-family-admin.php'; // 3.7.12
+        require_once $adm . 'class-iqu-billing-arrears-admin.php'; // 3.7.14
         IQU_Billing_Page::init();
         IQU_Billing_Settings::init();
         IQU_Billing_Add_Student::init();
@@ -77,6 +79,7 @@ add_action('plugins_loaded', function () {
         IQU_Billing_Payouts::init();
         IQU_Billing_Stop_Admin::init();
         IQU_Billing_Family_Admin::init();
+        IQU_Billing_Arrears_Admin::init();
         IQU_Billing_Refund::init();
     }
 }, 20);
