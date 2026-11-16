@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) exit;
  * - Only users with manage_options can see the page or run the test.
  * - The test button is protected by a nonce (blocks cross-site clicks).
  * - Only the masked key is ever printed. All output is escaped.
- * - 3.7.15: the site mode is switched only through IQU_Site_Mode (IQU_REFUND_USERS admins, checks and a typed confirmation).
+ * - 3.7.15: the site mode is switched only through IQU_Site_Mode (the admins who may refund only, checks and a typed confirmation).
  */
 class IQU_Billing_Settings
 {
@@ -206,7 +206,7 @@ class IQU_Billing_Settings
                 <div class="iqu-fld-grid">
                     <div class="iqu-fld">
                         <span class="iqu-fld-label">Site mode</span>
-                        <div class="iqu-fld-value"><strong><?php echo esc_html(ucfirst($site_mode)); ?></strong><?php if (class_exists('IQU_Site_Mode')) echo ' ' . IQU_Site_Mode::control(); // 3.7.15: Switch to Live / Test (IQU_REFUND_USERS only); escaped inside ?></div>
+                        <div class="iqu-fld-value"><strong><?php echo esc_html(ucfirst($site_mode)); ?></strong><?php if (class_exists('IQU_Site_Mode')) echo ' ' . IQU_Site_Mode::control(); // 3.7.15: Switch to Live / Test (the admins who may refund only); escaped inside ?></div>
                         <?php if ($site_mode === 'test'): ?>
                             <p class="iqu-fld-hint">No real money moves in test mode. Switching to live happens at go-live, after the security review.</p>
                         <?php endif; ?>
