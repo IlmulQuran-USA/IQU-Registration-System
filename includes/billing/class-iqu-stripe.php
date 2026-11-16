@@ -58,10 +58,28 @@ class IQU_Stripe
         return strpos(self::get_secret_key(), 'rk_') === 0;
     }
 
+    /** 3.7.15: the mode for one connection test before a switch (test_connection_for); null otherwise. */
+    private static ?string $mode_override = null;
+
     /** Mode the site is meant to run in. Defaults to test. */
     public static function expected_mode(): string
     {
+        if (self::$mode_override !== null) return self::$mode_override;
         return get_option(self::OPT_MODE, 'test') === 'live' ? 'live' : 'test';
+    }
+
+    /**
+     * 3.7.15: a Test connection with the configured key as if the site were already in $mode (before switching the
+     * site mode); nothing else changes and the override ends with the call.
+     */
+    public static function test_connection_for(string $mode): array
+    {
+        self::$mode_override = $mode === 'live' ? 'live' : 'test';
+        try {
+            return self::ping();
+        } finally {
+            self::$mode_override = null;
+        }
     }
 
     /** True only when a valid key exists and its mode matches the site mode. */

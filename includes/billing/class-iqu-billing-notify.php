@@ -174,6 +174,17 @@ class IQU_Billing_Notify
         ], $acc, [], ['The family got a reminder email today (the second and last one). Please contact them.']);
     }
 
+    /** 3.7.15: the site mode was switched (Billing Settings). One message to the team. */
+    public static function site_mode_switched(string $from, string $to, string $user): void
+    {
+        if (!self::ready()) return;
+        $html = '<b>' . self::e("\u{1F501} Site mode switched: " . ucfirst($from) . ' → ' . ucfirst($to)) . "</b>\n\n"
+            . 'By: ' . self::e($user !== '' ? $user : 'an administrator') . "\n"
+            . 'When: ' . self::e(wp_date('j M Y, g:i A')) . "\n\n"
+            . self::e($to === 'live' ? 'Real money moves now, and emails go to families.' : 'Stripe\'s live events are ignored until the site is switched back to Live.');
+        IQU_Telegram::send($html, false);
+    }
+
     /** 3.7.14: older earlier months are not charged automatically (at most one goes with the next billing day): the team decides. */
     public static function arrears_to_team(array $acc, array $months, string $why): void
     {

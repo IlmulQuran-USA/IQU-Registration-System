@@ -70,6 +70,7 @@ add_action('plugins_loaded', function () {
         require_once $adm . 'class-iqu-billing-stop-admin.php'; // 3.7.0
         require_once $adm . 'class-iqu-billing-family-admin.php'; // 3.7.12
         require_once $adm . 'class-iqu-billing-arrears-admin.php'; // 3.7.14
+        require_once $adm . 'class-iqu-site-mode.php'; // 3.7.15: the Site mode switch
         IQU_Billing_Page::init();
         IQU_Billing_Settings::init();
         IQU_Billing_Add_Student::init();
@@ -80,6 +81,7 @@ add_action('plugins_loaded', function () {
         IQU_Billing_Stop_Admin::init();
         IQU_Billing_Family_Admin::init();
         IQU_Billing_Arrears_Admin::init();
+        IQU_Site_Mode::init();
         IQU_Billing_Refund::init();
     }
 }, 20);
