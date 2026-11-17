@@ -419,6 +419,8 @@ class IQU_Billing_Add_Student
         // Written once the column is migrated; until then IQU_Database::created_via() reads the
         // "IQU Billing (…)" user agent above, so the rules are the same either way.
         if (IQU_Database::created_via_ready()) $row['created_via'] = $via;
+        // 3.7.16: a student imported from CSV/Excel is an existing student (no free month either way: see created_via).
+        if ($via === IQU_Database::VIA_IMPORT && IQU_Database::student_fee_columns_ready()) $row['existing_student'] = 1;
         // The agreed monthly fee as given (NULL = none agreed); see IQU_Billing_Pricing.
         if ($agreed !== null && IQU_Database::student_fee_columns_ready()) $row['agreed_fee'] = $agreed;
         // 3.7.8: "The reduction is paid by the Zakat Fund" (Import: Zakat = Yes) on a reduction (an agreed fee below the

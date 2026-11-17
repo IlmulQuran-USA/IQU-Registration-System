@@ -292,23 +292,25 @@ class IQU_Database
         return is_array(get_option(self::OPT_CREATED_VIA));
     }
 
-    /** Rows by how they were created: ['public' => n, 'admin' => n, 'import' => n]. */
-    public static function created_via_counts(): array
+    /** Rows by how they were created: ['public' => n, 'admin' => n, 'import' => n]. $form_type: only that program (3.7.16). */
+    public static function created_via_counts(string $form_type = ''): array
     {
         global $wpdb;
         $table = $wpdb->prefix . IQU_TABLE_NAME;
         $out   = array_fill_keys(self::VIA_VALUES, 0);
+        $where = $form_type !== '' ? $wpdb->prepare(' WHERE form_type = %s', $form_type) : '';
+        $and   = $form_type !== '' ? $wpdb->prepare(' AND form_type = %s', $form_type) : '';
         if (self::created_via_ready()) {
-            foreach ((array) $wpdb->get_results("SELECT created_via AS via, COUNT(*) AS n FROM {$table} GROUP BY created_via", ARRAY_A) as $r) {
+            foreach ((array) $wpdb->get_results("SELECT created_via AS via, COUNT(*) AS n FROM {$table}{$where} GROUP BY created_via", ARRAY_A) as $r) {
                 if (isset($out[$r['via']])) $out[$r['via']] = (int) $r['n'];
             }
             return $out;
         }
         $out[self::VIA_ADMIN]  = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table} WHERE referral = %s OR user_agent LIKE %s",
+            "SELECT COUNT(*) FROM {$table} WHERE (referral = %s OR user_agent LIKE %s){$and}",
             self::LEGACY_ADMIN_REFERRAL, $wpdb->esc_like(self::LEGACY_ADMIN_UA_PREFIX) . '%'
         ));
-        $out[self::VIA_PUBLIC] = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}") - $out[self::VIA_ADMIN];
+        $out[self::VIA_PUBLIC] = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}{$where}") - $out[self::VIA_ADMIN];
         return $out;
     }
 
@@ -936,6 +938,24 @@ class IQU_Database
 
     /** 3.7.11: when the payment_amount fix below ran: ['at', 'rows' => [registration ids]] */
     public const OPT_QUOTED_FIX_3711 = 'iqu_quoted_amount_fixed_3711';
+    public const OPT_IMPORTED_EXISTING_3716 = 'iqu_imported_existing_3716';
+
+    /**
+     * 3.7.16, once (on init, like the 3.7.11 fix): every row already imported from CSV/Excel (created_via = import) gets
+     * existing_student = 1, as the import now sets on the rows it adds. Nothing else is changed (form_type, the lists,
+     * billing and the free-month rules stay as they are). Waits until created_via and existing_student exist; the ids
+     * are stored in OPT_IMPORTED_EXISTING_3716.
+     */
+    public static function mark_imported_existing_3716(): void
+    {
+        global $wpdb;
+        if (get_option(self::OPT_IMPORTED_EXISTING_3716, null) !== null || !self::created_via_ready() || !self::student_fee_columns_ready()) return;
+        $t = $wpdb->prefix . IQU_TABLE_NAME;
+        $ids = array_map('intval', (array) $wpdb->get_col($wpdb->prepare("SELECT id FROM {$t} WHERE created_via = %s AND existing_student = 0", self::VIA_IMPORT)));
+        if ($ids) $wpdb->query($wpdb->prepare("UPDATE {$t} SET existing_student = 1 WHERE created_via = %s AND existing_student = 0", self::VIA_IMPORT));
+        update_option(self::OPT_IMPORTED_EXISTING_3716, ['at' => gmdate('Y-m-d H:i:s'), 'rows' => $ids], false);
+        if ($ids) error_log('[IQU] 3.7.16: ' . count($ids) . ' imported students marked as existing students: #' . implode(', #', $ids));
+    }
 
     /**
      * 3.7.11, once (on init, after the billing classes load): students added through Add Student or the Import were saved

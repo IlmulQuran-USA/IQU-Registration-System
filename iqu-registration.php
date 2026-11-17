@@ -4,7 +4,7 @@
  * Plugin Name:       IQU Registration System
  * Plugin URI:        https://ilmulquranus.org
  * Description:       Secure student registration system for Ilm-Ul-Quran USA — includes Free Enrollment & Summer Program forms, dashboard, Zelle/Zeffy payments, Google reCAPTCHA v3, and Stripe monthly tuition billing.
- * Version:           3.7.15
+ * Version:           3.7.16
  * Author:            Ilm-Ul-Quran USA (Muhammad Nurul Ahsan)
  * License:           GPL-2.0+
  * Text Domain:       iqu-registration
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 // ============================================================
 // 📌 Constants
 // ============================================================
-define('IQU_VERSION', '3.7.15');
+define('IQU_VERSION', '3.7.16');
 define('IQU_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('IQU_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('IQU_TABLE_NAME', 'iqu_registrations');
@@ -190,6 +190,7 @@ add_action('plugins_loaded', function () {
   // tables on init at 10. On plugins_loaded the 3.6.2 migration found no IQU_Billing_Pricing and never ran.
   add_action('init', ['IQU_Discount_Ledger', 'migrate_admin_discounts'], 12);
   add_action('init', ['IQU_Database', 'fix_quoted_amounts_3711'], 12); // 3.7.11: the $0.00 of admin-added / imported students
+  add_action('init', ['IQU_Database', 'mark_imported_existing_3716'], 12); // 3.7.16: imported students are existing students
   IQU_Discount_Ledger::schedule();
   IQU_Discount_Ledger::init();
 

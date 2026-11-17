@@ -18,8 +18,14 @@ class IQU_Admin
     'iqu-list-weekend',
   ];
 
-  private static function referral_chip_html(string $referral): string
+  private static function referral_chip_html(string $referral, array $row = []): string
   {
+    // 3.7.16: a student imported from CSV/Excel whose sheet gave no referral is shown as an existing student (display
+    // only; nothing is written to the referral). A referral from the sheet is shown as it is.
+    if ($row && IQU_Database::created_via($row) === IQU_Database::VIA_IMPORT
+        && in_array(trim($referral), ['', IQU_Database::LEGACY_ADMIN_REFERRAL], true)) {
+      return '<span class="iqu-ref-chip" style="color:#6b7280;background:#f3f4f6;border-color:#e5e7eb">Existing student</span>';
+    }
     if ($referral === '') {
       return '<span style="color:#9ca3af;font-size:11px">—</span>';
     }
@@ -685,9 +691,14 @@ class IQU_Admin
     // ── Referral breakdown ────────────────────────────────────
     // Only what families answered. The old "existing_student" marker that Billing used to
     // store here is not an answer, so it counts as unknown; who added a row is created_via.
+    // 3.7.16: a row imported from CSV/Excel with no referral (or that marker) counts as "Existing student";
+    // an imported row whose sheet gave a referral counts under that referral.
+    $imported_sql = IQU_Database::created_via_ready()
+      ? $wpdb->prepare("WHEN created_via = %s AND TRIM(referral) IN ('', %s) THEN 'existing_student' ", IQU_Database::VIA_IMPORT, IQU_Database::LEGACY_ADMIN_REFERRAL)
+      : '';
     $referral_rows = $wpdb->get_results($wpdb->prepare(
       "SELECT
-        CASE WHEN TRIM(referral) IN ('', %s) THEN 'unknown' ELSE TRIM(referral) END AS ref_key,
+        CASE {$imported_sql}WHEN TRIM(referral) IN ('', %s) THEN 'unknown' ELSE TRIM(referral) END AS ref_key,
         COUNT(*) AS cnt
      FROM `{$table}`
      GROUP BY ref_key
@@ -705,6 +716,7 @@ class IQU_Admin
       'website'       => 'Website',
       'friend_family' => 'Friend / Family',
       'email'        => 'Email',
+      'existing_student' => 'Existing student', // 3.7.16: imported rows without a referral
     ];
     foreach ($referral_rows as $rr) {
       $ref_labels[] = $map[$rr['ref_key']] ?? ucfirst(str_replace('_', ' ', $rr['ref_key']));
@@ -941,11 +953,23 @@ class IQU_Admin
     return $out;
   }
 
-  private static function type_chip_html(string $form_type): string
+  private static function type_chip_html(array $row): string
   {
+    $form_type = (string) ($row['form_type'] ?? '');
+    // 3.7.16: a student imported from CSV/Excel is an existing student, not a free enrollment (same chip, other words).
+    $label = IQU_Database::created_via($row) === IQU_Database::VIA_IMPORT ? 'Existing student' : IQU_Mailer::form_label($form_type);
     return '<span class="iqu-chip iqu-chip-' . esc_attr($form_type) . '">'
-      . esc_html(IQU_Mailer::form_label($form_type))
+      . esc_html($label)
       . '</span>';
+  }
+
+  /** 3.7.16: "<n> from website · <n> imported" (· <n> added by admin, only when there are any) for the Enroll for Free rows. */
+  private static function free_split_text(): string
+  {
+    $v = IQU_Database::created_via_counts(IQU_Database::FORM_FREE);
+    $t = (int) $v[IQU_Database::VIA_PUBLIC] . ' from website · ' . (int) $v[IQU_Database::VIA_IMPORT] . ' imported';
+    if ((int) $v[IQU_Database::VIA_ADMIN] > 0) $t .= ' · ' . (int) $v[IQU_Database::VIA_ADMIN] . ' added by admin';
+    return $t;
   }
 
   /**
@@ -1299,6 +1323,7 @@ class IQU_Admin
 
     global $wpdb;
     $table = $wpdb->prefix . IQU_TABLE_NAME;
+    $free_split    = self::free_split_text(); // 3.7.16: website / imported / added by admin
     $stripe_total  = self::collected_via_stripe(); // 3.7.9: the "Collected via Stripe" card (live money only); 3.7.11: the donut too
   ?>
 <div class="wrap iqu-admin-wrap">
@@ -1316,6 +1341,7 @@ class IQU_Admin
             <div class="iqu-metric-accent iqu-metric-accent--free"></div>
             <?php echo IQU_Icons::stat_head('book-open', 'blue', (string) (int) $counts['free']); ?>
             <div class="iqu-metric-lbl">Free Registration</div>
+            <div class="iqu-metric-sub" data-free-split><?php echo esc_html($free_split); ?></div>
             <a class="iqu-metric-link" href="<?php echo esc_url(admin_url('admin.php?page=iqu-list-free')); ?>">View
                 list →</a>
         </div>
@@ -1361,18 +1387,18 @@ class IQU_Admin
             </div>
             <?php
           $bars = [
-            ['Free Enrollment', $counts['free'], '#1e5fa0'],
+            ['Free Enrollment', $counts['free'], '#1e5fa0', $free_split], // 3.7.16: the same split as the card
             ['Summer · Level 1', $counts['summer_l1'], '#1a8a45'],
             ['Summer · Level 2', $counts['summer_l2'], '#c98a00'],
             ['Weekend · Existing', $counts['wk_existing'], '#0e9490'],
             ['Weekend · New', $counts['wk_new'], '#f7941d'],
           ];
-          foreach ($bars as [$label, $count, $color]):
+          foreach ($bars as $bar):
+            [$label, $count, $color] = $bar;
             $pct = round(((int) $count / $total) * 100);
           ?>
             <div class="iqu-bar-row">
-                <div class="iqu-bar-lbl"><?php echo esc_html($label); ?><small><?php echo (int) $count; ?>
-                        students</small></div>
+                <div class="iqu-bar-lbl"><?php echo esc_html($label); ?><small><?php echo isset($bar[3]) ? esc_html($bar[3]) : (int) $count . ' students'; ?></small></div>
                 <div class="iqu-bar-track">
                     <div class="iqu-bar-fill"
                         style="width:<?php echo (int) $pct; ?>%;background:<?php echo esc_attr($color); ?>"></div>
@@ -1596,10 +1622,10 @@ class IQU_Admin
                             <a
                                 href="<?php echo esc_url($view); ?>"><?php echo esc_html($row['first_name'] . ' ' . $row['last_name']); ?></a></strong>
                     </td>
-                    <td><?php echo self::type_chip_html($row['form_type']); ?></td>
+                    <td><?php echo self::type_chip_html($row); ?></td>
                     <td class="iqu-td-email"><?php echo esc_html($row['email']); ?></td>
                     <td><?php echo self::status_badge_html($row['status']) . self::review_badges_html($row); ?></td>
-                    <td><?php echo self::referral_chip_html($row['referral'] ?? ''); ?></td>
+                    <td><?php echo self::referral_chip_html($row['referral'] ?? '', $row); ?></td>
                     <td><?php echo self::payment_cell_html($row, true); // 3.7.11: the live Fee preference pill (Recent Submissions only) ?></td>
                     <td class="iqu-td-date"><?php
                       $dt = new DateTime($row['created_at'], new DateTimeZone('UTC'));
@@ -1809,7 +1835,7 @@ class IQU_Admin
                     <?php if ($is_summer): ?>
                     <td><?php echo esc_html($row['guardian_name']); ?></td>
                     <td><?php echo esc_html(strtoupper($row['enrollment_level'])); ?></td>
-                    <td><?php echo self::referral_chip_html($row['referral'] ?? ''); ?></td>
+                    <td><?php echo self::referral_chip_html($row['referral'] ?? '', $row); ?></td>
                     <td>
                         <?php if ($row['admission_fee'] === 'complimentary'): ?>
                         <span class="iqu-amt-free">Complimentary</span>
@@ -1917,7 +1943,7 @@ class IQU_Admin
                 <div>
                     <div class="iqu-profile-name"><?php echo esc_html($full_name); ?></div>
                     <div class="iqu-profile-meta">
-                        <?php echo self::type_chip_html($row['form_type']); ?>
+                        <?php echo self::type_chip_html($row); ?>
                         <?php echo self::status_badge_html($row['status']) . self::review_badges_html($row); ?>
                         <?php echo IQU_Birthday::profile_chip($row); // date of birth / birthday / age at registration (escaped inside) ?>
                         <span style="font-size:11px;color:var(--iqu-text2)">#<?php echo (int) $row['id']; ?></span><?php echo self::archive_controls($row); // 3.7.0 AK: Archive / Restore; escaped inside ?>
