@@ -666,13 +666,15 @@ class IQU_Admin
     $week_labels = [];
     $week_counts = [];
 
+    // 3.7.19: rows imported from CSV/Excel are not registrations of that week (website and admin rows still count)
+    $not_imported = IQU_Database::created_via_ready() ? $wpdb->prepare(' AND created_via <> %s', IQU_Database::VIA_IMPORT) : '';
     for ($i = 5; $i >= 0; $i--) {
       $start = date('Y-m-d 00:00:00', strtotime('-' . $i . ' weeks monday this week'));
       $end = date('Y-m-d 23:59:59', strtotime('-' . $i . ' weeks sunday this week'));
       $label = 'W' . date('W', strtotime($start));
 
       $count = (int) $wpdb->get_var($wpdb->prepare(
-        "SELECT COUNT(*) FROM `{$table}` WHERE created_at BETWEEN %s AND %s",
+        "SELECT COUNT(*) FROM `{$table}` WHERE created_at BETWEEN %s AND %s{$not_imported}",
         $start,
         $end
       ));

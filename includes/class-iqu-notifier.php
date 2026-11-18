@@ -321,8 +321,10 @@ class IQU_Notifier
         $reg_table = $wpdb->prefix . IQU_TABLE_NAME;
         $cutoff    = gmdate('Y-m-d H:i:s', $since);
 
+        // 3.7.19: rows imported from CSV/Excel are not new registrations (website and admin rows still count)
+        $not_imported = IQU_Database::created_via_ready() ? $wpdb->prepare(' AND created_via <> %s', IQU_Database::VIA_IMPORT) : '';
         $registrations = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM `{$reg_table}` WHERE created_at >= %s",
+            "SELECT COUNT(*) FROM `{$reg_table}` WHERE created_at >= %s{$not_imported}",
             $cutoff
         ));
 
