@@ -1075,6 +1075,28 @@ class IQU_Admin
    *
    * কোনো টাকা এখনো সংগ্রহ হয়নি, তাই সব অঙ্কে "Pending" ব্যাজ থাকে।
    */
+  /**
+   * 3.7.18: how a monthly reduction is labelled, from IQU_Discount_Ledger::item_for (so the student page, the list and
+   * the ledger agree). plan: the student-opted special plan (its own label, as before); kind: 'zakat' | 'special' | ''
+   * (no fund chosen); fund_select: "Fund for the reduction" is shown for this reduction (the label then updates at once);
+   * agreed: billed at an agreed fee below the standard price.
+   */
+  private static function reduction_view(array $row): array
+  {
+    $ready = class_exists('IQU_Discount_Ledger') && class_exists('IQU_Billing_Pricing');
+    $item  = $ready ? IQU_Discount_Ledger::item_for($row) : null;
+    $plan  = !empty($row['special_discount']) && ($item === null || $item['reason'] === 'special_plan');
+    $fund_select = $ready && IQU_Database::agreed_fee_fund_ready() && IQU_Discount_Ledger::fund_reason($row) !== null;
+    $agreed = $ready && IQU_Discount_Ledger::has_agreed_reduction($row);
+    return ['plan' => $plan, 'kind' => (string) ($item['kind'] ?? ''), 'fund_select' => $fund_select, 'agreed' => $agreed];
+  }
+
+  /** 3.7.18: the student page's label for a reduction of this kind ('zakat' | 'special' | ''). */
+  private static function reduction_label(string $kind): string
+  {
+    return ['zakat' => 'Zakat Scholarship', 'special' => 'Special Discount'][$kind] ?? 'Discount (fund not set)';
+  }
+
   private static function free_payment_html(array $row, bool $live_pill = false): string
   {
     $pending  = $live_pill ? self::fee_pill_html(self::monthly_fee_status($row)) : '<span class="iqu-free-pending-badge">Pending</span>';
@@ -1091,9 +1113,14 @@ class IQU_Admin
       // স্পেশাল ডিসকাউন্ট কখনো একসাথে চলে না, তাই একটাই সত্য।
       // ⚠️ কুপন কোড ইচ্ছাকৃতভাবে দেখানো হয় না — লিস্ট পরিষ্কার
       //    রাখতে; কোড দরকার হলে View পেজে আছে।
+      $red = self::reduction_view($row); // 3.7.18: the reduction's kind (IQU_Discount_Ledger::item_for)
       if (!empty($row['coupon_id'])) {
         $src_class = 'coupon';
         $src_label = 'Coupon applied';
+      } elseif ($red['agreed']) {
+        // 3.7.18: billed at an agreed fee below the standard price — the fund, as the label above (same grey line)
+        $src_class = 'none';
+        $src_label = 'Agreed fee · ' . (['zakat' => 'Zakat', 'special' => 'Special discount'][$red['kind']] ?? 'fund not set');
       } elseif (!empty($row['special_discount'])) {
         $src_class = 'special';
         $src_label = 'Special discount';
@@ -1107,9 +1134,13 @@ class IQU_Admin
 
       // পূর্ণ স্কলারশিপ — টিউশন সম্পূর্ণ মওকুফ
       if ($amount <= 0 && $discount > 0) {
+        // 3.7.18: the label follows "Fund for the reduction" (IQU_Discount_Ledger::item_for, as the student page and the
+        // ledger); the coupon and the student-opted special plan keep the label they had
+        $full = $red['plan'] ? 'Full Zakat Scholarship'
+          : (['zakat' => 'Full Zakat Scholarship', 'special' => 'Full Special Discount'][$red['kind']] ?? 'Full discount (fund not set)');
         return '<span class="iqu-pay-cell">'
           . '<span class="iqu-no-pay-badge">Scholarship</span>'
-          . '<span class="iqu-amt">Full Zakat Scholarship</span>'
+          . '<span class="iqu-amt">' . esc_html($full) . '</span>'
           . $source_html
           . '</span>';
       }
@@ -2123,6 +2154,7 @@ class IQU_Admin
                 $d_final    = (float) ($row['payment_amount'] ?? 0);
                 $d_coupon   = $row['coupon_code'] ?? '';
                 $d_rate     = (float) ($row['per_class_rate'] ?? 0);
+                $d_red      = self::reduction_view($row); // 3.7.18: the label follows "Fund for the reduction" (as the ledger)
                 $d_days     = (int) ($row['days_per_week'] ?? 0);
                 ?>
 
@@ -2197,7 +2229,7 @@ class IQU_Admin
                     </div>
                 </div>
 
-                <?php if ($d_discount > 0 && !empty($row['special_discount'])): ?>
+                <?php if ($d_discount > 0 && $d_red['plan']): ?>
                 <div class="iqu-detail-item">
                     <div class="iqu-detail-lbl">Special Discount</div>
                     <div class="iqu-detail-val" style="color:#1a8a45;font-weight:600;">
@@ -2212,7 +2244,7 @@ class IQU_Admin
                 </div>
                 <?php endif; ?>
 
-                <?php if ($d_discount > 0 && empty($row['special_discount'])): ?>
+                <?php if ($d_discount > 0 && !$d_red['plan']): ?>
                 <div class="iqu-detail-item">
                     <div class="iqu-detail-lbl">Coupon Code</div>
                     <div class="iqu-detail-val">
@@ -2220,7 +2252,7 @@ class IQU_Admin
                     </div>
                 </div>
                 <div class="iqu-detail-item">
-                    <div class="iqu-detail-lbl">Zakat Scholarship</div>
+                    <div class="iqu-detail-lbl"<?php echo $d_red['fund_select'] ? ' data-iqu-reduction-label' : ''; ?>><?php echo esc_html(self::reduction_label($d_red['kind'])); ?></div>
                     <div class="iqu-detail-val" style="color:#1a8a45;font-weight:600;">
                         &minus;$<?php echo number_format($d_discount, 2); ?>
                         <?php if ($d_original > 0): ?>
@@ -2230,7 +2262,8 @@ class IQU_Admin
                         <?php endif; ?>
                     </div>
                 </div>
-                <div class="iqu-detail-item">
+                <?php if ($d_red['kind'] === 'zakat' || $d_red['fund_select']): // hidden until the fund is Zakat (the fund select shows it at once) ?>
+                <div class="iqu-detail-item"<?php echo $d_red['fund_select'] ? ' data-iqu-zakat-declaration' : ''; echo $d_red['kind'] !== 'zakat' ? ' hidden' : ''; ?>>
                     <div class="iqu-detail-lbl">Zakat Declaration</div>
                     <div class="iqu-detail-val">
                         <?php echo !empty($row['zakat_declaration'])
@@ -2238,6 +2271,7 @@ class IQU_Admin
                             : '<span style="color:#c0392b;font-weight:600;">&times; Not confirmed</span>'; ?>
                     </div>
                 </div>
+                <?php endif; ?>
                 <?php endif; ?>
 
                 <div class="iqu-detail-item">

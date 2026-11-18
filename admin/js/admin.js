@@ -455,6 +455,15 @@ if (refCtx && IQU_Admin.chart_data && IQU_Admin.chart_data.referral) {
 (function () {
   "use strict";
 
+  // 3.7.18: the reduction's label in Course & Tuition follows the fund at once (as IQU_Admin::reduction_label), and the
+  // Zakat Declaration row is shown only for the Zakat fund
+  function relabel(fund) {
+    var label = document.querySelector("[data-iqu-reduction-label]");
+    var decl = document.querySelector("[data-iqu-zakat-declaration]");
+    if (label) label.textContent = fund === "zakat" ? "Zakat Scholarship" : fund === "special" ? "Special Discount" : "Discount (fund not set)";
+    if (decl) decl.hidden = fund !== "zakat";
+  }
+
   document.addEventListener("change", function (e) {
     var select = e.target;
     var box = select && select.closest ? select.closest("[data-iqu-fund]") : null;
@@ -469,6 +478,7 @@ if (refCtx && IQU_Admin.chart_data && IQU_Admin.chart_data.referral) {
       .then(function (j) {
         if (status) status.textContent = j && j.success ? j.data.message : (j && j.data && j.data.message) || "The fund could not be saved.";
         if (j && j.success && changed) changed.textContent = j.data.changed || "";
+        if (j && j.success) relabel(select.value);
       })
       .catch(function () { if (status) status.textContent = "The fund could not be saved."; })
       .then(function () { select.disabled = false; });
