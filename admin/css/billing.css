@@ -2685,3 +2685,63 @@ p.iqu-card-head-sub {
 .iqu-guardian-q[data-state="adult"] .iqu-guardian-req {
   display: none;
 }
+
+/* 3.7.17: the Site mode switch on Billing Settings — Test (left, grey) | Live (right, the admin green) */
+.iqu-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iqu-space-2);
+  padding: var(--iqu-space-1) var(--iqu-space-2);
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: var(--iqu-text-md);
+  color: var(--iqu-text2);
+  cursor: pointer;
+}
+.iqu-mode-switch-track {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--iqu-text2);
+  transition: background-color 0.15s ease;
+}
+.iqu-mode-switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.iqu-mode-switch[aria-checked="true"] .iqu-mode-switch-track {
+  background: var(--iqu-green);
+}
+.iqu-mode-switch[aria-checked="true"] .iqu-mode-switch-knob {
+  transform: translateX(18px);
+}
+.iqu-mode-switch[aria-checked="false"] .iqu-mode-switch-lbl[data-side="test"] {
+  color: var(--iqu-text1);
+  font-weight: 600;
+}
+.iqu-mode-switch[aria-checked="true"] .iqu-mode-switch-lbl[data-side="live"] {
+  color: var(--iqu-green);
+  font-weight: 600;
+}
+.iqu-mode-switch:focus-visible {
+  outline: 2px solid var(--iqu-blue);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .iqu-mode-switch-track,
+  .iqu-mode-switch-knob {
+    transition: none;
+  }
+}

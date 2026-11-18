@@ -4,8 +4,10 @@ if (!defined('ABSPATH')) exit;
 /**
  * Class IQU_Site_Mode (3.7.15)
  *
- * The Site mode switch on Billing Settings (option iqu_billing_mode, IQU_Stripe::OPT_MODE): "Switch to Live" in test
- * mode, "Switch to Test" in live mode. Only the admins who may refund (IQU_REFUND_USERS) see and use it.
+ * The Site mode switch on Billing Settings (option iqu_billing_mode, IQU_Stripe::OPT_MODE). 3.7.17: a toggle switch
+ * (Test on the left, Live on the right, showing the current mode) instead of the "Switch to Live" / "Switch to Test"
+ * button; moving it opens the same confirmation. Only the admins who may refund (IQU_REFUND_USERS) see and use it;
+ * everyone else sees the current mode as text.
  *   - To Live: only with a live restricted key (rk_live_) in wp-config, a webhook signing secret, and a Test connection
  *     with that key that succeeds at the moment of switching; the confirmation lists what changes; the admin types LIVE.
  *   - To Test: the confirmation says how many live families are on billing and that Stripe's live events are ignored
@@ -53,7 +55,7 @@ class IQU_Site_Mode
         return (int) $wpdb->get_var("SELECT COUNT(*) FROM " . IQU_Billing_DB::accounts_table() . " WHERE mode = 'live' AND stripe_subscription_id <> '' AND status <> 'canceled'");
     }
 
-    /** The button and its dialog, next to "Site mode" ('' for everyone else). Escaped HTML. */
+    /** The switch and its dialog, in place of the mode text next to "Site mode" ('' for everyone else). Escaped HTML. */
     public static function control(): string
     {
         if (!self::can_switch()) return '';
@@ -82,7 +84,13 @@ class IQU_Site_Mode
             $word = 'TEST';
             $title = 'Switch the site to Test?';
         }
-        $h = '<button type="button" class="iqu-btn iqu-btn--secondary" data-iqu-dialog="' . $d . '" data-iqu-site-mode="' . $to . '">' . ($to === 'live' ? 'Switch to Live' : 'Switch to Test') . '</button>'
+        // 3.7.17: role="switch", checked = Live. A <button>, so Space / Enter move it; admin.js opens the dialog and
+        // billing.js moves it back to the current mode when the dialog is closed without switching.
+        $h = '<button type="button" class="iqu-mode-switch" role="switch" aria-checked="' . ($mode === 'live' ? 'true' : 'false') . '" aria-label="Live mode"'
+            . ' data-iqu-site-mode-switch data-iqu-dialog="' . $d . '" data-iqu-site-mode="' . $to . '">'
+            . '<span class="iqu-mode-switch-lbl" data-side="test">Test</span>'
+            . '<span class="iqu-mode-switch-track" aria-hidden="true"><span class="iqu-mode-switch-knob"></span></span>'
+            . '<span class="iqu-mode-switch-lbl" data-side="live">Live</span></button>'
             . '<dialog class="iqu-modal" id="' . $d . '" aria-labelledby="' . $d . '-t">'
             . '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" class="iqu-modal-form" data-iqu-site-mode-form>'
             . '<h2 class="iqu-modal-title" id="' . $d . '-t">' . esc_html($title) . '</h2>';

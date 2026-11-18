@@ -801,6 +801,25 @@
     else B.init();
   }
 })(typeof window !== "undefined" ? window : this);
+// 3.7.17: the Site mode switch (Billing Settings). Moving it shows the mode it is moved to while the same confirmation is
+// open (admin.js opens it); when the dialog closes without switching (Keep, Close, Escape) it moves back to the current
+// mode. A switch that is made or refused reloads the page, which shows the current mode.
+(function () {
+  "use strict";
+  if (typeof document === "undefined" || !document.addEventListener) return;
+  function set(sw, live) { sw.setAttribute("aria-checked", live ? "true" : "false"); }
+  document.addEventListener("click", function (e) {
+    var sw = e.target && e.target.closest ? e.target.closest("[data-iqu-site-mode-switch]") : null;
+    var d = sw ? document.getElementById(sw.getAttribute("data-iqu-dialog")) : null;
+    if (!d || typeof d.showModal !== "function") return;
+    var toLive = sw.getAttribute("data-iqu-site-mode") === "live";
+    set(sw, toLive);
+    if (!d.hasAttribute("data-iqu-switch-bound")) {
+      d.setAttribute("data-iqu-switch-bound", "");
+      d.addEventListener("close", function () { set(sw, !toLive); });
+    }
+  }, true);
+})();
 // 3.7.9: "Left" on Student Billing — every row opens one shared dialog (admin.js opens it); fill in the student first.
 (function () {
   "use strict";

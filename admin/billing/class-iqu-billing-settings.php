@@ -206,7 +206,8 @@ class IQU_Billing_Settings
                 <div class="iqu-fld-grid">
                     <div class="iqu-fld">
                         <span class="iqu-fld-label">Site mode</span>
-                        <div class="iqu-fld-value"><strong><?php echo esc_html(ucfirst($site_mode)); ?></strong><?php if (class_exists('IQU_Site_Mode')) echo ' ' . IQU_Site_Mode::control(); // 3.7.15: Switch to Live / Test (the admins who may refund only); escaped inside ?></div>
+                        <?php $mode_ctl = class_exists('IQU_Site_Mode') ? IQU_Site_Mode::control() : ''; // 3.7.17: the switch (the admins who may refund only); escaped inside ?>
+                        <div class="iqu-fld-value"><?php if ($mode_ctl !== ''): echo $mode_ctl; else: ?><strong><?php echo esc_html(ucfirst($site_mode)); ?></strong><?php endif; ?></div>
                         <?php if ($site_mode === 'test'): ?>
                             <p class="iqu-fld-hint">No real money moves in test mode. Switching to live happens at go-live, after the security review.</p>
                         <?php endif; ?>
