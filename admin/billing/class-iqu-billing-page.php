@@ -10,8 +10,11 @@ if (!defined('ABSPATH')) exit;
  * Student Billing tab: every enrollment in a monthly program, its fee, its billing
  * status and the actions. Several families can be sent links at once.
  *
+ * 3.7.20: "Export" (CSV or Excel) downloads the list itself: every student matching the status pill and search,
+ * through the same filter as the screen (filtered_rows), not only the page shown.
+ *
  * Security:
- * - manage_options only; the bulk send has a nonce.
+ * - manage_options only; the bulk send and the export have a nonce.
  * - Selections from the URL are re-checked on the server before anything
  *   is created; fees always come from IQU_Billing_Pricing.
  * - At most 25 families per bulk send.
@@ -24,6 +27,7 @@ class IQU_Billing_Page
     public const BULK_SLUG     = 'iqu-billing-bulk';
     private const CAP          = 'manage_options';
     private const A_BULK       = 'iqu_billing_bulk_send';
+    public const A_EXPORT      = 'iqu_billing_students_export'; // 3.7.20
     private const TX           = 'iqu_billing_bulk_';
     /** Rows per page, as on the dashboard: 10 / 20 / 30, default 10. */
     private const BULK_MAX     = 25;
@@ -36,6 +40,7 @@ class IQU_Billing_Page
         add_action('admin_menu', [__CLASS__, 'register'], 19);
         add_action('admin_head', [__CLASS__, 'hide_tab_pages']); // after WordPress has checked access
         add_action('admin_post_' . self::A_BULK, [__CLASS__, 'handle_bulk']);
+        add_action('admin_post_' . self::A_EXPORT, [__CLASS__, 'handle_export']); // 3.7.20
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_style']);
         // more than IQU_Pager::LOCAL_MAX students: the table card alone, for live search and paging
         IQU_Pager::remote('iqu-students', function () { self::students_region(self::students_context()); }, self::CAP);
@@ -198,23 +203,38 @@ class IQU_Billing_Page
         return mb_strtolower($r['reg']['first_name'] . ' ' . $r['reg']['last_name'] . ' ' . $r['reg']['email'] . ' ' . $r['reg']['guardian_name'] . ' ' . $wa . ' ' . preg_replace('/\D+/', '', $wa) . ' iqu-' . $r['reg']['id'] . ' #' . $r['reg']['id'], 'UTF-8');
     }
 
+    /** 3.7.20: the status pill (show) and search (q) of a request: ['filter' => group key or 'all', 'q' => text]. */
+    public static function list_filter(array $src): array
+    {
+        $filter = sanitize_key(is_string($src['show'] ?? null) ? $src['show'] : 'all');
+        if (!isset(self::GROUPS[$filter])) $filter = 'all';
+        $q = trim(sanitize_text_field(wp_unslash(is_string($src['q'] ?? null) ? $src['q'] : '')));
+        return ['filter' => $filter, 'q' => $q];
+    }
+
+    /**
+     * 3.7.20: the students the list shows for a status pill and search — the one filter of the screen and of Export, so
+     * the list and the file can never differ. $rows: self::rows() (students marked Left or Archived are already out).
+     */
+    public static function filtered_rows(array $rows, string $filter, string $q): array
+    {
+        return array_values(array_filter($rows, function ($r) use ($filter, $q) {
+            if ($filter !== 'all' && $r['group'] !== $filter) return false;
+            if ($q === '') return true;
+            // Case-insensitive in any language (mb_), partial: name, guardian, email, WhatsApp (also its digits), IQU number.
+            return mb_strpos(self::search_text($r), mb_strtolower($q, 'UTF-8'), 0, 'UTF-8') !== false;
+        }));
+    }
+
     /**
      * The students for the request's status pill (show), search (q) and page. Up to IQU_Pager::LOCAL_MAX
      * students: every one is sent and pager.js filters and pages them (local); more: one page.
      */
     private static function students_context(): array
     {
-        $rows   = self::rows();
-        $filter = sanitize_key($_GET['show'] ?? 'all');
-        if (!isset(self::GROUPS[$filter])) $filter = 'all';
-        $q = trim(sanitize_text_field(wp_unslash($_GET['q'] ?? '')));
-
-        $shown = array_values(array_filter($rows, function ($r) use ($filter, $q) {
-            if ($filter !== 'all' && $r['group'] !== $filter) return false;
-            if ($q === '') return true;
-            // Case-insensitive in any language (mb_), partial: name, guardian, email, WhatsApp (also its digits), IQU number.
-            return mb_strpos(self::search_text($r), mb_strtolower($q, 'UTF-8'), 0, 'UTF-8') !== false;
-        }));
+        $rows = self::rows();
+        ['filter' => $filter, 'q' => $q] = self::list_filter($_GET);
+        $shown = self::filtered_rows($rows, $filter, $q);
 
         $local = IQU_Pager::local(count($rows));
         $out = $on = [];
@@ -311,7 +331,9 @@ class IQU_Billing_Page
                 </form>
                 <div class="iqu-btn-group iqu-billing-toolbar-actions">
                     <?php echo self::import_choice(); // Import → CSV or Excel: the Import page, set to that file type ?>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-reports')); ?>" class="iqu-btn iqu-btn--secondary"><?php echo self::icon('download'); ?>Export</a>
+                    <?php // 3.7.20: Export → CSV or Excel of this list (pill + search, every page); pager.js keeps the links on the list's filter
+                    echo IQU_Export::choice(['label' => 'Export', 'class' => 'iqu-btn iqu-btn--secondary', 'icon' => self::icon('download'), 'href' => self::export_url($filter, $q),
+                        'attrs' => ['data-iqu-export' => 'show,q', 'data-iqu-export-for' => 'iqu-students']]); // escaped inside ?>
                     <a href="<?php echo esc_url(admin_url('admin.php?page=iqu-billing-add-student')); ?>" class="iqu-btn iqu-btn--primary"><?php echo self::icon('plus-alt2'); ?>Add existing student</a>
                 </div>
             </div>
@@ -496,6 +518,80 @@ class IQU_Billing_Page
             </td>
         </tr>
         <?php
+    }
+
+    // ------------------------------------------------------------
+    // Export (3.7.20)
+    // ------------------------------------------------------------
+
+    /** The export link for a status pill and search (admin-post, nonce); IQU_Export::choice adds format=csv / xlsx. */
+    public static function export_url(string $filter, string $q): string
+    {
+        $args = array_filter(['show' => $filter === 'all' ? '' : $filter, 'q' => $q], fn($v) => $v !== '');
+        return wp_nonce_url(add_query_arg(['action' => self::A_EXPORT] + rawurlencode_deep($args), admin_url('admin-post.php')), self::A_EXPORT);
+    }
+
+    /** Columns of the export, in order. */
+    public const EXPORT_COLUMNS = ['IQU no', 'Student', 'Guardian', 'Email', 'WhatsApp', 'Course', 'Days/week', 'Regular fee', 'Discount', 'Discount label',
+        'Monthly fee', 'Billing status', 'Billing detail', 'First charge', 'Link emailed', 'Link on WhatsApp', 'Added via'];
+
+    /** One student as an export row (the values the row on screen shows). Money: 2 decimals, empty when not billed; dates: Y-m-d, site time zone. */
+    public static function export_row(array $r): array
+    {
+        $reg = $r['reg']; $p = $r['p']; $acc = $r['acc'];
+        $money = fn($v) => $p['billable'] ? number_format((float) $v, 2, '.', '') : '';
+        $day = fn($utc) => (string) $utc !== '' && strtotime($utc . ' UTC') ? wp_date('Y-m-d', strtotime($utc . ' UTC')) : '';
+        if ($acc) {
+            $detail = IQU_Billing_Send::status_chip($acc);
+            if (!empty($acc['link_outdated']) && empty($acc['stripe_subscription_id'])) $detail .= ' · Link outdated — resend';
+        } elseif ($r['group'] === 'not_set_up') {
+            $detail = 'Not set up';
+        } elseif ($r['group'] === 'needs_course') {
+            $detail = 'Needs course';
+        } else {
+            $detail = !empty($p['scholarship']) ? 'Full scholarship' : 'Not billed';
+        }
+        return [
+            'IQU-' . (int) $reg['id'],
+            trim($reg['first_name'] . ' ' . $reg['last_name']),
+            (string) $reg['guardian_name'],
+            (string) $reg['email'],
+            (string) $reg['whatsapp'],
+            IQU_Billing_Pricing::course_missing($reg) ? 'Course missing' : ($p['course_label'] ?: 'Course not set'),
+            $p['days_per_week'] ? (string) (int) $p['days_per_week'] : '',
+            $money($p['gross']),
+            $money($p['discount']),
+            $p['billable'] && $p['discount'] > 0 ? (string) $p['discount_label'] : '',
+            $money($p['net']),
+            self::GROUPS[$r['group']] ?? $r['group'],
+            $detail,
+            $acc ? (string) ($acc['first_charge_date'] ?? '') : '', // a date of the site's calendar already
+            $acc ? $day((string) ($acc['email_sent_at'] ?? '')) : '',
+            $acc ? $day((string) ($acc['whatsapp_sent_at'] ?? '')) : '',
+            ['public' => 'website', 'admin' => 'admin', 'import' => 'import'][IQU_Database::created_via($reg)],
+        ];
+    }
+
+    /** The file: UTF-8 (BOM), the header, one row per student, every cell through IQU_CSV::put (formula guard). */
+    public static function write_export($out, array $rows): void
+    {
+        fputs($out, "\xEF\xBB\xBF");
+        IQU_CSV::put($out, self::EXPORT_COLUMNS);
+        foreach ($rows as $r) IQU_CSV::put($out, self::export_row($r));
+    }
+
+    /** admin-post: the list for show / q, every matching student (not one page), as CSV or Excel (format). */
+    public static function handle_export(): void
+    {
+        if (!current_user_can(self::CAP)) wp_die('You do not have permission to do this.', 403);
+        check_admin_referer(self::A_EXPORT);
+        ['filter' => $filter, 'q' => $q] = self::list_filter($_GET);
+        $rows = self::filtered_rows(self::rows(), $filter, $q);
+        nocache_headers();
+        $out = IQU_Export::open('iqu-student-billing-' . wp_date('Y-m-d') . '.csv'); // CSV, or Excel (format=xlsx)
+        self::write_export($out, $rows);
+        IQU_Export::close($out);
+        exit;
     }
 
     // ------------------------------------------------------------

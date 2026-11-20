@@ -483,11 +483,14 @@
 
   /**
    * "Export CSV" (a[data-iqu-export="NAME,NAME…"]) exports what the list shows now: its filter parameters
-   * follow the form; the rest of its link (action, nonce) stays.
+   * follow the form; the rest of its link (action, nonce) stays. 3.7.20: also an export outside the form that
+   * names the list (data-iqu-export-for = the form's data-iqu-live), e.g. Student Billing's Export.
    */
   function syncExport(form) {
-    var now = P.formUrl(form).searchParams;
-    form.querySelectorAll("a[data-iqu-export]").forEach(function (a) {
+    var now = P.formUrl(form).searchParams, id = form.getAttribute("data-iqu-live");
+    var links = Array.prototype.slice.call(form.querySelectorAll("a[data-iqu-export]"));
+    if (id) links = links.concat(Array.prototype.slice.call(document.querySelectorAll('a[data-iqu-export][data-iqu-export-for="' + id + '"]')));
+    links.forEach(function (a) {
       var u = new URL(a.href, root.location.href);
       a.getAttribute("data-iqu-export").split(",").forEach(function (k) {
         u.searchParams.delete(k);
